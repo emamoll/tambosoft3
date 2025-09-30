@@ -1,0 +1,2 @@
+- Generar notificaciones al tractorista que le llega la orden
+- generar notificaciones de los estados de la orden al admimm

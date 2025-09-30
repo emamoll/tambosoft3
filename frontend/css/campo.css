@@ -1,0 +1,283 @@
+:root {
+  --color-primario: #549ddb; /* celeste */
+  --color-secundario: #084a83; /* azul oscuro */
+  --background-principal: linear-gradient(-135deg, #084a83, #549ddb);
+  --fondo-background: #f0f2f5;
+  --header-altura: 60px;
+  --sidebar-ancho: 200px;
+  --sidebar-ancho-colapsado: 70px;
+}
+
+/* ===== Formulario Registro ===== */
+.form-container {
+  background: #fff;
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 600px;
+  margin: 30px auto;
+}
+
+.form-container h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 1.6rem;
+  color: var(--color-secundario);
+}
+
+.form-group {
+  margin-bottom: 0.8rem;
+}
+
+.form-group label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+  display: block;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 4px rgba(41, 128, 185, 0.4);
+}
+
+.error-message {
+  color: red;
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+  display: none;
+}
+
+.btn-usuario {
+  width: 100%;
+  padding: 0.7rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-secundario);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-usuario:hover {
+  background: var(--color-primario);
+}
+
+/* ===== Login / Logo ===== */
+.logo-login {
+  display: flex;
+  justify-content: center;
+}
+.logo-login img {
+  height: 200px;
+  width: auto;
+}
+
+/* ===== Password Toggle ===== */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper input {
+  flex: 1;
+  padding-right: 40px;
+}
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #666;
+}
+.toggle-password:hover {
+  color: var(--color-primario);
+}
+
+.form-container.form {
+  max-width: 800px;
+}
+
+.form-container.table {
+  max-width: 70%;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal-box {
+  background: #fff;
+  padding: 20px 30px;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.modal-box h3 {
+  margin-bottom: 10px;
+  color: var(--color-secundario);
+}
+
+.modal-box p {
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  .form-container {
+    padding: 1rem;
+    margin: 20px;
+    max-width: 100%;
+  }
+  .form-container h2 {
+    font-size: 1.3rem;
+  }
+  .form-group input {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+  .btn-usuario {
+    font-size: 0.95rem;
+    padding: 0.6rem;
+  }
+}
+
+/* ===== Alertas ===== */
+.alert {
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  font-size: 0.95rem;
+}
+.alert-success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+.alert-error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* ===== Tabla moderna ===== */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.table-modern {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+}
+
+.table-modern thead {
+  background: var(--color-secundario);
+  color: #fff;
+}
+
+.table-modern th,
+.table-modern td {
+  padding: 10px 14px; /* filas más finas */
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.table-modern thead th {
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+}
+
+/* Colores alternos más visibles */
+.table-modern tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+.table-modern tbody tr:nth-child(even) {
+  background: #eef2f6; /* gris azulado más notorio */
+}
+
+/* Hover más marcado */
+.table-modern tbody tr:hover {
+  background: #dceeff; /* celeste clarito */
+}
+
+.table-modern tbody td {
+  white-space: nowrap;
+}
+
+/* Columna de acciones más ancha */
+.table-modern th:last-child,
+.table-modern td:last-child {
+  text-align: center;
+  width: 150px;
+}
+
+/* ===== Botones de acción ===== */
+.table-actions {
+  display: flex;
+  gap: 10px;
+}
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: transform 0.15s, color 0.15s;
+}
+.btn-icon.edit {
+  color: var(--color-primario);
+}
+.btn-icon.edit:hover {
+  color: #2a73c2;
+  transform: scale(1.15);
+}
+.btn-icon.delete {
+  color: #c0392b;
+}
+.btn-icon.delete:hover {
+  color: #e74c3c;
+  transform: scale(1.15);
+}
+
+.table-modern th:first-child,
+.table-modern td:first-child {
+  display: none;
+}
