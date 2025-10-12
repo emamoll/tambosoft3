@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const form = document.getElementById("campoForm");
+  const form = document.getElementById("categoriaForm");
   const idInput = document.getElementById("id");
   const accionInput = document.getElementById("accion");
   const submitBtn = document.getElementById("submitBtn");
@@ -7,8 +7,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const formTitle = document.getElementById("form-title");
 
   const nombre = document.getElementById("nombre");
-  const ubicacion = document.getElementById("ubicacion");
-  const superficie = document.getElementById("superficie");
 
   const modal = document.getElementById("confirmModal");
   const confirmText = document.getElementById("confirmText");
@@ -17,11 +15,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const tableBody = document.querySelector(".table-modern tbody");
 
-  const API = "../../../backend/controladores/campoController.php";
+  const API = "../../../backend/controladores/categoriaController.php";
 
   // UI helpers
   function flash(tipo, mensaje) {
-    // Reusa el bloque de alerta si existe; si no, lo crea
     let alertBox = document.querySelector(".form .alert");
     if (!alertBox) {
       alertBox = document.createElement("div");
@@ -37,11 +34,11 @@ document.addEventListener("DOMContentLoaded", function () {
   function setRegistrarMode() {
     accionInput.value = "registrar";
     submitBtn.textContent = "Registrar";
-    formTitle.textContent = "Registrar Campo";
+    formTitle.textContent = "Registrar Categoría";
     cancelarEdicion.style.display = "none";
     idInput.value = "";
     form.reset();
-    ["nombre", "ubicacion", "superficie"].forEach((k) => {
+    ["nombre"].forEach((k) => {
       const el = document.getElementById("error-" + k);
       if (el) el.style.display = "none";
     });
@@ -50,13 +47,11 @@ document.addEventListener("DOMContentLoaded", function () {
   function setEditarMode(data) {
     accionInput.value = "modificar";
     submitBtn.textContent = "Modificar";
-    formTitle.textContent = "Modificar Campo";
+    formTitle.textContent = "Modificar Categoriía";
     cancelarEdicion.style.display = "inline-block";
 
     idInput.value = data.id;
     nombre.value = data.nombre;
-    ubicacion.value = data.ubicacion;
-    superficie.value = data.superficie;
     nombre.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -65,47 +60,46 @@ document.addEventListener("DOMContentLoaded", function () {
     return {
       id: tr.dataset.id,
       nombre: tr.dataset.nombre,
-      ubicacion: tr.dataset.ubicacion,
-      superficie: tr.dataset.superficie,
     };
   }
 
   async function refrescarTabla() {
-    const resp = await fetch(`${API}?action=list`, {
-      headers: { "X-Requested-With": "XMLHttpRequest" },
-    });
-    const campos = await resp.json();
+    try {
+      const resp = await fetch(`${API}?action=list`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      const categorias = await resp.json();
 
-    tableBody.innerHTML = "";
-    if (!Array.isArray(campos) || campos.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#666;">No hay campos registrados.</td></tr>`;
-      return;
-    }
+      tableBody.innerHTML = "";
+      if (!Array.isArray(categorias) || categorias.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#666;">No hay categorías registradas.</td></tr>`;
+        return;
+      }
 
-    for (const c of campos) {
-      const tr = document.createElement("tr");
-      tr.dataset.id = c.id;
-      tr.dataset.nombre = c.nombre;
-      tr.dataset.ubicacion = c.ubicacion;
-      tr.dataset.superficie = c.superficie;
+      for (const c of categorias) {
+        const tr = document.createElement("tr");
+        tr.dataset.id = c.id;
+        tr.dataset.nombre = c.nombre;
 
-      tr.innerHTML = `
-        <td>${c.id}</td>
-        <td>${c.nombre}</td>
-        <td>${c.ubicacion}</td>
-        <td>${c.superficie}</td>
-        <td>
-          <div class="table-actions">
-            <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
-            <button type="button" class="btn-icon delete js-delete" title="Eliminar" aria-label="Eliminar">🗑️</button>
-          </div>
-        </td>
-      `;
-      tableBody.appendChild(tr);
+        tr.innerHTML = `
+          <td>${c.id}</td>
+          <td>${c.nombre}</td>
+          <td>
+            <div class="table-actions">
+              <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
+              <button type="button" class="btn-icon delete js-delete" title="Eliminar" aria-label="Eliminar">🗑️</button>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      }
+    } catch (err) {
+      console.error("Error al refrescar la tabla:", err);
+      flash("error", "No se pudo actualizar la lista de categorías.");
     }
   }
 
-  // Delegación de eventos para botones de la tabla (soporta filas nuevas)
+  // Delegación de eventos
   tableBody.addEventListener("click", (e) => {
     const editBtn = e.target.closest(".js-edit");
     const delBtn = e.target.closest(".js-delete");
@@ -117,14 +111,14 @@ document.addEventListener("DOMContentLoaded", function () {
     if (delBtn) {
       const tr = delBtn.closest("tr");
       const data = extractDataFromRow(tr);
-      confirmText.textContent = `¿Seguro que deseas eliminar el campo "${data.nombre}"?`;
-      modal.dataset.id = data.id; // guardamos el ID a borrar
+      confirmText.textContent = `¿Seguro que deseas eliminar la categoría "${data.nombre}"?`;
+      modal.dataset.id = data.id;
       modal.style.display = "flex";
       return;
     }
   });
 
-  // Confirmación de eliminación por AJAX
+  // Confirmación de eliminación
   confirmYes.addEventListener("click", async () => {
     const id = modal.dataset.id;
     modal.style.display = "none";
@@ -149,7 +143,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (err) {
       console.error(err);
-      flash("error", "Error al eliminar el campo.");
+      flash("error", "Error al eliminar la categoría");
     }
   });
 
@@ -167,27 +161,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
   cancelarEdicion.addEventListener("click", setRegistrarMode);
 
-  // Submit del formulario por AJAX (registrar / modificar)
+  // Submit del formulario
   form.addEventListener("submit", async function (e) {
-    e.preventDefault(); // evita recarga de página
+    e.preventDefault();
 
-    // Validación simple (igual que antes)
     let ok = true;
     document.getElementById("error-nombre").style.display = nombre.value.trim()
       ? "none"
       : "block";
     if (!nombre.value.trim()) ok = false;
-
-    document.getElementById("error-ubicacion").style.display =
-      ubicacion.value.trim() ? "none" : "block";
-    if (!ubicacion.value.trim()) ok = false;
-
-    const supNum = Number(superficie.value);
-    const supValida = Number.isInteger(supNum) && supNum > 0;
-    document.getElementById("error-superficie").style.display = supValida
-      ? "none"
-      : "block";
-    if (!supValida) ok = false;
 
     if (!ok) return;
 
@@ -212,4 +194,5 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Estado inicial
   setRegistrarMode();
+  refrescarTabla();
 });

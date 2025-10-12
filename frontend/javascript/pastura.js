@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", function () {
       h2.insertAdjacentElement("afterend", alertBox);
     }
     alertBox.className =
-      "alert " + (tipo === "success" ? "alert-success" : "alert-error");
+      "alert " + (tipo === "success" ? "alert-success" : "alert-danger");
     alertBox.textContent = mensaje;
   }
 
@@ -66,51 +66,47 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
-  async function parseJSONResponse(resp) {
-    const raw = await resp.text();
-    try {
-      return JSON.parse(raw);
-    } catch (e) {
-      console.error("Respuesta no-JSON:", raw);
-      return { tipo: "error", mensaje: "Respuesta no válida del servidor." };
-    }
-  }
-
   async function refrescarTabla() {
-    const resp = await fetch(`${API}?action=list`, {
-      headers: { "X-Requested-With": "XMLHttpRequest" },
-    });
-    const pasturas = await parseJSONResponse(resp);
+    try {
+      const resp = await fetch(`${API}?action=list`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      const pasturas = await resp.json();
 
-    tableBody.innerHTML = "";
-    if (!Array.isArray(pasturas) || pasturas.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#666;">No hay pasturas registrados.</td></tr>`;
-      return;
-    }
+      tableBody.innerHTML = "";
+      if (!Array.isArray(pasturas) || pasturas.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#666;">No hay pasturas registradas.</td></tr>`;
+        return;
+      }
 
-    function formatearFecha(iso) {
-      const [y, m, d] = iso.split("-");
-      return `${d}-${m}-${y}`;
-    }
+      function formatearFecha(iso) {
+        if (!iso) return "";
+        const [y, m, d] = iso.split("-");
+        return `${d}-${m}-${y}`;
+      }
 
-    for (const p of pasturas) {
-      const tr = document.createElement("tr");
-      tr.dataset.id = p.id;
-      tr.dataset.nombre = p.nombre;
-      tr.dataset.fechaSiembra = p.fechaSiembra;
+      for (const p of pasturas) {
+        const tr = document.createElement("tr");
+        tr.dataset.id = p.id;
+        tr.dataset.nombre = p.nombre;
+        tr.dataset.fechaSiembra = p.fechaSiembra;
 
-      tr.innerHTML = `
-        <td>${p.id}</td>
-        <td>${p.nombre}</td>
-        <td>${formatearFecha(p.fechaSiembra)}</td>
-        <td>
-          <div class="table-actions">
-            <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
-            <button type="button" class="btn-icon delete js-delete" title="Eliminar" aria-label="Eliminar">🗑️</button>
-          </div>
-        </td>
-      `;
-      tableBody.appendChild(tr);
+        tr.innerHTML = `
+          <td>${p.id}</td>
+          <td>${p.nombre}</td>
+          <td>${formatearFecha(p.fechaSiembra)}</td>
+          <td>
+            <div class="table-actions">
+              <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
+              <button type="button" class="btn-icon delete js-delete" title="Eliminar" aria-label="Eliminar">🗑️</button>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      }
+    } catch (err) {
+      console.error("Error al refrescar la tabla:", err);
+      flash("error", "No se pudo actualizar la lista de pasturas.");
     }
   }
 
@@ -150,7 +146,7 @@ document.addEventListener("DOMContentLoaded", function () {
         body: fd,
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
-      const data = await parseJSONResponse(resp);
+      const data = await resp.json();
       flash(data.tipo, data.mensaje);
       if (data.tipo === "success") {
         await refrescarTabla();
@@ -158,7 +154,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (err) {
       console.error(err);
-      flash("error", "Error al eliminar la pastura");
+      flash("error", "Error al eliminar la pastura.");
     }
   });
 
@@ -199,7 +195,7 @@ document.addEventListener("DOMContentLoaded", function () {
         body: fd,
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
-      const data = await parseJSONResponse(resp);
+      const data = await resp.json();
       flash(data.tipo, data.mensaje);
       if (data.tipo === "success") {
         await refrescarTabla();
@@ -213,4 +209,5 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Estado inicial
   setRegistrarMode();
+  refrescarTabla();
 });

@@ -177,20 +177,20 @@
 
 /* ===== Alertas ===== */
 .alert {
-  padding: 10px 15px;
-  border-radius: 6px;
-  margin-bottom: 15px;
-  font-size: 0.95rem;
+  padding: 10px 15px !important;
+  border-radius: 6px !important;
+  margin-bottom: 15px !important;
+  font-size: 0.95rem !important;
 }
 .alert-success {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background-color: #44f26d !important;
+  color: #000000 !important;
+  border: 1px solid #00ff3c !important;
 }
-.alert-error {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+.alert-danger {
+  background-color: #ff4958 !important;
+  color: #000000 !important;
+  border: 1px solid #fe0019 !important;
 }
 
 /* ===== Tabla moderna ===== */

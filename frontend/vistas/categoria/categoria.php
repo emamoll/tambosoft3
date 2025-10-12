@@ -5,10 +5,10 @@ if (!isset($_SESSION['username']) || !isset($_SESSION['rolId'])) {
   exit;
 }
 
-require_once __DIR__ . '../../../../backend/controladores/pasturaController.php';
+require_once __DIR__ . '../../../../backend/controladores/categoriaController.php';
 
-$controller = new PasturaController();
-$pasturas = $controller->obtenerPasturas();
+$controller = new CategoriaController();
+$categorias = $controller->obtenerCategorias();
 ?>
 
 <!DOCTYPE html>
@@ -17,10 +17,10 @@ $pasturas = $controller->obtenerPasturas();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tambosoft: Pasturas</title>
+  <title>Tambosoft: Categorías</title>
   <link rel="icon" href=".../../../../img/logo2.png" type="image/png">
   <link rel="stylesheet" href="../../css/estilos.css">
-  <link rel="stylesheet" href="../../css/pastura.css">
+  <link rel="stylesheet" href="../../css/categoria.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
     crossorigin="anonymous">
@@ -35,22 +35,16 @@ $pasturas = $controller->obtenerPasturas();
 
   <!-- ===== Formulario ===== -->
   <div class="form-container form">
-    <h2 id="form-title"><i class="fas fa-seedling"></i> Registrar Pastura</h2>
+    <h2 id="form-title"><i class="fas fa-seedling"></i> Registrar Categoría</h2>
 
-    <form id="pasturaForm" method="POST" novalidate>
+    <form id="categoriaForm" method="POST" novalidate>
       <input type="hidden" id="id" name="id" value="">
       <input type="hidden" id="accion" name="accion" value="registrar">
 
       <div class="form-group">
-        <label for="nombre">Nombre de la Pastura</label>
+        <label for="nombre">Nombre de la Categoría</label>
         <input type="text" id="nombre" name="nombre" required>
         <span class="error-message" id="error-nombre">El nombre es obligatorio</span>
-      </div>
-
-      <div class="form-group">
-        <label for="fechaSiembra">Fecha de Siembra</label>
-        <input type="date" id="fechaSiembra" name="fechaSiembra" required>
-        <span class="error-message" id="error-fechaSiembra">La fecha es obligatoria</span>
       </div>
 
       <div style="display:flex; gap:10px; align-items:center;">
@@ -66,7 +60,7 @@ $pasturas = $controller->obtenerPasturas();
   <div id="confirmModal" class="modal-overlay" style="display:none;">
     <div class="modal-box">
       <h3>Confirmar eliminación</h3>
-      <p id="confirmText">¿Seguro que deseas eliminar esta pastura?</p>
+      <p id="confirmText">¿Seguro que deseas eliminar esta categoría?</p>
       <div class="modal-actions">
         <button type="button" id="confirmYes" class="btn-usuario" style="background:#c0392b;">Eliminar</button>
         <button type="button" id="confirmNo" class="btn-usuario" style="background:#777;">Cancelar</button>
@@ -76,7 +70,7 @@ $pasturas = $controller->obtenerPasturas();
 
   <!-- ===== Tabla ===== -->
   <div class="form-container table">
-    <h2>Pasturas Registradas</h2>
+    <h2>Categorías Registradas</h2>
 
     <div class="table-wrapper">
       <table class="table-modern">
@@ -84,18 +78,15 @@ $pasturas = $controller->obtenerPasturas();
           <tr>
             <th>Id</th>
             <th>Nombre</th>
-            <th>Fecha de Siembra</th>
             <th style="width:120px;">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($pasturas as $pastura): ?>
-            <tr data-id="<?= htmlspecialchars($pastura->getId()) ?>"
-              data-nombre="<?= htmlspecialchars($pastura->getNombre()) ?>"
-              data-fechaSiembra="<?= htmlspecialchars($pastura->getFechaSiembra()) ?>">
-              <td><?= htmlspecialchars($pastura->getId()) ?></td>
-              <td><?= htmlspecialchars($pastura->getNombre()) ?></td>
-              <td><?= htmlspecialchars(date('d-m-Y', strtotime($pastura->getFechaSiembra()))) ?></td>
+          <?php foreach ($categorias as $categoria): ?>
+            <tr data-id="<?= htmlspecialchars($categoria->getId()) ?>"
+              data-nombre="<?= htmlspecialchars($categoria->getNombre()) ?>">
+              <td><?= htmlspecialchars($categoria->getId()) ?></td>
+              <td><?= htmlspecialchars($categoria->getNombre()) ?></td>
               <td>
                 <div class="table-actions">
                   <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
@@ -105,9 +96,9 @@ $pasturas = $controller->obtenerPasturas();
               </td>
             </tr>
           <?php endforeach; ?>
-          <?php if (empty($pasturas)): ?>
+          <?php if (empty($categorias)): ?>
             <tr>
-              <td colspan="4" style="text-align:center; color:#666;">No hay pasturas registradas</td>
+              <td colspan="3" style="text-align:center; color:#666;">No hay categorías registradas</td>
             </tr>
           <?php endif; ?>
         </tbody>
@@ -115,7 +106,7 @@ $pasturas = $controller->obtenerPasturas();
     </div>
   </div>
 
-  <script src="../../javascript/pastura.js"></script>
+  <script src="../../javascript/categoria.js"></script>
 </body>
 
 </html>

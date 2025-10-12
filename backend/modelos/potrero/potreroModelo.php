@@ -1,37 +1,24 @@
 <?php
 
-/**
- * Clase de modelo para la entidad 'Potrero'.
- * Representa la estructura de los datos de un potrero.
- */
+// Clase de modelo para la entidad Potrero
 class Potrero
 {
-  // Propiedades privadas que corresponden a las columnas de la tabla `potreros`.
+  // Propiedades privadas que corresponden a las columnas de la tabla Potreros
   private $id;
   private $nombre;
-  private $superficie;
-  private $pastura_id;
-  private $categoria_id;
-  private $campo_id;
+  private $pasturaId;
+  private $categoriaId;
+  private $cantidadCategoria;
+  private $campoId;
 
-  /**
-   * Constructor de la clase.
-   *
-   * @param int|null $id El ID del potrero.
-   * @param string|null $nombre El nombre del potrero.
-   * @param string|null $superficie La superficie del potrero.
-   * @param int|null $pastura_id El ID de la pastura asociada.
-   * @param int|null $categoria_id El ID de la categoría asociada.
-   * @param int|null $campo_id El ID del campo al que pertenece el potrero.
-   */
-  public function __construct($id = null, $nombre = null, $superficie = null, $pastura_id = null, $categoria_id = null, $campo_id = null)
+  public function __construct($id = null, $nombre = null, $pasturaId = null, $categoriaId = null, $cantidadCategoria = null, $campoId = null)
   {
     $this->id = $id;
     $this->nombre = $nombre;
-    $this->superficie = $superficie;
-    $this->pastura_id = $pastura_id;
-    $this->categoria_id = $categoria_id;
-    $this->campo_id = $campo_id;
+    $this->pasturaId = $pasturaId;
+    $this->categoriaId = $categoriaId;
+    $this->cantidadCategoria = $cantidadCategoria;
+    $this->campoId = $campoId;
   }
 
   // Métodos "getter" para acceder a las propiedades.
@@ -46,24 +33,24 @@ class Potrero
     return $this->nombre;
   }
 
-  public function getSuperficie()
+  public function getPasturaId()
   {
-    return $this->superficie;
+    return $this->pasturaId;
   }
 
-  public function getPastura_id()
+  public function getCategoriaId()
   {
-    return $this->pastura_id;
+    return $this->categoriaId;
   }
 
-  public function getCategoria_id()
+  public function getCantidadCategoria()
   {
-    return $this->categoria_id;
+    return $this->cantidadCategoria;
   }
 
-  public function getCampo_id()
+  public function getCampoId()
   {
-    return $this->campo_id;
+    return $this->campoId;
   }
 
   // Métodos "setter" para modificar las propiedades.
@@ -73,23 +60,24 @@ class Potrero
     $this->nombre = $nombre;
   }
 
-  public function setSuperficie($superficie)
+
+  public function setPasturaId($pasturaId)
   {
-    $this->superficie = $superficie;
+    $this->pasturaId = $pasturaId;
   }
 
-  public function setPastura_id($pastura_id)
+  public function setCategoriaId($categoriaId)
   {
-    $this->pastura_id = $pastura_id;
+    $this->categoriaId = $categoriaId;
   }
 
-  public function setCategoria_id($categoria_id)
+  public function setCantidadCategoria($cantidadCategoria)
   {
-    $this->categoria_id = $categoria_id;
+    $this->cantidadCategoria = $cantidadCategoria;
   }
 
-  public function setCampo_id($campo_id)
+  public function setCampoId($campoId)
   {
-    $this->campo_id = $campo_id;
+    $this->campoId = $campoId;
   }
 }

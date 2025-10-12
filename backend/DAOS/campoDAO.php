@@ -1,187 +1,181 @@
 <?php
+// DAO de Campos con lógica consistente con PasturaDAO
 
-// Incluye los archivos necesarios para la conexión a la base de datos, los modelos y las tablas.
 require_once __DIR__ . '../../servicios/databaseFactory.php';
-require_once __DIR__ . '../../modelos/campo/campoTabla.php';
 require_once __DIR__ . '../../modelos/campo/campoModelo.php';
+require_once __DIR__ . '../../modelos/campo/campoTabla.php';
 require_once __DIR__ . '../../modelos/almacen/almacenTabla.php';
 
-// Clase para el acceso a datos (DAO) de la tabla Campos
-class campoDAO
+class CampoDAO
 {
-  // Propiedades privadas para la conexión y la creación de tablas.
   private $db;
   private $conn;
-  private $crearTabla;
+  private $crearTablaCampo;
   private $crearTablaAlmacen;
 
   public function __construct()
   {
     $this->db = DatabaseFactory::createDatabaseConnection('mysql');
-    $this->crearTabla = new CampoCrearTabla($this->db);
-    $this->crearTabla->crearTablaCampos();
+    $this->crearTablaCampo = new CampoCrearTabla($this->db);
+    $this->crearTablaCampo->crearTablaCampos();
+
+    // Por relación FK/uso en cascada
     $this->crearTablaAlmacen = new AlmacenCrearTabla($this->db);
     $this->crearTablaAlmacen->crearTablaAlmacen();
+
     $this->conn = $this->db->connect();
   }
 
-  // Obtiene todos los campos de la base de datos.
-  public function getAllCampos()
+  /** Verifica duplicados por nombre. Si se pasa $id, lo excluye (para modificaciones). */
+  public function existeNombre(string $nombre, ?int $id = null): bool
   {
-    $sql = "SELECT * FROM campos";
-    $result = $this->conn->query($sql);
-
-    // Si la consulta falla, detiene la ejecución.
-    if (!$result) {
-      die("Error en la consulta: " . $this->conn->error);
+    $sql = "SELECT id FROM campos WHERE LOWER(TRIM(nombre)) = LOWER(?)";
+    if ($id !== null) {
+      $sql .= " AND id <> ?";
     }
-
-    $campos = [];
-    // Recorre los resultados y crea un objeto Campo por cada fila.
-    while ($row = $result->fetch_assoc()) {
-      $campos[] = new Campo($row['id'], $row['nombre'], $row['ubicacion'], $row['superficie']);
-    }
-
-    return $campos;
-  }
-
-  // Obtiene un campo por su ID.
-  public function getCampoById($id)
-  {
-    $sql = "SELECT * FROM campos WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if (!$result) {
-      die("Error en la consulta: " . $this->conn->error);
+    if ($id !== null) {
+      $stmt->bind_param("si", $nombre, $id);
+    } else {
+      $stmt->bind_param("s", $nombre);
     }
-
-    // Si se encuentra una fila, crea y retorna un objeto Campo.
-    if ($row = $result->fetch_assoc()) {
-      return new Campo($row['id'], $row['nombre'], $row['ubicacion'], $row['superficie']);
-    }
-    return null;
-  }
-
-  // Obtiene un campo por su nombre.
-  public function getCampoByNombre($nombre)
-  {
-    $sql = "SELECT * FROM campos WHERE nombre = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("s", $nombre);
     $stmt->execute();
     $stmt->store_result();
-
-    if ($stmt->num_rows === 0) {
-      return null;
-    }
-
-    $stmt->bind_result($id, $nombre, $ubicacion, $superficie);
-    $stmt->fetch();
-
-    return new Campo($id, $nombre, $ubicacion, $superficie);
-  }
-
-  // Registra un nuevo campo y un almacén asociado.
-  public function registrarCampo(Campo $campo)
-  {
-    // 1. Verifica si ya existe un campo con ese nombre.
-    $sqlVer = "SELECT id FROM campos WHERE nombre = ?";
-    $stmtVer = $this->conn->prepare($sqlVer);
-    $nombre = $campo->getNombre();
-    $stmtVer->bind_param("s", $nombre);
-    $stmtVer->execute();
-    $stmtVer->store_result();
-
-    if ($stmtVer->num_rows > 0) {
-      $stmtVer->close();
-      return false;
-    }
-    $stmtVer->close();
-
-    // 2. Inserta el campo en la tabla Campos
-    $sql = "INSERT INTO campos (nombre, ubicacion, superficie) VALUES (?, ?, ?)";
-    $stmt = $this->conn->prepare($sql);
-    $nombre = $campo->getNombre();
-    $ubicacion = $campo->getUbicacion();
-    $superficie = $campo->getSuperficie();
-    $stmt->bind_param("ssi", $nombre, $ubicacion, $superficie);
-
-    if (!$stmt->execute()) {
-      $stmt->close();
-      return false;
-    }
-
-    // 3. Obtiene el ID del campo recién insertado.
-    $campoId = $stmt->insert_id;
+    $existe = $stmt->num_rows > 0;
     $stmt->close();
-
-    // 4. Inserta un almacén con el mismo nombre y el ID del campo.
-    $sqlAlm = "INSERT INTO almacenes (nombre, campoId) VALUES (?, ?)";
-    $stmtAlm = $this->conn->prepare($sqlAlm);
-    $stmtAlm->bind_param("si", $nombre, $campoId);
-
-    $resultado = $stmtAlm->execute();
-    $stmtAlm->close();
-
-    return $resultado;
+    return $existe;
   }
 
-  // Modifica un campo existente.
-  public function modificarCampo(Campo $campo)
+  /** Crear nuevo Campo. Además, crea (opcional) un Almacén por defecto con el mismo nombre. */
+  public function registrarCampo(Campo $campo, bool $crearAlmacenPorDefecto = true): string
   {
-    $sql = "UPDATE campos SET nombre = ?, ubicacion = ?, superficie = ? WHERE id = ? ";
+    $nombre = trim($campo->getNombre());
+    $ubicacion = trim($campo->getUbicacion());
+    $superficie = trim($campo->getSuperficie());
+
+    if ($this->existeNombre($nombre)) {
+      return "duplicado";
+    }
+
+    try {
+      $this->conn->begin_transaction();
+
+      $sql = "INSERT INTO campos (nombre, ubicacion, superficie) VALUES (?, ?, ?)";
+      $stmt = $this->conn->prepare($sql);
+      $stmt->bind_param("sss", $nombre, $ubicacion, $superficie);
+      if (!$stmt->execute()) {
+        $this->conn->rollback();
+        $stmt->close();
+        return "error_insert_campo";
+      }
+      $stmt->close();
+
+      if ($crearAlmacenPorDefecto) {
+        $campoId = $this->conn->insert_id;
+        $stmtA = $this->conn->prepare("INSERT INTO almacenes (nombre, campoId) VALUES (?, ?)");
+        $stmtA->bind_param("si", $nombre, $campoId);
+        if (!$stmtA->execute()) {
+          $this->conn->rollback();
+          $stmtA->close();
+          return "error_insert_almacen";
+        }
+        $stmtA->close();
+      }
+
+      $this->conn->commit();
+      return "ok";
+    } catch (Throwable $e) {
+      $this->conn->rollback();
+      return "error_excepcion";
+    }
+  }
+
+  /** Modificar Campo. Valida duplicado por nombre ignorando su propio ID. */
+  public function modificarCampo(Campo $campo): bool
+  {
+    $id = (int) $campo->getId();
+    $nombre = trim($campo->getNombre());
+    $ubicacion = trim($campo->getUbicacion());
+    $superficie = trim($campo->getSuperficie());
+
+    if ($id <= 0)
+      return false;
+    if ($this->existeNombre($nombre, $id))
+      return false;
+
+    $sql = "UPDATE campos SET nombre = ?, ubicacion = ?, superficie = ? WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
-    $id = $campo->getId();
-    $nombre = $campo->getNombre();
-    $ubicacion = $campo->getUbicacion();
-    $superficie = $campo->getSuperficie();
     $stmt->bind_param("sssi", $nombre, $ubicacion, $superficie, $id);
-
-    return $stmt->execute();
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
   }
 
-  // Cuenta la cantidad de almacenes por campo 
-  public function contarAlmacenesPorCampo(int $campoId): int
+  /** Listado completo */
+  public function getAllCampos(): array
   {
-    $sql = "SELECT COUNT(*) AS c FROM almacenes WHERE campoId = ?";
-    $st = $this->conn->prepare($sql);
-    $st->bind_param("i", $campoId);
-    $st->execute();
-    $res = $st->get_result()->fetch_assoc();
-    return (int) $res['c'];
+    $result = $this->conn->query("SELECT id, nombre, ubicacion, superficie FROM campos ORDER BY id DESC");
+    if (!$result) {
+      return [];
+    }
+
+    $out = [];
+    while ($row = $result->fetch_assoc()) {
+      $out[] = new Campo($row['id'], $row['nombre'], $row['ubicacion'], $row['superficie']);
+    }
+    return $out;
   }
 
-  // Elimina un campo por id
+  /** Buscar por ID */
+  public function getCampoById(int $id): ?Campo
+  {
+    $stmt = $this->conn->prepare("SELECT id, nombre, ubicacion, superficie FROM campos WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+    return $row ? new Campo($row['id'], $row['nombre'], $row['ubicacion'], $row['superficie']) : null;
+  }
+
+  /** Buscar por nombre */
+  public function getCampoByNombre(string $nombre): ?Campo
+  {
+    $stmt = $this->conn->prepare("SELECT id, nombre, ubicacion, superficie FROM campos WHERE nombre = ?");
+    $stmt->bind_param("s", $nombre);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+    return $row ? new Campo($row['id'], $row['nombre'], $row['ubicacion'], $row['superficie']) : null;
+  }
+
+  /** Eliminar en cascada: borra almacenes del campo y luego el campo */
   public function eliminarCampoYCascada(int $campoId): bool
   {
-    $this->conn->begin_transaction();
     try {
-      // 1) Borrar hijos de almacenes (ajustá nombres reales de columnas/tablas)
-      $sql = "DELETE aa FROM almacenes aa
-                JOIN almacenes a ON a.id = aa.campoId
-               WHERE a.campoId = ?";
-      $st = $this->conn->prepare($sql);
-      $st->bind_param("i", $campoId);
-      $st->execute();
+      $this->conn->begin_transaction();
 
-      // 2) Borrar almacenes del campo
-      $st = $this->conn->prepare("DELETE FROM almacenes WHERE campoId = ?");
-      $st->bind_param("i", $campoId);
-      $st->execute();
+      $stmt = $this->conn->prepare("DELETE FROM almacenes WHERE campoId = ?");
+      $stmt->bind_param("i", $campoId);
+      $stmt->execute();
+      $stmt->close();
 
-      // 3) Borrar el campo
-      $st = $this->conn->prepare("DELETE FROM campos WHERE id = ?");
-      $st->bind_param("i", $campoId);
-      $st->execute();
+      $stmt2 = $this->conn->prepare("DELETE FROM campos WHERE id = ?");
+      $stmt2->bind_param("i", $campoId);
+      $ok = $stmt2->execute();
+      $stmt2->close();
+
+      if (!$ok) {
+        $this->conn->rollback();
+        return false;
+      }
 
       $this->conn->commit();
       return true;
     } catch (Throwable $e) {
       $this->conn->rollback();
-      throw $e;
+      return false;
     }
   }
 }

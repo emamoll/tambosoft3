@@ -8,7 +8,6 @@ require_once __DIR__ . '../../modelos/pastura/pasturaTabla.php';
 // Clase para el acceso a datos (DAO) de la tabla Pasturas
 class PasturaDAO
 {
-  // Propiedades privadas para la conexión y la creación de la tabla.
   private $db;
   private $conn;
   private $crearTabla;
@@ -21,54 +20,81 @@ class PasturaDAO
     $this->conn = $this->db->connect();
   }
 
-  public function registrarPastura(Pastura $pastura)
+  /**
+   * Verifica si existe una pastura con el mismo nombre.
+   * Si se pasa un $id, lo excluye de la validación (para modificaciones).
+   */
+  public function existeNombre($nombre, $id = null): bool
+  {
+    $sql = "SELECT id FROM pasturas WHERE LOWER(TRIM(nombre)) = LOWER(?)";
+    if ($id !== null) {
+      $sql .= " AND id <> ?";
+    }
+
+    $stmt = $this->conn->prepare($sql);
+    if ($id !== null) {
+      $stmt->bind_param("si", $nombre, $id);
+    } else {
+      $stmt->bind_param("s", $nombre);
+    }
+
+    $stmt->execute();
+    $stmt->store_result();
+    $existe = $stmt->num_rows > 0;
+    $stmt->close();
+    return $existe;
+  }
+
+  // Registrar una nueva pastura
+  public function registrarPastura(Pastura $pastura): bool
   {
     $nombre = trim($pastura->getNombre());
     $fechaSiembra = $pastura->getFechaSiembra();
 
-    // 1. Verificar si la pastura ya existe (la forma correcta y explícita).
-    $sqlVer = "SELECT id FROM pasturas WHERE LOWER(TRIM(nombre)) = LOWER(?)";
-    $stmtVer = $this->conn->prepare($sqlVer);
-    $stmtVer->bind_param("s", $nombre);
-
-    if (!$stmtVer->execute()) {
-      error_log("Error en SELECT duplicado: " . $stmtVer->error);
-      $stmtVer->close();
-      return ['ok' => false, 'dup' => false];
+    // Verificación de duplicado usando existeNombre
+    if ($this->existeNombre($nombre)) {
+      return false;
     }
 
-    $stmtVer->store_result();
-    $existe = $stmtVer->num_rows > 0;
-    $stmtVer->close();
-
-    // Si ya existe, devolvemos un error de duplicado inmediatamente.
-    if ($existe) {
-      return ['ok' => false, 'dup' => true];
-    }
-
-    // 2. Si no existe, procedemos con la inserción.
     $sql = "INSERT INTO pasturas (nombre, fechaSiembra) VALUES (?, ?)";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("ss", $nombre, $fechaSiembra);
-
-    if (!$stmt->execute()) {
-      error_log("Error al insertar pastura: " . $stmt->error);
-      $stmt->close();
-      return ['ok' => false, 'dup' => false];
-    }
-
+    $resultado = $stmt->execute();
     $stmt->close();
-    return ['ok' => true];
+
+    return $resultado;
   }
 
-  // Obtiene todas las pasturas de la base de datos
-  public function getAllPasturas()
+  // Modificar una pastura existente
+  public function modificarPastura(Pastura $pastura): bool
+  {
+    $id = $pastura->getId();
+    $nombre = trim($pastura->getNombre());
+    $fechaSiembra = $pastura->getFechaSiembra();
+
+    // Verificación de duplicado excluyendo el propio ID
+    if ($this->existeNombre($nombre, $id)) {
+      return false;
+    }
+
+    $sql = "UPDATE pasturas SET nombre = ?, fechaSiembra = ? WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ssi", $nombre, $fechaSiembra, $id);
+    $resultado = $stmt->execute();
+    $stmt->close();
+
+    return $resultado;
+  }
+
+  // Obtener todas las pasturas
+  public function getAllPasturas(): array
   {
     $sql = "SELECT * FROM pasturas";
     $result = $this->conn->query($sql);
 
     if (!$result) {
-      die("Error en la consulta: " . $this->conn->error);
+      error_log("Error en la consulta: " . $this->conn->error);
+      return [];
     }
 
     $pasturas = [];
@@ -78,8 +104,8 @@ class PasturaDAO
     return $pasturas;
   }
 
-  // Obtiene una pastura por su ID.
-  public function getPasturaById($id)
+  // Obtener una pastura por ID
+  public function getPasturaById($id): ?Pastura
   {
     $sql = "SELECT * FROM pasturas WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
@@ -89,14 +115,11 @@ class PasturaDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    if ($row) {
-      return new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']);
-    }
-    return null;
+    return $row ? new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']) : null;
   }
 
-  // Obtiene una pastura por su nombre.
-  public function getPasturaByNombre($nombre)
+  // Obtener una pastura por nombre
+  public function getPasturaByNombre($nombre): ?Pastura
   {
     $sql = "SELECT * FROM pasturas WHERE nombre = ?";
     $stmt = $this->conn->prepare($sql);
@@ -106,14 +129,11 @@ class PasturaDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    if ($row) {
-      return new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']);
-    }
-    return null;
+    return $row ? new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']) : null;
   }
 
-  // Obtiene una pastura por su fecha de siembra.
-  public function getPasturaByFechaSiembra($fechaSiembra)
+  // Obtener una pastura por fecha de siembra
+  public function getPasturaByFechaSiembra($fechaSiembra): ?Pastura
   {
     $sql = "SELECT * FROM pasturas WHERE fechaSiembra = ?";
     $stmt = $this->conn->prepare($sql);
@@ -123,46 +143,11 @@ class PasturaDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    if ($row) {
-      return new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']);
-    }
-    return null;
+    return $row ? new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']) : null;
   }
 
-  // Modifica una pastura existente
-  public function modificarPastura(Pastura $pastura)
-  {
-    $sqlVer = "SELECT id FROM pasturas WHERE nombre = ? AND id <> ?";
-    $stmtVer = $this->conn->prepare($sqlVer);
-    $id = $pastura->getId();
-    $nombre = $pastura->getNombre();
-    $fechaSiembra = $pastura->getFechaSiembra();
-    $stmtVer->bind_param("si", $nombre, $id);
-    $stmtVer->execute();
-    $stmtVer->store_result();
-    if ($stmtVer->num_rows > 0) {
-      $stmtVer->close();
-      return ['ok' => false, 'dup' => true];
-    }
-    $stmtVer->close();
-
-    $sql = "UPDATE pasturas SET nombre = ?, fechaSiembra = ? WHERE id = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("ssi", $nombre, $fechaSiembra, $id);
-    if (!$stmt->execute()) {
-      if ($stmt->errno === 1062) {
-        $stmt->close();
-        return ['ok' => false, 'dup' => true];
-      }
-      $stmt->close();
-      return ['ok' => false, 'dup' => false];
-    }
-    $stmt->close();
-    return ['ok' => true];
-  }
-
-  // Elimina una pastura por su id.
-  public function eliminarPastura($id)
+  // Eliminar una pastura
+  public function eliminarPastura($id): bool
   {
     $sql = "DELETE FROM pasturas WHERE id = ?";
     $stmt = $this->conn->prepare($sql);

@@ -15,7 +15,7 @@ class PotreroCrearTabla
     $this->db = $db;
   }
 
-// Crea la tabla `potreros` si no existe.
+  // Crea la tabla Potreros si no existe.
   public function crearTablaPotrero()
   {
     // Crea una nueva conexión a la base de datos.
@@ -26,13 +26,13 @@ class PotreroCrearTabla
     $sql = "CREATE TABLE IF NOT EXISTS potreros (
               id INT PRIMARY KEY AUTO_INCREMENT,
               nombre VARCHAR(255) NOT NULL UNIQUE,
-              superficie VARCHAR(255) NOT NULL,
-              pastura_id INT NOT NULL,
-              categoria_id INT NOT NULL,
-              campo_id INT NOT NULL,
-              FOREIGN KEY (pastura_id) REFERENCES pasturas(id),
-              FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-              FOREIGN KEY (campo_id) REFERENCES campos(id))";
+              pasturaId INT NOT NULL,
+              categoriaId INT,
+              cantidadCategoria INT,
+              campoId INT NOT NULL,
+              FOREIGN KEY (pasturaId) REFERENCES pasturas(id),
+              FOREIGN KEY (categoriaId) REFERENCES categorias(id),
+              FOREIGN KEY (campoId) REFERENCES campos(id))";
 
     // Ejecuta la consulta y cierra la conexión.
     $conn->query($sql);

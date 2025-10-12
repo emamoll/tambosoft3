@@ -1,79 +1,75 @@
 <?php
 
-// Incluye los archivos necesarios para las operaciones con la base de datos y los modelos.
 require_once __DIR__ . '../../DAOS/pasturaDAO.php';
 require_once __DIR__ . '../../modelos/pastura/pasturaModelo.php';
 
-// Clase controladora para gestionar las operaciones relacionadas con las pasturas
 class PasturaController
 {
-  // Propiedad para la instancia de PasturaDAO.
   private $pasturaDAO;
+  private $connError = null;
 
   public function __construct()
   {
-    $this->pasturaDAO = new PasturaDAO();
+    try {
+      $this->pasturaDAO = new PasturaDAO();
+    } catch (Exception $e) {
+      $this->pasturaDAO = null;
+      $this->connError = $e->getMessage();
+    }
   }
 
-  // Procesa los formularios de registro, modificación y eliminación de pasturas.
   public function procesarFormularios()
   {
-    // Verifica si la petición es de tipo POST.
+    if ($this->connError !== null) {
+      return ['tipo' => 'error', 'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError];
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-      // Obtiene la acción y el nombre de la pastura.
       $accion = $_POST['accion'] ?? '';
+      $id = isset($_POST['id']) ? intval($_POST['id']) : null;
       $nombre = trim($_POST['nombre'] ?? '');
       $fechaSiembra = trim($_POST['fechaSiembra'] ?? '');
 
-      // Evalúa la acción.
       switch ($accion) {
         case 'registrar':
           if (empty($nombre) || empty($fechaSiembra)) {
             return ['tipo' => 'error', 'mensaje' => 'Por favor, completá todos los campos para registrar'];
           }
-          $res = $this->pasturaDAO->registrarPastura(new Pastura(null, $nombre, $fechaSiembra));
-          if ($res['ok']) {
-            return ['tipo' => 'success', 'mensaje' => 'Pastura registrada correctamente'];
+          if ($this->pasturaDAO->existeNombre($nombre)) {
+            return ['tipo' => 'error', 'mensaje' => 'Ya existe una pastura con ese nombre'];
           }
-          if (!empty($res['dup'])) {
-            return ['tipo' => 'error', 'mensaje' => 'Error: ya existe una pastura con ese nombre'];
-          }
-          return ['tipo' => 'error', 'mensaje' => 'No se pudo registrar la pastura'];
+          $ok = $this->pasturaDAO->registrarPastura(new Pastura(null, $nombre, $fechaSiembra));
+          return $ok
+            ? ['tipo' => 'success', 'mensaje' => 'Pastura registrada correctamente']
+            : ['tipo' => 'error', 'mensaje' => 'Error al registrar la pastura'];
+
         case 'modificar':
-          $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para modificar'];
           }
-
-          // Validar campos
           if (empty($nombre) || empty($fechaSiembra)) {
             return ['tipo' => 'error', 'mensaje' => 'Completá todos los campos para modificar'];
           }
+          if ($this->pasturaDAO->existeNombre($nombre, $id)) {
+            return ['tipo' => 'error', 'mensaje' => 'Ya existe una pastura con ese nombre'];
+          }
+          $ok = $this->pasturaDAO->modificarPastura(new Pastura($id, $nombre, $fechaSiembra));
+          return $ok
+            ? ['tipo' => 'success', 'mensaje' => 'Pastura modificada correctamente']
+            : ['tipo' => 'error', 'mensaje' => 'Error al modificar la pastura'];
 
-          $pasturaModificada = new Pastura($id, $nombre, $fechaSiembra);
-          $res = $this->pasturaDAO->modificarPastura($pasturaModificada);
-          if ($res['ok']) {
-            return ['tipo' => 'success', 'mensaje' => 'Pastura modificada correctamente'];
-          }
-          if (!empty($res['dup'])) {
-            return ['tipo' => 'error', 'mensaje' => 'Error: ya existe una pastura con ese nombre'];
-          }
-          return ['tipo' => 'error', 'mensaje' => 'No se pudo modificar la pastura'];
         case 'eliminar':
-          $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para eliminar'];
           }
-
           try {
-            if ($this->pasturaDAO->eliminarPastura($id)) {
-              return ['tipo' => 'success', 'mensaje' => 'Pastura eliminada correctamente'];
-            } else {
-              return ['tipo' => 'error', 'mensaje' => 'No se encontró la pastura o no se pudo eliminar'];
-            }
+            $ok = $this->pasturaDAO->eliminarPastura($id);
+            return $ok
+              ? ['tipo' => 'success', 'mensaje' => 'Pastura eliminada correctamente']
+              : ['tipo' => 'error', 'mensaje' => 'No se encontró la pastura o no se pudo eliminar'];
           } catch (mysqli_sql_exception $e) {
-            if ((int) $e->getCode() === 1451) { // violación de clave foránea
-              return ['tipo' => 'error', 'mensaje' => 'No se puede eliminar la pastura'];
+            if ((int) $e->getCode() === 1451) {
+              return ['tipo' => 'error', 'mensaje' => 'No se puede eliminar la pastura porque está en uso'];
             }
             return ['tipo' => 'error', 'mensaje' => 'Error al eliminar: ' . $e->getMessage()];
           }
@@ -82,45 +78,76 @@ class PasturaController
     return null;
   }
 
-  // Obtiene todas las pasturas de la base de datos.
   public function obtenerPasturas()
   {
+    if ($this->connError !== null) {
+      return [];
+    }
     return $this->pasturaDAO->getAllPasturas();
   }
 
-  // Obtiene una pastura por su ID.
   public function getPasturaById($id)
   {
+    if ($this->connError !== null) {
+      return null;
+    }
     return $this->pasturaDAO->getPasturaById($id);
   }
 }
 
-if (php_sapi_name() !== 'cli') {
-  $isAjax = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
+$isAjax = (
+  !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+  strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+) || (isset($_GET['ajax']) && $_GET['ajax'] === '1');
 
-  if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'list') {
-    // Devolver lista de pasturas
-    $ctrl = new PasturaController();
-    $pasturas = $ctrl->obtenerPasturas();
+if (php_sapi_name() !== 'cli') {
+  $ctrl = new PotreroController();
+
+  if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'GET' && (($_GET['action'] ?? '') === 'list')) {
+    $potreros = $ctrl->obtenerPotreros();
     $out = [];
-    foreach ($pasturas as $pastura) {
+    foreach ($potreros as $p) {
       $out[] = [
-        'id' => $pastura->getId(),
-        'nombre' => $pastura->getNombre(),
-        'fechaSiembra' => $pastura->getFechaSiembra(),
+        'id' => $p->getId(),
+        'nombre' => $p->getNombre(),
+        'pasturaId' => $p->getPasturaId(),
+        'categoriaId' => $p->getCategoriaId(),
+        'cantidadCategoria' => $p->getCantidadCategoria(),
+        'campoId' => $p->getCampoId(),
       ];
     }
-    header('Content-Type: application/json; charset=utf-8');
+    // Limpiar cualquier salida previa (espacios/BOM/notices)
+    while (ob_get_level()) {
+      ob_end_clean();
+    }
+    if (!headers_sent()) {
+      header('Content-Type: application/json; charset=utf-8');
+      header('Cache-Control: no-store');
+    }
     echo json_encode($out);
     exit;
   }
 
   if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Procesar registrar / modificar / eliminar
-    $ctrl = new PasturaController();
-    $res = $ctrl->procesarFormularios();
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($res ?? ['tipo' => 'error', 'mensaje' => 'Sin resultado']);
+    // Limpiar cualquier salida previa (espacios/BOM/notices)
+    while (ob_get_level()) {
+      ob_end_clean();
+    }
+    if (!headers_sent()) {
+      header('Content-Type: application/json; charset=utf-8');
+      header('Cache-Control: no-store');
+    }
+    try {
+      $res = $ctrl->procesarFormularios();
+      echo json_encode($res ?? ['tipo' => 'error', 'mensaje' => 'Sin resultado']);
+    } catch (Throwable $e) {
+      // Nunca devolvemos HTML
+      echo json_encode([
+        'tipo' => 'error',
+        'mensaje' => 'Excepción en servidor',
+        'detalle' => $e->getMessage(),
+      ]);
+    }
     exit;
   }
 }

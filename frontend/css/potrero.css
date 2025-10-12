@@ -281,3 +281,23 @@
 .table-modern td:first-child {
   display: none;
 }
+
+.form-container .form-group select.campo-input,
+.form-container .form-group input[type="text"],
+.form-container .form-group input[type="number"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  background: #fff;
+  outline: none;
+  height: 40px;
+  box-sizing: border-box;
+}
+
+.form-container .form-group select.campo-input:focus,
+.form-container .form-group input[type="text"]:focus,
+.form-container .form-group input[type="number"]:focus {
+  border-color: #4aa3ff;
+  box-shadow: 0 0 0 2px rgba(74, 163, 255, 0.15);
+}

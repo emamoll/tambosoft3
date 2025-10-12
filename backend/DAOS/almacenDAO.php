@@ -1,15 +1,12 @@
 <?php
+// DAO de Almacenes con lógica consistente con PasturaDAO
 
-// Incluye los archivos necesarios para la conexión a la base de datos, el modelo y la tabla del almacén
 require_once __DIR__ . '../../servicios/databaseFactory.php';
-require_once __DIR__ . '../../modelos/almacen/almacenTabla.php';
 require_once __DIR__ . '../../modelos/almacen/almacenModelo.php';
-
-// Clase para el acceso a datos (DAO) de la tabla Almacenes
+require_once __DIR__ . '../../modelos/almacen/almacenTabla.php';
 
 class AlmacenDAO
 {
-  // Propiedades para la conexión y la creación de la tabla.
   private $db;
   private $conn;
   private $crearTabla;
@@ -22,144 +19,153 @@ class AlmacenDAO
     $this->conn = $this->db->connect();
   }
 
-// Obtiene todos los almacenes de la base de datos.
-
-  public function getAllAlmacenes()
+  /** Verifica duplicados por nombre. Si se pasa $id, lo excluye (para modificaciones). */
+  public function existeNombre(string $nombre, ?int $id = null): bool
   {
-    $sql = "SELECT * FROM almacenes";
-    $result = $this->conn->query($sql);
-
-    // Si la consulta falla, detiene la ejecución y muestra el error.
-    if (!$result) {
-      die("Error en la consulta: " . $this->conn->error);
+    $sql = "SELECT id FROM almacenes WHERE LOWER(TRIM(nombre)) = LOWER(?)";
+    if ($id !== null) {
+      $sql .= " AND id <> ?";
     }
-
-    $almacenes = [];
-
-    // Recorre los resultados y crea un objeto Almacen por cada fila.
-    while ($row = $result->fetch_assoc()) {
-      $almacenes[] = new Almacen($row['id'], $row['nombre'], $row['campoId']);
+    $stmt = $this->conn->prepare($sql);
+    if ($id !== null) {
+      $stmt->bind_param("si", $nombre, $id);
+    } else {
+      $stmt->bind_param("s", $nombre);
     }
-
-    return $almacenes;
+    $stmt->execute();
+    $stmt->store_result();
+    $existe = $stmt->num_rows > 0;
+    $stmt->close();
+    return $existe;
   }
 
-// Obtiene un almacén por su ID.
-  public function getAlmacenById($id)
+  /** Lista completa */
+  public function getAllAlmacenes(): array
   {
-    $sql = "SELECT * FROM almacenes WHERE id = ?";
-    $stmt = $this->conn->prepare($sql);
+    $result = $this->conn->query("SELECT id, nombre, campoId FROM almacenes ORDER BY id DESC");
+    if (!$result) {
+      return [];
+    }
+    $out = [];
+    while ($row = $result->fetch_assoc()) {
+      $out[] = new Almacen($row['id'], $row['nombre'], $row['campoId']);
+    }
+    return $out;
+  }
+
+  /** Buscar por ID */
+  public function getAlmacenById(int $id): ?Almacen
+  {
+    $stmt = $this->conn->prepare("SELECT id, nombre, campoId FROM almacenes WHERE id = ?");
     $stmt->bind_param("i", $id);
     $stmt->execute();
-    $stmt->store_result();
-
-    // Si no se encuentra ninguna fila, retorna null.
-    if ($stmt->num_rows() === 0) {
-      return null;
-    }
-
-    // Vincula las variables a las columnas del resultado y obtiene la fila.
-    $stmt->bind_result($id, $nombre, $campoId);
-    $stmt->fetch();
-
-    return new Almacen($id, $nombre, $campoId);
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+    return $row ? new Almacen($row['id'], $row['nombre'], $row['campoId']) : null;
   }
 
-// Obtiene un almacén por su nombre.
-  public function getAlmacenByNombre($nombre)
+  /** Buscar por Nombre */
+  public function getAlmacenByNombre(string $nombre): ?Almacen
   {
-    $sql = "SELECT * FROM almacenes WHERE nombre = ?";
-    $stmt = $this->conn->prepare($sql);
+    $stmt = $this->conn->prepare("SELECT id, nombre, campoId FROM almacenes WHERE nombre = ?");
     $stmt->bind_param("s", $nombre);
     $stmt->execute();
-    $stmt->store_result();
-
-    // Si no se encuentra ninguna fila, retorna null.
-    if ($stmt->num_rows() === 0) {
-      return null;
-    }
-
-    // Vincula las variables y obtiene la fila.
-    $stmt->bind_result($id, $nombre, $campoId);
-    $stmt->fetch();
-
-    return new Almacen($id, $nombre, $campoId);
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+    return $row ? new Almacen($row['id'], $row['nombre'], $row['campoId']) : null;
   }
 
-// Obtiene todos los almacenes asociados a un ID de campo específico.
-  public function getAlmacenByCampoId($campoId)
+  /** Listar por Campo */
+  public function getAlmacenesByCampoId(int $campoId): array
   {
-    $sql = "SELECT * FROM almacenes WHERE campo$campoId = ?";
-    $stmt = $this->conn->prepare($sql);
+    $stmt = $this->conn->prepare("SELECT id, nombre, campoId FROM almacenes WHERE campoId = ?");
     $stmt->bind_param("i", $campoId);
     $stmt->execute();
-    $result = $stmt->get_result();
+    $res = $stmt->get_result();
 
-    $almacenes = [];
-    // Recorre los resultados y crea objetos Almacen.
-    while ($row = $result->fetch_assoc()) {
-      $almacenes[] = new Almacen($row['id'], $row['campo$campoId']);
+    $out = [];
+    while ($row = $res->fetch_assoc()) {
+      $out[] = new Almacen($row['id'], $row['nombre'], $row['campoId']);
     }
-
-    return $almacenes;
+    $stmt->close();
+    return $out;
   }
 
-// Registra un nuevo almacén en la base de datos.
-  public function registrarAlmacen(Almacen $almacen)
+  /** Registrar (valida existencia de Campo y duplicado de nombre) */
+  public function registrarAlmacen(Almacen $almacen): bool
   {
-    $nombre = $almacen->getNombre();
-    $campoId = $almacen->getCampoId();
+    $nombre = trim($almacen->getNombre());
+    $campoId = (int) $almacen->getCampoId();
 
-    // Primero, verifica si ya existe un almacén con el mismo nombre.
-    $sqlVer = "SELECT id FROM almacenes WHERE nombre = ?";
-    $stmtVer = $this->conn->prepare($sqlVer);
-    $stmtVer->bind_param("s", $nombre);
-    $stmtVer->execute();
-    $stmtVer->store_result();
+    // Verifica que el campo exista
+    $stmtCheck = $this->conn->prepare("SELECT COUNT(1) AS total FROM campos WHERE id = ?");
+    $stmtCheck->bind_param("i", $campoId);
+    $stmtCheck->execute();
+    $res = $stmtCheck->get_result();
+    $row = $res->fetch_assoc();
+    $stmtCheck->close();
 
-    if ($stmtVer->num_rows > 0) {
-      $stmtVer->close();
+    $countCampo = $row ? (int) $row['total'] : 0;
+    if ($countCampo <= 0) {
       return false;
     }
-    $stmtVer->close();
 
-    // Verifica si el campoId existe en la tabla Campos
-    $checkCampoSql = "SELECT COUNT(*) FROM campos WHERE id = ?";
-    $checkCampoStmt = $this->conn->prepare($checkCampoSql);
-    $checkCampoStmt->bind_param("i", $campoId);
-    $checkCampoStmt->execute();
-    $checkCampoResult = $checkCampoStmt->get_result();
-    $row = $checkCampoResult->fetch_row();
-    $campoExists = ($row[0] > 0);
-    $checkCampoStmt->close();
-    
-    $sql = "INSERT INTO almacenes (nombre, campoId) VALUES (?, ?)";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("si", $nombre, $campoId); 
+    // Duplicado por nombre
+    if ($this->existeNombre($nombre)) {
+      return false;
+    }
+
+    $stmt = $this->conn->prepare("INSERT INTO almacenes (nombre, campoId) VALUES (?, ?)");
+    $stmt->bind_param("si", $nombre, $campoId);
+    $ok = $stmt->execute();
     $stmt->close();
-    return true;
+    return $ok;
   }
 
-// Modifica un almacén existente.
-  public function modificarAlmacen(Almacen $almacen)
+  /** Modificar por ID (valida duplicado de nombre excluyéndose) */
+  public function modificarAlmacen(Almacen $almacen): bool
   {
-    $sql = "UPDATE almacenes SET campoId = ? WHERE nombre = ?";
-    $stmt = $this->conn->prepare($sql);
-    $nombre = $almacen->getNombre();
-    $campoId = $almacen->getCampoId();
-    $stmt->bind_param('is', $campoId, $nombre);
+    $id = (int) $almacen->getId();
+    $nombre = trim($almacen->getNombre());
+    $campoId = (int) $almacen->getCampoId();
 
-    return $stmt->execute();
+    if ($id <= 0) {
+      return false;
+    }
+
+    // Verifica FK campo
+    $stmtCheck = $this->conn->prepare("SELECT COUNT(1) AS total FROM campos WHERE id = ?");
+    $stmtCheck->bind_param("i", $campoId);
+    $stmtCheck->execute();
+    $res = $stmtCheck->get_result();
+    $row = $res->fetch_assoc();
+    $stmtCheck->close();
+
+    $countCampo = $row ? (int) $row['total'] : 0;
+    if ($countCampo <= 0) {
+      return false;
+    }
+
+    if ($this->existeNombre($nombre, $id)) {
+      return false;
+    }
+
+    $stmt = $this->conn->prepare("UPDATE almacenes SET nombre = ?, campoId = ? WHERE id = ?");
+    $stmt->bind_param("sii", $nombre, $campoId, $id);
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
   }
 
-//  Elimina un almacén por su nombre.
-
-  public function eliminarAlmacen($nombre)
+  /** Eliminar por ID */
+  public function eliminarAlmacen(int $id): bool
   {
-    $sql = "DELETE FROM almacenes WHERE nombre = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("s", $nombre);
-
-    return $stmt->execute();
+    $stmt = $this->conn->prepare("DELETE FROM almacenes WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
   }
 }
