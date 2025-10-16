@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <?php require_once __DIR__ . '../../secciones/navbar.php'; ?>
 
   <div class="form-container">
-    <h2><i class="fas fa-user"></i> Registrar Usuario</h2>
+    <h2>Registrar Usuario</h2>
 
     <?php if ($mensajeExito): ?>
       <div class="mensaje-exito">Usuario registrado correctamente.</div>

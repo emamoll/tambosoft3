@@ -42,35 +42,26 @@ document.addEventListener("DOMContentLoaded", function () {
     return map;
   }
 
-  async function fetchJSON(url, options) {
+  async function fetchJSON(url, options = {}) {
     const resp = await fetch(url, options);
     const ct = resp.headers.get("content-type") || "";
     const text = await resp.text();
 
-    // Si el servidor no marcó JSON, igual intentamos parsear por contenido
+    // 🔹 Si no viene JSON, mostramos un preview para debug
     if (!ct.includes("application/json")) {
-      try {
-        const parsed = JSON.parse(text);
-        console.warn(
-          "[Aviso] Content-Type no es JSON pero el cuerpo sí lo es. Corregí el backend para mandar application/json."
-        );
-        return parsed;
-      } catch (e) {
-        console.error("[Backend NON-JSON]", {
-          status: resp.status,
-          contentType: ct,
-          preview: text.slice(0, 600),
-        });
-        throw new Error(
-          `Respuesta NO JSON (status ${resp.status}). Revisá la consola para ver el HTML/error devuelto.`
-        );
-      }
+      console.error("[Backend NON-JSON]", {
+        url,
+        status: resp.status,
+        contentType: ct,
+        preview: text.slice(0, 400),
+      });
+      throw new Error("Respuesta no JSON del backend.");
     }
 
     try {
       return JSON.parse(text);
     } catch (e) {
-      console.error("[JSON parse error] cuerpo recibido:", text.slice(0, 600));
+      console.error("[JSON Parse Error]", text.slice(0, 400));
       throw e;
     }
   }
@@ -89,16 +80,6 @@ document.addEventListener("DOMContentLoaded", function () {
     cancelarEdicion.style.display = "none";
     idInput.value = "";
     form.reset();
-    [
-      "nombre",
-      "pasturaId",
-      "categoriaId",
-      "cantidadCategoria",
-      "campoId",
-    ].forEach((k) => {
-      const el = document.getElementById("error-" + k);
-      if (el) el.style.display = "none";
-    });
   }
 
   function setEditarMode(data) {
@@ -134,8 +115,8 @@ document.addEventListener("DOMContentLoaded", function () {
       const potreros = await fetchJSON(`${API}?action=list`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
-
       tableBody.innerHTML = "";
+
       if (!Array.isArray(potreros) || potreros.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#666;">No hay potreros registrados.</td></tr>`;
         return;
@@ -144,20 +125,17 @@ document.addEventListener("DOMContentLoaded", function () {
       for (const p of potreros) {
         const tr = document.createElement("tr");
 
-        // Aseguramos existencia de campos esperados
-        const _id = p.id ?? p.potreroId ?? "";
+        const _id = p.id ?? "";
         const _nombre = p.nombre ?? "";
         const _pasturaId = String(p.pasturaId ?? "");
         const _categoriaId = String(p.categoriaId ?? "");
-        const _cantidad = p.cantidadCategoria ?? p.cantCategoria ?? "";
+        const _cantidad = p.cantidadCategoria ?? "";
         const _campoId = String(p.campoId ?? "");
 
-        // Mapear IDs -> Nombres para mostrar en la tabla
         const pasturaNombre = LOVS.pastura[_pasturaId] || "";
         const categoriaNombre = LOVS.categoria[_categoriaId] || "";
         const campoNombre = LOVS.campo[_campoId] || "";
 
-        // Persistir datos crudos en data-* para la edición
         tr.dataset.id = _id;
         tr.dataset.nombre = _nombre;
         tr.dataset.pasturaId = _pasturaId;
@@ -174,8 +152,15 @@ document.addEventListener("DOMContentLoaded", function () {
           <td>${campoNombre}</td>
           <td>
             <div class="table-actions">
-              <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
-              <button type="button" class="btn-icon delete js-delete" title="Eliminar" aria-label="Eliminar">🗑️</button>
+              <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
+              <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
+              ${
+                _categoriaId &&
+                _categoriaId !== "null" &&
+                parseInt(_categoriaId) > 0
+                  ? `<button type="button" class="btn-icon move js-move" title="Mover categoría">🐄</button>`
+                  : ""
+              }
             </div>
           </td>
         `;
@@ -187,92 +172,104 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Delegación de eventos para acciones de tabla
+  // Delegación de eventos para editar y eliminar
   tableBody.addEventListener("click", (e) => {
     const editBtn = e.target.closest(".js-edit");
     const delBtn = e.target.closest(".js-delete");
+
     if (editBtn) {
       const tr = editBtn.closest("tr");
       setEditarMode(extractDataFromRow(tr));
       return;
     }
+
     if (delBtn) {
       const tr = delBtn.closest("tr");
       const data = extractDataFromRow(tr);
       confirmText.textContent = `¿Seguro que deseás eliminar el potrero "${data.nombre}"?`;
-      modal.dataset.id = data.id; // guardo el ID a borrar
+      modal.dataset.id = data.id;
       modal.style.display = "flex";
       return;
     }
   });
 
-  // Confirmación eliminar
-  confirmYes.addEventListener("click", async () => {
-    const id = modal.dataset.id;
-    modal.style.display = "none";
-    delete modal.dataset.id;
-    if (!id) return;
+  // Confirmar eliminación
+  if (confirmYes) {
+    confirmYes.addEventListener("click", async () => {
+      const id = modal.dataset.id;
+      modal.style.display = "none";
+      delete modal.dataset.id;
+      if (!id) return;
 
-    const fd = new FormData();
-    fd.append("accion", "eliminar");
-    fd.append("id", id);
+      const fd = new FormData();
+      fd.append("accion", "eliminar");
+      fd.append("id", id);
 
+      try {
+        const data = await fetchJSON(API, {
+          method: "POST",
+          body: fd,
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+        flash(data.tipo, data.mensaje);
+        if (data.tipo === "success") {
+          await refrescarTabla();
+          setRegistrarMode();
+        }
+      } catch (err) {
+        console.error(err);
+        flash("error", "Error al eliminar el potrero. Revisá la consola.");
+      }
+    });
+  }
+
+  if (confirmNo) {
+    confirmNo.addEventListener("click", () => {
+      modal.style.display = "none";
+      delete modal.dataset.id;
+    });
+  }
+
+  cancelarEdicion.addEventListener("click", setRegistrarMode);
+
+  // Submit del formulario
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    // 🔹 Nueva validación para categoría y cantidad
+    const categoriaIdValue = categoriaId.value
+      ? parseInt(categoriaId.value)
+      : null;
+    const cantidadCategoriaValue = cantidadCategoria.value
+      ? parseInt(cantidadCategoria.value)
+      : null;
+
+    // 1. Validar: si se ingresó categoría, debe ingresarse una cantidad
+    if (categoriaIdValue && !cantidadCategoriaValue) {
+      flash("error", "Si ingresas una categoría, debes ingresar la cantidad.");
+      return;
+    }
+
+    // 2. Validar: si se ingresó cantidad, debe ingresarse una categoría
+    if (!categoriaIdValue && cantidadCategoriaValue) {
+      flash(
+        "error",
+        "Si ingresas una cantidad, debes seleccionar una categoría."
+      );
+      return;
+    }
+
+    // 3. Validar: la cantidad debe ser un número positivo si se ingresa
+    if (cantidadCategoriaValue && cantidadCategoriaValue <= 0) {
+      flash("error", "La cantidad debe ser mayor a 0.");
+      return;
+    }
+
+    const fd = new FormData(form);
     try {
       const data = await fetchJSON(API, {
         method: "POST",
         body: fd,
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      flash(data.tipo, data.mensaje);
-      if (data.tipo === "success") {
-        await refrescarTabla();
-        setRegistrarMode();
-      }
-    } catch (err) {
-      console.error(err);
-      flash("error", "Error al eliminar el potrero. Revisá la consola.");
-    }
-  });
-
-  confirmNo.addEventListener("click", () => {
-    modal.style.display = "none";
-    delete modal.dataset.id;
-  });
-
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      modal.style.display = "none";
-      delete modal.dataset.id;
-    }
-  });
-
-  cancelarEdicion.addEventListener("click", setRegistrarMode);
-
-  // Submit del formulario (registrar / modificar)
-  form.addEventListener("submit", async function (e) {
-    e.preventDefault();
-
-    // Validación simple
-    let ok = true;
-    const setErr = (id, cond) => {
-      const el = document.getElementById("error-" + id);
-      if (el) el.style.display = cond ? "none" : "block";
-      if (!cond) ok = false;
-    };
-
-    setErr("nombre", !!nombre.value.trim());
-    setErr("pasturaId", !!pasturaId.value);
-    setErr("categoriaId", !!categoriaId.value);
-    const cantNum = Number(cantidadCategoria.value);
-    setErr("cantidadCategoria", Number.isInteger(cantNum) && cantNum > 0);
-    setErr("campoId", !!campoId.value);
-
-    if (!ok) return;
-
-    try {
-      const data = await fetchJSON(API, {
-        method: "POST",
-        body: new FormData(form),
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
       flash(data.tipo, data.mensaje);
@@ -288,6 +285,83 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Estado inicial
   setRegistrarMode();
-  // Llenado inicial de tabla (con mapeo de nombres)
   refrescarTabla();
+
+  // ==== Modal mover categoría ====
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".js-move");
+    if (!btn) return;
+
+    const tr = btn.closest("tr");
+    const potreroOrigen = tr.dataset.id;
+    const modalMover = document.getElementById("moverModal");
+    const selectDestino = document.getElementById("potreroDestino");
+    const btnConfirm = document.getElementById("confirmMover");
+    const btnCancel = document.getElementById("cancelarMover");
+
+    modalMover.style.display = "flex";
+    selectDestino.innerHTML = `<option value="">-- Seleccioná potrero destino --</option>`;
+
+    try {
+      const potreros = await fetchJSON(`${API}?action=list`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+
+      potreros
+        .filter((p) => p.id != potreroOrigen && p.categoriaId == null)
+        .forEach((p) => {
+          const opt = document.createElement("option");
+          opt.value = p.id;
+          opt.textContent = p.nombre;
+          selectDestino.appendChild(opt);
+        });
+
+      btnConfirm.onclick = async () => {
+        const destino = selectDestino.value;
+        if (!destino) return alert("Seleccioná un potrero destino");
+        btnConfirm.disabled = true;
+
+        try {
+          const resp = await fetchJSON(`${API}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify({
+              accion: "moverCategoria",
+              idOrigen: potreroOrigen,
+              idDestino: destino,
+            }),
+          });
+          flash(resp.tipo, resp.mensaje);
+          modalMover.style.display = "none";
+          if (resp.tipo === "success") {
+            await refrescarTabla();
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Error al mover la categoría.");
+        } finally {
+          btnConfirm.disabled = false;
+        }
+      };
+
+      btnCancel.onclick = () => {
+        modalMover.style.display = "none";
+        selectDestino.innerHTML = "";
+      };
+    } catch (err) {
+      console.error(err);
+      modalMover.style.display = "none";
+      alert("No se pudo cargar la lista de potreros.");
+    }
+  });
+
+  // 🔹 Escuchar clic fuera del modal para cerrarlo
+  document.getElementById("moverModal").addEventListener("click", (e) => {
+    if (e.target.id === "moverModal") {
+      document.getElementById("cancelarMover").click();
+    }
+  });
 });

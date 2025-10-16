@@ -155,6 +155,21 @@ function esc($s)
     </div>
   </div>
 
+  <div id="moverModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3>Mover categoría</h3>
+      <p>Seleccioná a qué potrero querés mover la categoría:</p>
+      <select id="potreroDestino" class="campo-input">
+        <option value="">-- Seleccioná un potrero destino --</option>
+      </select>
+      <div class="modal-actions" style="margin-top:15px;">
+        <button id="confirmMover" type="button" class="btn-usuario" style="width:auto;">Mover</button>
+        <button id="cancelarMover" type="button" class="btn-usuario"
+          style="width:auto; background:#aaa;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../../javascript/potrero.js"></script>
 </body>
 

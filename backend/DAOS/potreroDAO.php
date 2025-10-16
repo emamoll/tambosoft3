@@ -47,21 +47,24 @@ class PotreroDAO
   {
     $nombre = trim($potrero->getNombre());
     $pasturaId = $potrero->getPasturaId();
-    $categoriaId = $potrero->getCategoriaId();
-    $cantidadCategoria = $potrero->getCantidadCategoria();
+    $categoriaId = $potrero->getCategoriaId() ?: null;
+    $cantidadCategoria = $potrero->getCantidadCategoria() ?: null;
     $campoId = $potrero->getCampoId();
 
-    // Verificación de duplicado usando existeNombre
     if ($this->existeNombre($nombre)) {
       return false;
     }
 
-    $sql = "INSERT INTO categorias (nombre, pasturaId, categoriaId, cantidadCategoria, campoId) VALUES (?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO potreros (nombre, pasturaId, categoriaId, cantidadCategoria, campoId)
+          VALUES (?, ?, ?, ?, ?)";
+
     $stmt = $this->conn->prepare($sql);
+
     $stmt->bind_param("siiii", $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId);
+
+    // Ejecutar
     $resultado = $stmt->execute();
     $stmt->close();
-
     return $resultado;
   }
 
@@ -71,24 +74,25 @@ class PotreroDAO
     $id = $potrero->getId();
     $nombre = trim($potrero->getNombre());
     $pasturaId = $potrero->getPasturaId();
-    $categoriaId = $potrero->getCategoriaId();
-    $cantidadCategoria = $potrero->getCantidadCategoria();
+    $categoriaId = $potrero->getCategoriaId() ?: null;
+    $cantidadCategoria = $potrero->getCantidadCategoria() ?: null;
     $campoId = $potrero->getCampoId();
 
-    // Verificación de duplicado excluyendo el propio ID
     if ($this->existeNombre($nombre, $id)) {
       return false;
     }
 
-    $sql = "UPDATE potreros SET nombre = ?, pasturaId = ?, categoriaId = ?, cantidadCategoria = ?, campoId = ? WHERE id = ?";
+    $sql = "UPDATE potreros
+          SET nombre = ?, pasturaId = ?, categoriaId = ?, cantidadCategoria = ?, campoId = ?
+          WHERE id = ?";
+
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("siiiii", $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId, $id);
+
     $resultado = $stmt->execute();
     $stmt->close();
-
     return $resultado;
   }
-
   // Obtener todas los potreros
   public function getAllPotreros(): array
   {
@@ -198,5 +202,49 @@ class PotreroDAO
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $id);
     return $stmt->execute();
+  }
+
+  public function moverCategoria($idOrigen, $idDestino)
+  {
+    try {
+      // 🔹 1. Obtener los datos de origen
+      $sqlSelect = "SELECT categoriaId, cantidadCategoria FROM potreros WHERE id = ?";
+      $stmt = $this->conn->prepare($sqlSelect);
+      $stmt->bind_param("i", $idOrigen);
+      $stmt->execute();
+      $res = $stmt->get_result();
+
+      if (!$res || $res->num_rows === 0) {
+        return ['tipo' => 'error', 'mensaje' => 'Potrero origen no encontrado'];
+      }
+
+      $row = $res->fetch_assoc();
+      $categoriaId = $row['categoriaId'];
+      $cantidadCategoria = $row['cantidadCategoria'];
+      $stmt->close();
+
+      // 🔹 2. Validar que haya categoría para mover
+      if ($categoriaId === null) {
+        return ['tipo' => 'error', 'mensaje' => 'El potrero origen no tiene una categoría asignada'];
+      }
+
+      // 🔹 3. Actualizar destino
+      $sqlUpdate = "UPDATE potreros SET categoriaId = ?, cantidadCategoria = ? WHERE id = ?";
+      $stmt2 = $this->conn->prepare($sqlUpdate);
+      $stmt2->bind_param("iii", $categoriaId, $cantidadCategoria, $idDestino);
+      $stmt2->execute();
+      $stmt2->close();
+
+      // 🔹 4. Limpiar origen
+      $sqlClear = "UPDATE potreros SET categoriaId = NULL, cantidadCategoria = NULL WHERE id = ?";
+      $stmt3 = $this->conn->prepare($sqlClear);
+      $stmt3->bind_param("i", $idOrigen);
+      $stmt3->execute();
+      $stmt3->close();
+
+      return ['tipo' => 'success', 'mensaje' => 'Categoría movida correctamente'];
+    } catch (Exception $e) {
+      return ['tipo' => 'error', 'mensaje' => 'Error al mover la categoría: ' . $e->getMessage()];
+    }
   }
 }

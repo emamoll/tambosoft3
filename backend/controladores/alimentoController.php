@@ -1,19 +1,19 @@
 <?php
 
-require_once __DIR__ . '../../DAOS/pasturaDAO.php';
-require_once __DIR__ . '../../modelos/pastura/pasturaModelo.php';
+require_once __DIR__ . '../../DAOS/alimentoDAO.php';
+require_once __DIR__ . '../../modelos/alimento/alimentoModelo.php';
 
-class PasturaController
+class AlimentoController
 {
-  private $pasturaDAO;
+  private $alimentoDAO;
   private $connError = null;
 
   public function __construct()
   {
     try {
-      $this->pasturaDAO = new PasturaDAO();
+      $this->alimentoDAO = new AlimentoDAO();
     } catch (Exception $e) {
-      $this->pasturaDAO = null;
+      $this->alimentoDAO = null;
       $this->connError = $e->getMessage();
     }
   }
@@ -28,48 +28,47 @@ class PasturaController
       $accion = $_POST['accion'] ?? '';
       $id = isset($_POST['id']) ? intval($_POST['id']) : null;
       $nombre = trim($_POST['nombre'] ?? '');
-      $fechaSiembra = trim($_POST['fechaSiembra'] ?? '');
 
       switch ($accion) {
         case 'registrar':
-          if (empty($nombre) || empty($fechaSiembra)) {
+          if (empty($nombre)) {
             return ['tipo' => 'error', 'mensaje' => 'Por favor, completá todos los campos para registrar'];
           }
-          if ($this->pasturaDAO->existeNombre($nombre)) {
-            return ['tipo' => 'error', 'mensaje' => 'Ya existe una pastura con ese nombre'];
+          if ($this->alimentoDAO->existeNombre($nombre)) {
+            return ['tipo' => 'error', 'mensaje' => 'Ya existe un alimento con ese nombre'];
           }
-          $ok = $this->pasturaDAO->registrarPastura(new Pastura(null, $nombre, $fechaSiembra));
+          $ok = $this->alimentoDAO->registrarAlimento(new Alimento(null, $nombre));
           return $ok
-            ? ['tipo' => 'success', 'mensaje' => 'Pastura registrada correctamente']
-            : ['tipo' => 'error', 'mensaje' => 'Error al registrar la pastura'];
+            ? ['tipo' => 'success', 'mensaje' => 'Alimento registrad correctamente']
+            : ['tipo' => 'error', 'mensaje' => 'Error al registrar el alimento'];
 
         case 'modificar':
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para modificar'];
           }
-          if (empty($nombre) || empty($fechaSiembra)) {
+          if (empty($nombre)) {
             return ['tipo' => 'error', 'mensaje' => 'Completá todos los campos para modificar'];
           }
-          if ($this->pasturaDAO->existeNombre($nombre, $id)) {
-            return ['tipo' => 'error', 'mensaje' => 'Ya existe una pastura con ese nombre'];
+          if ($this->alimentoDAO->existeNombre($nombre, $id)) {
+            return ['tipo' => 'error', 'mensaje' => 'Ya existe un alimento con ese nombre'];
           }
-          $ok = $this->pasturaDAO->modificarPastura(new Pastura($id, $nombre, $fechaSiembra));
+          $ok = $this->alimentoDAO->modificarAlimento(new Alimento($id, $nombre));
           return $ok
-            ? ['tipo' => 'success', 'mensaje' => 'Pastura modificada correctamente']
-            : ['tipo' => 'error', 'mensaje' => 'Error al modificar la pastura'];
+            ? ['tipo' => 'success', 'mensaje' => 'Alimento modificado correctamente']
+            : ['tipo' => 'error', 'mensaje' => 'Error al modificar el alimento'];
 
         case 'eliminar':
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para eliminar'];
           }
           try {
-            $ok = $this->pasturaDAO->eliminarPastura($id);
+            $ok = $this->alimentoDAO->eliminarAlimento($id);
             return $ok
-              ? ['tipo' => 'success', 'mensaje' => 'Pastura eliminada correctamente']
-              : ['tipo' => 'error', 'mensaje' => 'No se encontró la pastura o no se pudo eliminar'];
+              ? ['tipo' => 'success', 'mensaje' => 'Alimento eliminado correctamente']
+              : ['tipo' => 'error', 'mensaje' => 'No se encontró el alimento o no se pudo eliminar'];
           } catch (mysqli_sql_exception $e) {
             if ((int) $e->getCode() === 1451) {
-              return ['tipo' => 'error', 'mensaje' => 'No se puede eliminar la pastura porque está en uso'];
+              return ['tipo' => 'error', 'mensaje' => 'No se puede eliminar el alimento porque está en uso'];
             }
             return ['tipo' => 'error', 'mensaje' => 'Error al eliminar: ' . $e->getMessage()];
           }
@@ -78,20 +77,20 @@ class PasturaController
     return null;
   }
 
-  public function obtenerPasturas()
+  public function obtenerAlimentos()
   {
     if ($this->connError !== null) {
       return [];
     }
-    return $this->pasturaDAO->getAllPasturas();
+    return $this->alimentoDAO->getAllAlimentos();
   }
 
-  public function getPasturaById($id)
+  public function getAlimentoById($id)
   {
     if ($this->connError !== null) {
       return null;
     }
-    return $this->pasturaDAO->getPasturaById($id);
+    return $this->alimentoDAO->getAlimentoById($id);
   }
 }
 
@@ -101,16 +100,15 @@ $isAjax = (
 ) || (isset($_GET['ajax']) && $_GET['ajax'] === '1');
 
 if (php_sapi_name() !== 'cli') {
-  $ctrl = new PasturaController();
+  $ctrl = new AlimentoController();
 
   if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'GET' && (($_GET['action'] ?? '') === 'list')) {
-    $pasturas = $ctrl->obtenerPasturas();
+    $alimentos = $ctrl->obtenerAlimentos();
     $out = [];
-    foreach ($pasturas as $pastura) {
+    foreach ($alimentos as $alimento) {
       $out[] = [
-        'id' => $pastura->getId(),
-        'nombre' => $pastura->getNombre(),
-        'fechaSiembra' => $pastura->getFechaSiembra(),
+        'id' => $alimento->getId(),
+        'nombre' => $alimento->getNombre(),
       ];
     }
     // Limpiar cualquier salida previa (espacios/BOM/notices)

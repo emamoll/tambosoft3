@@ -2,7 +2,7 @@
 
 session_start();
 require_once __DIR__ . '../../../../backend/controladores/usuarioController.php';
-// require_once __DIR__ . '../backend/controladores/alimentoController.php';
+require_once __DIR__ . '../../../../backend/controladores/alimentoController.php';
 require_once __DIR__ . '../../../../backend/controladores/almacenController.php';
 require_once __DIR__ . '../../../../backend/controladores/campoController.php';
 require_once __DIR__ . '../../../../backend/controladores/categoriaController.php';
@@ -15,7 +15,7 @@ require_once __DIR__ . '../../../../backend/controladores/potreroController.php'
 
 try {
   new UsuarioController();
-  // new AlimentoController();
+  new AlimentoController();
   new AlmacenController();
   new CampoController();
   new CategoriaController();
@@ -71,7 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
     crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="../../javascript/usuario.js"></script>
 </head>
 
 <body>
@@ -81,13 +80,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="POST" action="">
       <div class="form-group">
         <label for="username">Usuario</label>
-        <input type="text" id="username" name="username" required>
+        <input type="text" id="username" name="username" class="form-control" required autocomplete="username" />
       </div>
       <div class="form-group">
         <label for="password">Contraseña</label>
         <div class="password-wrapper">
-          <input type="password" id="password" name="password" required>
-          <button type="button" class="toggle-password" onclick="togglePassword()">👁️</button>
+          <input type="password" id="password" name="password" class="form-control" required
+            autocomplete="current-password" />
+          <span class="toggle-password">
+            <i class="fa-solid fa-eye" id="togglePassword"></i>
+          </span>
         </div>
       </div>
       <?php if (isset($error)): ?>
@@ -95,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?php endif; ?>
       <button type="submit" class="btn-usuario">Ingresar</button>
     </form>
-    <script src="../../javascript/usuario.js"></script>
+    <script src="../../javascript/usuario.js?v=<?php echo time(); ?>"></script>
   </div>
 </body>
 

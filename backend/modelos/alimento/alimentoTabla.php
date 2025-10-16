@@ -4,8 +4,8 @@
 require_once __DIR__ . '../../../servicios/databaseFactory.php';
 require_once __DIR__ . '../../../servicios/databaseConnectionInterface.php';
 
-// Clase encargada de crear la tabla Potreros en la base de datos
-class PotreroCrearTabla
+// Clase encargada de crear la tabla Alimentos en la base de datos.
+class AlimentoCrearTabla
 {
   // Propiedad para la instancia de conexión a la base de datos.
   private $db;
@@ -15,24 +15,18 @@ class PotreroCrearTabla
     $this->db = $db;
   }
 
-  // Crea la tabla Potreros si no existe.
-  public function crearTablaPotrero()
+  // Crea la tabla Alimento si no existe.
+
+  public function crearTablaAlimento()
   {
     // Crea una nueva conexión a la base de datos.
     $this->db = DatabaseFactory::createDatabaseConnection('mysql');
     $conn = $this->db->connect();
 
     // Sentencia SQL para la creación de la tabla.
-    $sql = "CREATE TABLE IF NOT EXISTS potreros (
+    $sql = "CREATE TABLE IF NOT EXISTS alimentos (
               id INT PRIMARY KEY AUTO_INCREMENT,
-              nombre VARCHAR(255) NOT NULL UNIQUE,
-              pasturaId INT NOT NULL,
-              categoriaId INT NULL,
-              cantidadCategoria INT NULL,
-              campoId INT NOT NULL,
-              FOREIGN KEY (pasturaId) REFERENCES pasturas(id),
-              FOREIGN KEY (categoriaId) REFERENCES categorias(id),
-              FOREIGN KEY (campoId) REFERENCES campos(id))";
+              nombre VARCHAR(255) NOT NULL UNIQUE)";
 
     // Ejecuta la consulta y cierra la conexión.
     $conn->query($sql);
