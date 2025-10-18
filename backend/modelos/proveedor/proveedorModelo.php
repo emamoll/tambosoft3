@@ -6,14 +6,14 @@ class Proveedor
   // Propiedades que corresponden a las columnas de la tabla Proveedores
   private $id;
   private $denominacion;
-  private $email;
+  private $emailP;
   private $telefono;
 
-  public function __construct($id = null, $denominacion = null, $email = null, $telefono = null)
+  public function __construct($id = null, $denominacion = null, $emailP = null, $telefono = null)
   {
     $this->id = $id;
     $this->denominacion = $denominacion;
-    $this->email = $email;
+    $this->emailP = $emailP;
     $this->telefono = $telefono;
   }
   // Métodos "getter" para acceder a las propiedades.
@@ -28,9 +28,9 @@ class Proveedor
     return $this->denominacion;
   }
 
-  public function getEmail()
+  public function getEmailP()
   {
-    return $this->email;
+    return $this->emailP;
   }
 
   public function getTelefono()
@@ -45,9 +45,9 @@ class Proveedor
     $this->denominacion = $denominacion;
   }
 
-  public function setEmail($email)
+  public function setEmailP($emailP)
   {
-    $this->email = $email;
+    $this->emailP = $emailP;
   }
 
   public function setTelefono($telefono)

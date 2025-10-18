@@ -46,19 +46,19 @@ class ProveedorDAO
   public function registrarProveedor(Proveedor $proveedor): bool
   {
     $denominacion = trim($proveedor->getDenominacion());
-    $email = $proveedor->getEmail();
+    $emailP = $proveedor->getEmailP();
     $telefono = $proveedor->getTelefono() ?: null;
 
     if ($this->existeDenominacion($denominacion)) {
       return false;
     }
 
-    $sql = "INSERT INTO proveedores (denominacion, email, telefono)
+    $sql = "INSERT INTO proveedores (denominacion, emailP, telefono)
           VALUES (?, ?, ?)";
 
     $stmt = $this->conn->prepare($sql);
 
-    $stmt->bind_param("ssi", $denominacion, $email, $telefono);
+    $stmt->bind_param("ssi", $denominacion, $emailP, $telefono);
 
     // Ejecutar
     $resultado = $stmt->execute();
@@ -71,7 +71,7 @@ class ProveedorDAO
   {
     $id = $proveedor->getId();
     $denominacion = trim($proveedor->getDenominacion());
-    $email = $proveedor->getEmail();
+    $emailP = $proveedor->getEmailP();
     $telefono = $proveedor->getTelefono() ?: null;
 
     if ($this->existeDenominacion($denominacion, $id)) {
@@ -79,11 +79,11 @@ class ProveedorDAO
     }
 
     $sql = "UPDATE proveedores
-          SET denominacion = ?, email = ?, telefono = ?
+          SET denominacion = ?, emailP = ?, telefono = ?
           WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("ssii", $denominacion, $email, $telefono, $id);
+    $stmt->bind_param("ssii", $denominacion, $emailP, $telefono, $id);
 
     $resultado = $stmt->execute();
     $stmt->close();
@@ -102,7 +102,7 @@ class ProveedorDAO
 
     $proveedores = [];
     while ($row = $result->fetch_assoc()) {
-      $proveedores[] = new Proveedor($row['id'], $row['denominacion'], $row['email'], $row['telefono']);
+      $proveedores[] = new Proveedor($row['id'], $row['denominacion'], $row['emailP'], $row['telefono']);
     }
     return $proveedores;
   }
@@ -118,7 +118,7 @@ class ProveedorDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Proveedor($row['id'], $row['denominacion'], $row['email'], $row['telefono']) : null;
+    return $row ? new Proveedor($row['id'], $row['denominacion'], $row['emailP'], $row['telefono']) : null;
   }
 
   // Obtener un proveedor por denominacion
@@ -132,7 +132,7 @@ class ProveedorDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Proveedor($row['id'], $row['denominacion'], $row['email'], $row['telefono']) : null;
+    return $row ? new Proveedor($row['id'], $row['denominacion'], $row['emailP'], $row['telefono']) : null;
   }
 
   // Eliminar un proveedor

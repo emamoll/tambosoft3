@@ -47,7 +47,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const ct = resp.headers.get("content-type") || "";
     const text = await resp.text();
 
-    // 🔹 Si no viene JSON, mostramos un preview para debug
     if (!ct.includes("application/json")) {
       console.error("[Backend NON-JSON]", {
         url,
@@ -73,6 +72,111 @@ document.addEventListener("DOMContentLoaded", function () {
     campo: buildLovMap(campoId),
   };
 
+  // ====== Filtros ======
+  const abrirFiltrosBtn = document.getElementById("abrirFiltros");
+  const filtroModal = document.getElementById("filtroModal");
+  const filtroCampo = document.getElementById("filtroCampo");
+  const filtroPastura = document.getElementById("filtroPastura");
+  const filtroCategoria = document.getElementById("filtroCategoria");
+  const aplicarFiltrosBtn = document.getElementById("aplicarFiltros");
+  const limpiarFiltrosBtn = document.getElementById("limpiarFiltros");
+  const cerrarFiltrosBtn = document.getElementById("cerrarFiltros");
+  const resumenFiltros = document.getElementById("resumenFiltros");
+
+  const FILTROS = {
+    campoId: "",
+    pasturaId: "",
+    categoria: "",
+  };
+
+  function clonarLOV(
+    origenSelect,
+    destinoSelect,
+    { prependCualquiera = true } = {}
+  ) {
+    destinoSelect.innerHTML = "";
+    if (prependCualquiera) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "Cualquiera";
+      destinoSelect.appendChild(opt);
+    }
+    Array.from(origenSelect.options).forEach((o) => {
+      const opt = document.createElement("option");
+      opt.value = o.value;
+      opt.textContent = o.textContent;
+      destinoSelect.appendChild(opt);
+    });
+  }
+
+  function prepararLOVsModal() {
+    clonarLOV(campoId, filtroCampo);
+    clonarLOV(pasturaId, filtroPastura);
+    clonarLOV(categoriaId, filtroCategoria);
+    const optConCat = document.createElement("option");
+    optConCat.value = "__CON_CATEGORIA__";
+    optConCat.textContent = "Todas las categorías (sólo los que tienen)";
+    filtroCategoria.insertBefore(optConCat, filtroCategoria.options[1] || null);
+    filtroCampo.value = FILTROS.campoId || "";
+    filtroPastura.value = FILTROS.pasturaId || "";
+    filtroCategoria.value = FILTROS.categoria || "";
+  }
+
+  function abrirModalFiltros() {
+    prepararLOVsModal();
+    filtroModal.style.display = "flex";
+  }
+
+  function cerrarModalFiltros() {
+    filtroModal.style.display = "none";
+  }
+
+  function pintarResumenFiltros() {
+    const partes = [];
+    if (FILTROS.campoId)
+      partes.push(`Campo: ${LOVS.campo[FILTROS.campoId] || FILTROS.campoId}`);
+    if (FILTROS.pasturaId)
+      partes.push(
+        `Pastura: ${LOVS.pastura[FILTROS.pasturaId] || FILTROS.pasturaId}`
+      );
+
+    if (FILTROS.categoria === "__CON_CATEGORIA__") {
+      partes.push("Categoría: sólo con categoría");
+    } else if (FILTROS.categoria) {
+      partes.push(
+        `Categoría: ${LOVS.categoria[FILTROS.categoria] || FILTROS.categoria}`
+      );
+    }
+    resumenFiltros.textContent = partes.length
+      ? `Filtros → ${partes.join(" · ")}`
+      : "";
+  }
+
+  abrirFiltrosBtn.addEventListener("click", abrirModalFiltros);
+  cerrarFiltrosBtn.addEventListener("click", cerrarModalFiltros);
+  filtroModal.addEventListener("click", (e) => {
+    if (e.target === filtroModal) cerrarModalFiltros();
+  });
+
+  limpiarFiltrosBtn.addEventListener("click", async () => {
+    FILTROS.campoId = "";
+    FILTROS.pasturaId = "";
+    FILTROS.categoria = "";
+    prepararLOVsModal();
+    pintarResumenFiltros();
+    await refrescarTabla();
+  });
+
+  aplicarFiltrosBtn.addEventListener("click", async () => {
+    FILTROS.campoId = filtroCampo.value || "";
+    FILTROS.pasturaId = filtroPastura.value || "";
+    FILTROS.categoria = filtroCategoria.value || "";
+    cerrarModalFiltros();
+    pintarResumenFiltros();
+    await refrescarTabla();
+  });
+
+  // ===== Funciones principales =====
   function setRegistrarMode() {
     accionInput.value = "registrar";
     submitBtn.textContent = "Registrar";
@@ -112,13 +216,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
   async function refrescarTabla() {
     try {
-      const potreros = await fetchJSON(`${API}?action=list`, {
+      const params = new URLSearchParams({ action: "list" });
+      if (FILTROS.campoId) params.append("campoId", FILTROS.campoId);
+      if (FILTROS.pasturaId) params.append("pasturaId", FILTROS.pasturaId);
+      if (FILTROS.categoria) {
+        if (FILTROS.categoria === "__CON_CATEGORIA__") {
+          params.append("conCategoria", "1");
+        } else {
+          params.append("categoriaId", FILTROS.categoria);
+        }
+      }
+
+      const potreros = await fetchJSON(`${API}?${params.toString()}`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
-      tableBody.innerHTML = "";
 
+      tableBody.innerHTML = "";
       if (!Array.isArray(potreros) || potreros.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#666;">No hay potreros registrados.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#666;">No hay potreros para los filtros aplicados.</td></tr>`;
         return;
       }
 
@@ -162,27 +277,24 @@ document.addEventListener("DOMContentLoaded", function () {
                   : ""
               }
             </div>
-          </td>
-        `;
+          </td>`;
         tableBody.appendChild(tr);
       }
     } catch (err) {
       console.error(err);
-      tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#a00;">Error cargando tabla. Revisá la consola.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#a00;">Error cargando tabla.</td></tr>`;
     }
   }
 
-  // Delegación de eventos para editar y eliminar
+  // ==== Editar / Eliminar ====
   tableBody.addEventListener("click", (e) => {
     const editBtn = e.target.closest(".js-edit");
     const delBtn = e.target.closest(".js-delete");
-
     if (editBtn) {
       const tr = editBtn.closest("tr");
       setEditarMode(extractDataFromRow(tr));
       return;
     }
-
     if (delBtn) {
       const tr = delBtn.closest("tr");
       const data = extractDataFromRow(tr);
@@ -193,24 +305,17 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Confirmar eliminación
   if (confirmYes) {
     confirmYes.addEventListener("click", async () => {
       const id = modal.dataset.id;
       modal.style.display = "none";
       delete modal.dataset.id;
       if (!id) return;
-
       const fd = new FormData();
       fd.append("accion", "eliminar");
       fd.append("id", id);
-
       try {
-        const data = await fetchJSON(API, {
-          method: "POST",
-          body: fd,
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        });
+        const data = await fetchJSON(API, { method: "POST", body: fd });
         flash(data.tipo, data.mensaje);
         if (data.tipo === "success") {
           await refrescarTabla();
@@ -218,7 +323,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       } catch (err) {
         console.error(err);
-        flash("error", "Error al eliminar el potrero. Revisá la consola.");
+        flash("error", "Error al eliminar el potrero.");
       }
     });
   }
@@ -232,11 +337,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   cancelarEdicion.addEventListener("click", setRegistrarMode);
 
-  // Submit del formulario
+  // ==== Submit Form ====
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    // 🔹 Nueva validación para categoría y cantidad
     const categoriaIdValue = categoriaId.value
       ? parseInt(categoriaId.value)
       : null;
@@ -244,13 +348,10 @@ document.addEventListener("DOMContentLoaded", function () {
       ? parseInt(cantidadCategoria.value)
       : null;
 
-    // 1. Validar: si se ingresó categoría, debe ingresarse una cantidad
     if (categoriaIdValue && !cantidadCategoriaValue) {
       flash("error", "Si ingresas una categoría, debes ingresar la cantidad.");
       return;
     }
-
-    // 2. Validar: si se ingresó cantidad, debe ingresarse una categoría
     if (!categoriaIdValue && cantidadCategoriaValue) {
       flash(
         "error",
@@ -258,8 +359,6 @@ document.addEventListener("DOMContentLoaded", function () {
       );
       return;
     }
-
-    // 3. Validar: la cantidad debe ser un número positivo si se ingresa
     if (cantidadCategoriaValue && cantidadCategoriaValue <= 0) {
       flash("error", "La cantidad debe ser mayor a 0.");
       return;
@@ -279,19 +378,14 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (err) {
       console.error(err);
-      flash("error", "Error al procesar la solicitud. Revisá la consola.");
+      flash("error", "Error al procesar la solicitud.");
     }
   });
 
-  // Estado inicial
-  setRegistrarMode();
-  refrescarTabla();
-
-  // ==== Modal mover categoría ====
+  // ===== Modal mover categoría =====
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest(".js-move");
     if (!btn) return;
-
     const tr = btn.closest("tr");
     const potreroOrigen = tr.dataset.id;
     const modalMover = document.getElementById("moverModal");
@@ -303,10 +397,7 @@ document.addEventListener("DOMContentLoaded", function () {
     selectDestino.innerHTML = `<option value="">-- Seleccioná potrero destino --</option>`;
 
     try {
-      const potreros = await fetchJSON(`${API}?action=list`, {
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-
+      const potreros = await fetchJSON(`${API}?action=list`);
       potreros
         .filter((p) => p.id != potreroOrigen && p.categoriaId == null)
         .forEach((p) => {
@@ -358,10 +449,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // 🔹 Escuchar clic fuera del modal para cerrarlo
   document.getElementById("moverModal").addEventListener("click", (e) => {
     if (e.target.id === "moverModal") {
       document.getElementById("cancelarMover").click();
     }
   });
+
+  // Inicializar
+  setRegistrarMode();
+  pintarResumenFiltros();
+  refrescarTabla();
 });

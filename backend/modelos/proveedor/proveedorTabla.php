@@ -23,7 +23,7 @@ class ProveedorCrearTabla
     $sql = "CREATE TABLE IF NOT EXISTS  proveedores (
               id INT PRIMARY KEY AUTO_INCREMENT, 
               denominacion VARCHAR(255) NOT NULL UNIQUE, 
-              email VARCHAR(255) NOT NULL UNIQUE,
+              emailP VARCHAR(255) NOT NULL UNIQUE,
               telefono INT NOT NULL)";
 
     $conn->query($sql);

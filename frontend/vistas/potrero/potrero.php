@@ -113,10 +113,21 @@ function esc($s)
         <div id="error-cantidadCategoria" class="error-message">Ingresá la cantidad.</div>
       </div>
 
-      <div class="form-group" style="display:flex; gap:10px;">
+      <!-- Botonera + Filtros -->
+      <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
-        <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#888;">Cancelar
-          edición</button>
+
+        <!-- Nuevo: Botón Filtrar (abre modal) -->
+        <button type="button" id="abrirFiltros" class="btn-usuario" style="background:#2d6ca2;">
+          Filtrar
+        </button>
+
+        <!-- Resumen de filtros (se completa por JS) -->
+        <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
+
+        <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#888;">
+          Cancelar edición
+        </button>
       </div>
     </form>
   </div>
@@ -143,6 +154,40 @@ function esc($s)
     </div>
   </div>
 
+  <!-- ===== Modal de Filtros ===== -->
+  <div id="filtroModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:520px; text-align:left;">
+      <h3>Filtrar potreros</h3>
+
+      <div class="form-group">
+        <label for="filtroCampo">Campo</label>
+        <!-- Se completa por JS clonando opciones de #campoId -->
+        <select id="filtroCampo" class="campo-input"></select>
+      </div>
+
+      <div class="form-group">
+        <label for="filtroPastura">Pastura</label>
+        <!-- Se completa por JS clonando opciones de #pasturaId -->
+        <select id="filtroPastura" class="campo-input"></select>
+      </div>
+
+      <div class="form-group">
+        <label for="filtroCategoria">Categoría</label>
+        <!-- Se completa por JS clonando opciones de #categoriaId y agregando la opción especial -->
+        <select id="filtroCategoria" class="campo-input"></select>
+        <small style="display:block; margin-top:6px; color:#555;">
+          Opción especial: <em>Todas las categorías (sólo los que tienen)</em>.
+        </small>
+      </div>
+
+      <div class="modal-actions" style="justify-content:flex-end;">
+        <button type="button" id="limpiarFiltros" class="btn-usuario" style="background:#888;">Limpiar filtros</button>
+        <button type="button" id="aplicarFiltros" class="btn-usuario">Aplicar</button>
+        <button type="button" id="cerrarFiltros" class="btn-usuario" style="background:#c0392b;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Modal de confirmación ===== -->
   <div id="confirmModal" class="modal-overlay" style="display:none;">
     <div class="modal-box">
@@ -155,6 +200,7 @@ function esc($s)
     </div>
   </div>
 
+  <!-- ===== Modal mover categoría ===== -->
   <div id="moverModal" class="modal-overlay" style="display:none;">
     <div class="modal-box">
       <h3>Mover categoría</h3>

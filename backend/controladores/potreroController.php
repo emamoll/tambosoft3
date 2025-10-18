@@ -1,5 +1,4 @@
 <?php
-
 require_once __DIR__ . '../../DAOS/potreroDAO.php';
 require_once __DIR__ . '../../modelos/potrero/potreroModelo.php';
 
@@ -23,31 +22,43 @@ class PotreroController
     header('Content-Type: application/json; charset=utf-8');
 
     if ($this->connError !== null) {
-      echo json_encode(['tipo' => 'error', 'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError]);
+      echo json_encode([
+        'tipo' => 'error',
+        'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError
+      ]);
       exit;
     }
 
     $accion = $_GET['action'] ?? null;
 
+    // ======== LISTAR (GET con filtros opcionales) ========
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'list') {
-      $potreros = $this->potreroDAO->getAllPotreros();
+      $filtros = [
+        'campoId' => isset($_GET['campoId']) && $_GET['campoId'] !== '' ? (int) $_GET['campoId'] : null,
+        'pasturaId' => isset($_GET['pasturaId']) && $_GET['pasturaId'] !== '' ? (int) $_GET['pasturaId'] : null,
+        'categoriaId' => isset($_GET['categoriaId']) && $_GET['categoriaId'] !== '' ? (int) $_GET['categoriaId'] : null,
+        'conCategoria' => isset($_GET['conCategoria']) ? (bool) $_GET['conCategoria'] : false
+      ];
+
+      $potreros = $this->potreroDAO->listar($filtros);
       $out = [];
       foreach ($potreros as $potrero) {
         $out[] = [
-          'id' => $potrero->getId(),
-          'nombre' => $potrero->getNombre(),
-          'pasturaId' => $potrero->getPasturaId(),
-          'categoriaId' => $potrero->getCategoriaId(),
-          'cantidadCategoria' => $potrero->getCantidadCategoria(),
-          'campoId' => $potrero->getCampoId(),
+          'id' => $potrero['id'] ?? $potrero->getId(),
+          'nombre' => $potrero['nombre'] ?? $potrero->getNombre(),
+          'pasturaId' => $potrero['pasturaId'] ?? $potrero->getPasturaId(),
+          'categoriaId' => $potrero['categoriaId'] ?? $potrero->getCategoriaId(),
+          'cantidadCategoria' => $potrero['cantidadCategoria'] ?? $potrero->getCantidadCategoria(),
+          'campoId' => $potrero['campoId'] ?? $potrero->getCampoId(),
         ];
       }
       echo json_encode($out);
       exit;
     }
 
+    // ======== ACCIONES POST ========
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-      // Unificar la lectura de datos POST (JSON o formulario clásico)
+      // Unificar lectura JSON o POST clásico
       $data = $_POST;
       if (empty($data)) {
         $input = file_get_contents('php://input');
@@ -55,35 +66,39 @@ class PotreroController
       }
 
       $accion = $data['accion'] ?? null;
-      $id = intval($data['id'] ?? null);
+      $id = intval($data['id'] ?? 0);
       $nombre = trim($data['nombre'] ?? '');
-      $pasturaId = intval($data['pasturaId'] ?? '');
+      $pasturaId = intval($data['pasturaId'] ?? 0);
       $categoriaId = isset($data['categoriaId']) && $data['categoriaId'] !== '' ? intval($data['categoriaId']) : null;
       $cantidadCategoria = isset($data['cantidadCategoria']) && $data['cantidadCategoria'] !== '' ? intval($data['cantidadCategoria']) : null;
-      $campoId = intval($data['campoId'] ?? '');
+      $campoId = intval($data['campoId'] ?? 0);
 
       $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida'];
 
       switch ($accion) {
+        // ======== REGISTRAR ========
         case 'registrar':
           if (empty($nombre) || empty($pasturaId) || empty($campoId)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Por favor, completá los campos obligatorios para registrar'];
           } elseif ($this->potreroDAO->existeNombre($nombre)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Ya existe un potrero con ese nombre'];
           } elseif ($categoriaId !== null && ($cantidadCategoria === null || !is_numeric($cantidadCategoria))) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresa una categoría, debe ingresar la cantidad.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una categoría, debés ingresar la cantidad.'];
           } elseif ($cantidadCategoria !== null && ($categoriaId === null || !is_numeric($categoriaId))) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresa una cantidad, debe seleccionar una categoría.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una cantidad, debés seleccionar una categoría.'];
           } elseif ($cantidadCategoria !== null && $cantidadCategoria <= 0) {
             $res = ['tipo' => 'error', 'mensaje' => 'La cantidad debe ser mayor a 0.'];
           } else {
-            $ok = $this->potreroDAO->registrarPotrero(new Potrero(null, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId));
+            $ok = $this->potreroDAO->registrarPotrero(
+              new Potrero(null, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId)
+            );
             $res = $ok
               ? ['tipo' => 'success', 'mensaje' => 'Potrero registrado correctamente']
               : ['tipo' => 'error', 'mensaje' => 'Error al registrar el potrero'];
           }
           break;
 
+        // ======== MODIFICAR ========
         case 'modificar':
           if (!$id) {
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido para modificar'];
@@ -92,19 +107,22 @@ class PotreroController
           } elseif ($this->potreroDAO->existeNombre($nombre, $id)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Ya existe un potrero con ese nombre'];
           } elseif ($categoriaId !== null && ($cantidadCategoria === null || !is_numeric($cantidadCategoria))) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresa una categoría, debe ingresar la cantidad.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una categoría, debés ingresar la cantidad.'];
           } elseif ($cantidadCategoria !== null && ($categoriaId === null || !is_numeric($categoriaId))) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresa una cantidad, debe seleccionar una categoría.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una cantidad, debés seleccionar una categoría.'];
           } elseif ($cantidadCategoria !== null && $cantidadCategoria <= 0) {
             $res = ['tipo' => 'error', 'mensaje' => 'La cantidad debe ser mayor a 0.'];
           } else {
-            $ok = $this->potreroDAO->modificarPotrero(new Potrero($id, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId));
+            $ok = $this->potreroDAO->modificarPotrero(
+              new Potrero($id, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId)
+            );
             $res = $ok
               ? ['tipo' => 'success', 'mensaje' => 'Potrero modificado correctamente']
               : ['tipo' => 'error', 'mensaje' => 'Error al modificar el potrero'];
           }
           break;
 
+        // ======== ELIMINAR ========
         case 'eliminar':
           if (!$id) {
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido para eliminar'];
@@ -124,6 +142,7 @@ class PotreroController
           }
           break;
 
+        // ======== MOVER CATEGORÍA ========
         case 'moverCategoria':
           if (!isset($data['idOrigen']) || !isset($data['idDestino'])) {
             $res = ['tipo' => 'error', 'mensaje' => 'Datos inválidos para mover la categoría'];
@@ -134,62 +153,50 @@ class PotreroController
           }
           break;
       }
+
       echo json_encode($res);
       exit;
     }
   }
 
-  // Funciones de consulta completas
+  // ===== Métodos de apoyo =====
   public function obtenerPotreros()
   {
-    if ($this->connError !== null) {
+    if ($this->connError !== null)
       return [];
-    }
     return $this->potreroDAO->getAllPotreros();
   }
 
   public function getPotreroById($id)
   {
-    if ($this->connError !== null) {
+    if ($this->connError !== null)
       return null;
-    }
     return $this->potreroDAO->getPotreroById($id);
   }
 
   public function getPotreroByPastura($pasturaId)
   {
-    if ($this->connError !== null) {
+    if ($this->connError !== null)
       return null;
-    }
     return $this->potreroDAO->getPotreroByPastura($pasturaId);
   }
 
   public function getPotreroByCategoria($categoriaId)
   {
-    if ($this->connError !== null) {
+    if ($this->connError !== null)
       return null;
-    }
     return $this->potreroDAO->getPotreroByCategoria($categoriaId);
-  }
-
-  public function getPotreroByCantidadCategoria($cantidadCategoria)
-  {
-    if ($this->connError !== null) {
-      return null;
-    }
-    return $this->potreroDAO->getPotreroByCantidadCategoria($cantidadCategoria);
   }
 
   public function getPotreroByCampo($campoId)
   {
-    if ($this->connError !== null) {
+    if ($this->connError !== null)
       return null;
-    }
     return $this->potreroDAO->getPotreroByCampo($campoId);
   }
 }
 
-// 🔹 Lógica principal para procesar las peticiones AJAX
+// ===== Punto de entrada principal (AJAX o POST clásico) =====
 if (php_sapi_name() !== 'cli') {
   $isAjax = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
   if ($isAjax) {
