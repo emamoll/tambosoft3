@@ -8,7 +8,7 @@
   --sidebar-ancho-colapsado: 70px;
 }
 
-/* ===== Formulario Registro ===== */
+/* ===== FORMULARIO ===== */
 .form-container {
   background: #fff;
   padding: 1.5rem 2rem;
@@ -74,126 +74,7 @@
   background: var(--color-primario);
 }
 
-/* ===== Login / Logo ===== */
-.logo-login {
-  display: flex;
-  justify-content: center;
-}
-.logo-login img {
-  height: 200px;
-  width: auto;
-}
-
-/* ===== Password Toggle ===== */
-.password-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.password-wrapper input {
-  flex: 1;
-  padding-right: 40px;
-}
-.toggle-password {
-  position: absolute;
-  right: 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1rem;
-  color: #666;
-}
-.toggle-password:hover {
-  color: var(--color-primario);
-}
-
-.form-container.form {
-  max-width: 800px;
-}
-
-.form-container.table {
-  max-width: 70%;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2000;
-}
-
-.modal-box {
-  background: #fff;
-  padding: 20px 30px;
-  border-radius: 12px;
-  max-width: 400px;
-  width: 90%;
-  text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.modal-box h3 {
-  margin-bottom: 10px;
-  color: var(--color-secundario);
-}
-
-.modal-box p {
-  margin-bottom: 20px;
-  font-size: 0.95rem;
-  color: #333;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-}
-
-/* ===== Responsive ===== */
-@media (max-width: 600px) {
-  .form-container {
-    padding: 1rem;
-    margin: 20px;
-    max-width: 100%;
-  }
-  .form-container h2 {
-    font-size: 1.3rem;
-  }
-  .form-group input {
-    font-size: 0.9rem;
-    padding: 0.5rem;
-  }
-  .btn-usuario {
-    font-size: 0.95rem;
-    padding: 0.6rem;
-  }
-}
-
-/* ===== Alertas ===== */
-.alert {
-  padding: 10px 15px !important;
-  border-radius: 6px !important;
-  margin-bottom: 15px !important;
-  font-size: 0.95rem !important;
-}
-.alert-success {
-  background-color: #44f26d !important;
-  color: #000000 !important;
-  border: 1px solid #00ff3c !important;
-}
-.alert-danger {
-  background-color: #ff4958 !important;
-  color: #000000 !important;
-  border: 1px solid #fe0019 !important;
-}
-
-/* ===== Tabla moderna ===== */
+/* ===== TABLA MODERNA ===== */
 .table-wrapper {
   overflow-x: auto;
 }
@@ -216,7 +97,7 @@
 
 .table-modern th,
 .table-modern td {
-  padding: 10px 14px; /* filas más finas */
+  padding: 10px 14px;
   text-align: left;
   border-bottom: 1px solid #e0e0e0;
 }
@@ -226,35 +107,33 @@
   letter-spacing: 0.5px;
 }
 
-/* Colores alternos más visibles */
 .table-modern tbody tr:nth-child(odd) {
   background: #ffffff;
 }
 .table-modern tbody tr:nth-child(even) {
-  background: #eef2f6; /* gris azulado más notorio */
+  background: #eef2f6;
 }
-
-/* Hover más marcado */
 .table-modern tbody tr:hover {
-  background: #dceeff; /* celeste clarito */
+  background: #dceeff;
 }
 
-.table-modern tbody td {
-  white-space: nowrap;
+.table-modern th:first-child,
+.table-modern td:first-child {
+  display: none;
 }
 
-/* Columna de acciones más ancha */
 .table-modern th:last-child,
 .table-modern td:last-child {
   text-align: center;
   width: 150px;
 }
 
-/* ===== Botones de acción ===== */
+/* ===== BOTONES DE ACCIÓN ===== */
 .table-actions {
   display: flex;
   gap: 10px;
 }
+
 .btn-icon {
   background: none;
   border: none;
@@ -276,49 +155,154 @@
   color: #e74c3c;
   transform: scale(1.15);
 }
-
-.table-modern th:first-child,
-.table-modern td:first-child {
-  display: none;
-}
-
-.form-container .form-group select.campo-input,
-.form-container .form-group input[type="text"],
-.form-container .form-group input[type="number"] {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #cfcfcf;
-  border-radius: 6px;
-  background: #fff;
-  outline: none;
-  height: 40px;
-  box-sizing: border-box;
-}
-
-.form-container .form-group select.campo-input:focus,
-.form-container .form-group input[type="text"]:focus,
-.form-container .form-group input[type="number"]:focus {
-  border-color: #4aa3ff;
-  box-shadow: 0 0 0 2px rgba(74, 163, 255, 0.15);
-}
-
 .btn-icon.move {
-  color: #1e8449;
+  font-size: 18px;
+  color: #8b4513;
+  display: inline-block !important;
+  visibility: visible !important;
 }
 .btn-icon.move:hover {
   color: #27ae60;
   transform: scale(1.2);
 }
 
-.btn-icon.move {
-  font-size: 18px;
-  color: #8b4513; /* Marrón oscuro visible sobre fondo claro */
-  display: inline-block !important;
-  visibility: visible !important;
-  width: auto !important;
-  height: auto !important;
+/* ===== ALERTAS ===== */
+.alert {
+  padding: 10px 15px !important;
+  border-radius: 6px !important;
+  margin-bottom: 15px !important;
+  font-size: 0.95rem !important;
+}
+.alert-success {
+  background-color: #44f26d !important;
+  color: #000 !important;
+  border: 1px solid #00ff3c !important;
+}
+.alert-danger {
+  background-color: #ff4958 !important;
+  color: #000 !important;
+  border: 1px solid #fe0019 !important;
 }
 
+/* ===== MODAL GENERAL ===== */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 20px 30px;
+  border-radius: 14px;
+  max-width: 600px;
+  width: 90%;
+  text-align: left;
+  animation: fadeIn 0.25s ease;
+  overflow-y: auto;
+  max-height: 80vh;
+}
+
+.modal-content h3 {
+  margin-bottom: 12px;
+  color: var(--color-secundario);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-primary {
+  background: var(--color-primario);
+  color: #fff;
+}
+.btn-secondary {
+  background: #e0e6ee;
+  color: #333;
+}
+.btn-cancel {
+  background: #ff4958;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #4a8ad1;
+}
+.btn-cancel:hover {
+  background: #ff2538;
+}
+
+/* ===== NUEVO: FILTROS CON RADIO ===== */
+#resumenFiltros {
+  padding: 6px 10px;
+  background: #eef2f6;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.filtro-grupo {
+  margin-bottom: 1rem;
+}
+
+.filtro-grupo h4 {
+  font-size: 1rem;
+  color: var(--color-secundario);
+  margin-bottom: 6px;
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.radio-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #ccd6e0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.radio-card:hover {
+  background: #eaf3ff;
+  border-color: var(--color-primario);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+}
+
+.radio-card input[type="radio"] {
+  transform: translateY(1px);
+}
+
+.radio-card .radio-label {
+  font-size: 0.9rem;
+  color: #222;
+}
+
+/* ===== MODAL MOVER CATEGORÍA ===== */
 #moverModal {
   display: none;
   position: fixed;
@@ -327,28 +311,25 @@
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.55);
-  z-index: 9999 !important; /* forzar sobre cualquier overlay bootstrap */
   justify-content: center;
   align-items: center;
+  z-index: 9999;
 }
 
-#moverModal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
+#moverModal .modal-content {
+  max-width: 420px;
+  padding: 25px 30px;
+}
+
+#moverModal select {
   width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: 9999 !important; /* por encima de cualquier backdrop */
-  justify-content: center;
-  align-items: center;
+  padding: 8px;
+  margin-top: 8px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
 }
 
-.modal-backdrop {
-  display: none !important;
-}
-
+/* ===== ANIMACIÓN ===== */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -360,8 +341,20 @@
   }
 }
 
-#resumenFiltros {
-  padding: 6px 10px;
-  background: #eef2f6;
-  border-radius: 8px;
+/* ===== RESPONSIVE ===== */
+@media (max-width: 600px) {
+  .form-container {
+    padding: 1rem;
+    margin: 20px;
+    max-width: 100%;
+  }
+  .form-container h2 {
+    font-size: 1.3rem;
+  }
+  .radio-card {
+    flex: 1 1 100%;
+  }
+  .modal-content {
+    padding: 16px 20px;
+  }
 }

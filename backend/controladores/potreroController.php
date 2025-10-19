@@ -42,14 +42,15 @@ class PotreroController
 
       $potreros = $this->potreroDAO->listar($filtros);
       $out = [];
+      // Se utiliza el array asociativo devuelto por DAO
       foreach ($potreros as $potrero) {
         $out[] = [
-          'id' => $potrero['id'] ?? $potrero->getId(),
-          'nombre' => $potrero['nombre'] ?? $potrero->getNombre(),
-          'pasturaId' => $potrero['pasturaId'] ?? $potrero->getPasturaId(),
-          'categoriaId' => $potrero['categoriaId'] ?? $potrero->getCategoriaId(),
-          'cantidadCategoria' => $potrero['cantidadCategoria'] ?? $potrero->getCantidadCategoria(),
-          'campoId' => $potrero['campoId'] ?? $potrero->getCampoId(),
+          'id' => $potrero['id'],
+          'nombre' => $potrero['nombre'],
+          'pasturaId' => $potrero['pasturaId'],
+          'categoriaId' => $potrero['categoriaId'],
+          'cantidadCategoria' => $potrero['cantidadCategoria'],
+          'campoId' => $potrero['campoId'],
         ];
       }
       echo json_encode($out);
@@ -142,13 +143,16 @@ class PotreroController
           }
           break;
 
-        // ======== MOVER CATEGORÍA ========
+        // ======== MOVER CATEGORÍA (TOTAL) ========
         case 'moverCategoria':
+          // Se espera solo idOrigen y idDestino.
           if (!isset($data['idOrigen']) || !isset($data['idDestino'])) {
             $res = ['tipo' => 'error', 'mensaje' => 'Datos inválidos para mover la categoría'];
           } else {
             $idOrigen = intval($data['idOrigen']);
             $idDestino = intval($data['idDestino']);
+
+            // Llama al DAO sin cantidad.
             $res = $this->potreroDAO->moverCategoria($idOrigen, $idDestino);
           }
           break;

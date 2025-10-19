@@ -16,7 +16,6 @@ $controllerCategoria = new CategoriaController();
 $controllerCampo = new CampoController();
 
 $mensaje = null;
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $mensaje = $controllerPotrero->procesarFormularios();
 }
@@ -35,15 +34,15 @@ function esc($s)
 <html lang="es-ar">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tambosoft: Potreros</title>
-  <link rel="icon" href=".../../../../img/logo2.png" type="image/png">
-  <link rel="stylesheet" href="../../css/estilos.css">
-  <link rel="stylesheet" href="../../css/potrero.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" href="../../../img/logo2.png" type="image/png" />
+  <link rel="stylesheet" href="../../css/estilos.css" />
+  <link rel="stylesheet" href="../../css/potrero.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-    crossorigin="anonymous">
+    crossorigin="anonymous" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
     crossorigin="anonymous"></script>
   <script src="../../javascript/header.js"></script>
@@ -53,12 +52,11 @@ function esc($s)
   <?php require_once __DIR__ . '../../secciones/header.php'; ?>
   <?php require_once __DIR__ . '../../secciones/navbar.php'; ?>
 
-  <!-- ===== Formulario ===== -->
+  <!-- ===== FORMULARIO PRINCIPAL ===== -->
   <div class="form-container form">
     <h2 id="form-title"><i class="fas fa-seedling"></i> Registrar Potrero</h2>
 
     <form id="potreroForm" method="post" action="../../../backend/controladores/potreroController.php" novalidate>
-      <!-- Hidden -->
       <input type="hidden" id="id" name="id" />
       <input type="hidden" id="accion" name="accion" value="registrar" />
 
@@ -113,16 +111,10 @@ function esc($s)
         <div id="error-cantidadCategoria" class="error-message">Ingresá la cantidad.</div>
       </div>
 
-      <!-- Botonera + Filtros -->
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
 
-        <!-- Nuevo: Botón Filtrar (abre modal) -->
-        <button type="button" id="abrirFiltros" class="btn-usuario" style="background:#2d6ca2;">
-          Filtrar
-        </button>
-
-        <!-- Resumen de filtros (se completa por JS) -->
+        <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
         <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
 
         <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#888;">
@@ -132,7 +124,7 @@ function esc($s)
     </form>
   </div>
 
-  <!-- ===== Tabla ===== -->
+  <!-- ===== TABLA DE POTREROS ===== -->
   <div class="form-container table">
     <h2>Potreros Registrados</h2>
     <div class="table-wrapper">
@@ -148,70 +140,66 @@ function esc($s)
             <th>Acciones</th>
           </tr>
         </thead>
-        <tbody>
-        </tbody>
+        <tbody></tbody>
       </table>
     </div>
   </div>
 
-  <!-- ===== Modal de Filtros ===== -->
-  <div id="filtroModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="max-width:520px; text-align:left;">
-      <h3>Filtrar potreros</h3>
+  <!-- ===== MODAL DE FILTROS (RADIOS) ===== -->
+  <div id="filtroModal" class="modal">
+    <div class="modal-content">
+      <h3>Filtrar Potreros</h3>
 
-      <div class="form-group">
-        <label for="filtroCampo">Campo</label>
-        <!-- Se completa por JS clonando opciones de #campoId -->
-        <select id="filtroCampo" class="campo-input"></select>
+      <div class="filtro-grupo">
+        <h4>Campo</h4>
+        <div id="filtroCampoGroup" class="radio-group"></div>
       </div>
 
-      <div class="form-group">
-        <label for="filtroPastura">Pastura</label>
-        <!-- Se completa por JS clonando opciones de #pasturaId -->
-        <select id="filtroPastura" class="campo-input"></select>
+      <div class="filtro-grupo">
+        <h4>Pastura</h4>
+        <div id="filtroPasturaGroup" class="radio-group"></div>
       </div>
 
-      <div class="form-group">
-        <label for="filtroCategoria">Categoría</label>
-        <!-- Se completa por JS clonando opciones de #categoriaId y agregando la opción especial -->
-        <select id="filtroCategoria" class="campo-input"></select>
-        <small style="display:block; margin-top:6px; color:#555;">
-          Opción especial: <em>Todas las categorías (sólo los que tienen)</em>.
-        </small>
+      <div class="filtro-grupo">
+        <h4>Categoría</h4>
+        <div id="filtroCategoriaGroup" class="radio-group"></div>
       </div>
 
-      <div class="modal-actions" style="justify-content:flex-end;">
-        <button type="button" id="limpiarFiltros" class="btn-usuario" style="background:#888;">Limpiar filtros</button>
-        <button type="button" id="aplicarFiltros" class="btn-usuario">Aplicar</button>
-        <button type="button" id="cerrarFiltros" class="btn-usuario" style="background:#c0392b;">Cerrar</button>
+      <div class="modal-actions">
+        <button id="aplicarFiltros" class="btn btn-primary">Aplicar</button>
+        <button id="limpiarFiltros" class="btn btn-secondary">Limpiar</button>
+        <button id="cerrarFiltros" class="btn btn-cancel">Cerrar</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== Modal de confirmación ===== -->
-  <div id="confirmModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
+
+  <!-- ===== MODAL CONFIRMACIÓN ===== -->
+  <div id="confirmModal" class="modal" style="display:none;">
+    <div class="modal-content">
       <h3>Confirmar eliminación</h3>
       <p id="confirmText">¿Seguro que deseas eliminar este potrero?</p>
       <div class="modal-actions">
-        <button id="confirmYes" class="btn-usuario" style="width:auto;">Sí, eliminar</button>
-        <button id="confirmNo" class="btn-usuario" style="width:auto; background:#888;">Cancelar</button>
+        <button id="confirmYes" class="btn btn-primary">Sí, eliminar</button>
+        <button id="confirmNo" class="btn btn-secondary">Cancelar</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== Modal mover categoría ===== -->
-  <div id="moverModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
-      <h3>Mover categoría</h3>
+  <!-- ===== MODAL MOVER CATEGORÍA ===== -->
+  <div id="moverModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>Mover Categoría</h3>
       <p>Seleccioná a qué potrero querés mover la categoría:</p>
-      <select id="potreroDestino" class="campo-input">
+      <div class="form-group" id="origenInfo" style="margin-bottom:15px; text-align:left;"></div>
+
+      <select id="potreroDestino" class="campo-input" style="margin-bottom:15px;">
         <option value="">-- Seleccioná un potrero destino --</option>
       </select>
+
       <div class="modal-actions" style="margin-top:15px;">
-        <button id="confirmMover" type="button" class="btn-usuario" style="width:auto;">Mover</button>
-        <button id="cancelarMover" type="button" class="btn-usuario"
-          style="width:auto; background:#aaa;">Cancelar</button>
+        <button id="confirmMover" type="button" class="btn btn-primary">Mover</button>
+        <button id="cancelarMover" type="button" class="btn btn-secondary">Cancelar</button>
       </div>
     </div>
   </div>

@@ -85,7 +85,7 @@ class PotreroDAO
     return $ok;
   }
 
-  // 🔹 Listar potreros con filtros dinámicos
+  // 🔹 Listar potreros con filtros dinámicos (Clave para que los filtros funcionen)
   public function listar(array $filtros = []): array
   {
     $sql = "SELECT * FROM potreros WHERE 1=1";
@@ -118,7 +118,9 @@ class PotreroDAO
     $sql .= " ORDER BY nombre ASC";
 
     $stmt = $this->conn->prepare($sql);
-    if ($params) {
+
+    // CORRECCIÓN: Usar bind_param solo si hay parámetros
+    if (!empty($params)) {
       $stmt->bind_param($types, ...$params);
     }
 
@@ -174,7 +176,7 @@ class PotreroDAO
       : null;
   }
 
-  // 🔹 Obtener por campo/pastura/categoría
+  // 🔹 Obtener por campo (RESTAURADO)
   public function getPotreroByCampo($campoId): ?Potrero
   {
     $sql = "SELECT * FROM potreros WHERE campoId = ?";
@@ -225,43 +227,74 @@ class PotreroDAO
     return $ok;
   }
 
-  // 🔹 Mover categoría entre potreros
+  // 🔹 Mover categoría entre potreros (MOVER TOTAL)
   public function moverCategoria($idOrigen, $idDestino)
   {
+    $this->conn->begin_transaction();
+
     try {
-      // 1️⃣ Obtener datos de origen
-      $sql = "SELECT categoriaId, cantidadCategoria FROM potreros WHERE id = ?";
-      $stmt = $this->conn->prepare($sql);
+      // 1️⃣ Obtener datos de origen (cantidad y categoría)
+      $sqlSelect = "SELECT categoriaId, cantidadCategoria FROM potreros WHERE id = ?";
+      $stmt = $this->conn->prepare($sqlSelect);
       $stmt->bind_param("i", $idOrigen);
       $stmt->execute();
       $res = $stmt->get_result();
-      if ($res->num_rows === 0) {
+
+      if (!$res || $res->num_rows === 0) {
+        $this->conn->rollback();
         return ['tipo' => 'error', 'mensaje' => 'Potrero origen no encontrado'];
       }
+
       $row = $res->fetch_assoc();
+      $categoriaId = $row['categoriaId'];
+      $cantidadTotalMover = $row['cantidadCategoria'];
       $stmt->close();
 
-      if ($row['categoriaId'] === null) {
-        return ['tipo' => 'error', 'mensaje' => 'El potrero origen no tiene categoría asignada'];
+      // 2️⃣ Validar que haya animales para mover
+      if ($categoriaId === null || $cantidadTotalMover === null || $cantidadTotalMover <= 0) {
+        $this->conn->rollback();
+        return ['tipo' => 'error', 'mensaje' => 'El potrero origen no tiene animales asignados.'];
       }
 
-      // 2️⃣ Actualizar destino
-      $sqlU = "UPDATE potreros SET categoriaId = ?, cantidadCategoria = ? WHERE id = ?";
-      $stmtU = $this->conn->prepare($sqlU);
-      $stmtU->bind_param("iii", $row['categoriaId'], $row['cantidadCategoria'], $idDestino);
-      $stmtU->execute();
-      $stmtU->close();
+      // 3️⃣ Verificar que destino esté vacío 
+      $sqlSelectDestino = "SELECT categoriaId FROM potreros WHERE id = ?";
+      $stmtDestino = $this->conn->prepare($sqlSelectDestino);
+      $stmtDestino->bind_param("i", $idDestino);
+      $stmtDestino->execute();
+      $rowDestino = $stmtDestino->get_result()->fetch_assoc();
+      $stmtDestino->close();
 
-      // 3️⃣ Limpiar origen
-      $sqlC = "UPDATE potreros SET categoriaId = NULL, cantidadCategoria = NULL WHERE id = ?";
-      $stmtC = $this->conn->prepare($sqlC);
-      $stmtC->bind_param("i", $idOrigen);
-      $stmtC->execute();
-      $stmtC->close();
+      if ($rowDestino === null) {
+        $this->conn->rollback();
+        return ['tipo' => 'error', 'mensaje' => 'Potrero destino no encontrado'];
+      }
 
-      return ['tipo' => 'success', 'mensaje' => 'Categoría movida correctamente'];
+      if ($rowDestino['categoriaId'] !== null) {
+        $this->conn->rollback();
+        return ['tipo' => 'error', 'mensaje' => 'El potrero destino no está vacío. Solo se permite mover a potreros libres.'];
+      }
+
+      // 4️⃣ Actualizar destino (Mover la cantidad TOTAL)
+      $sqlUpdateDestino = "UPDATE potreros SET categoriaId = ?, cantidadCategoria = ? WHERE id = ?";
+      $stmt2 = $this->conn->prepare($sqlUpdateDestino);
+      $stmt2->bind_param("iii", $categoriaId, $cantidadTotalMover, $idDestino);
+      $stmt2->execute();
+      $stmt2->close();
+
+      // 5️⃣ Actualizar origen (Limpiar categoría y cantidad)
+      $sqlUpdateOrigen = "UPDATE potreros SET categoriaId = NULL, cantidadCategoria = NULL WHERE id = ?";
+      $stmt3 = $this->conn->prepare($sqlUpdateOrigen);
+      $stmt3->bind_param("i", $idOrigen);
+      $stmt3->execute();
+      $stmt3->close();
+
+      $this->conn->commit();
+      return ['tipo' => 'success', 'mensaje' => 'Movimiento de la categoría completado correctamente.'];
+
     } catch (Exception $e) {
-      return ['tipo' => 'error', 'mensaje' => 'Error al mover la categoría: ' . $e->getMessage()];
+      $this->conn->rollback();
+      error_log("Error en moverCategoria: " . $e->getMessage());
+      return ['tipo' => 'error', 'mensaje' => 'Error en el proceso de movimiento.'];
     }
   }
 }

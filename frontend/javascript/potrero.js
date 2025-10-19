@@ -36,6 +36,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function buildLovMap(selectEl) {
     const map = {};
+    if (!selectEl) return map;
     Array.from(selectEl.options).forEach((opt) => {
       if (opt.value) map[opt.value] = opt.textContent.trim();
     });
@@ -75,9 +76,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // ====== Filtros ======
   const abrirFiltrosBtn = document.getElementById("abrirFiltros");
   const filtroModal = document.getElementById("filtroModal");
-  const filtroCampo = document.getElementById("filtroCampo");
-  const filtroPastura = document.getElementById("filtroPastura");
-  const filtroCategoria = document.getElementById("filtroCategoria");
   const aplicarFiltrosBtn = document.getElementById("aplicarFiltros");
   const limpiarFiltrosBtn = document.getElementById("limpiarFiltros");
   const cerrarFiltrosBtn = document.getElementById("cerrarFiltros");
@@ -89,41 +87,77 @@ document.addEventListener("DOMContentLoaded", function () {
     categoria: "",
   };
 
-  function clonarLOV(
-    origenSelect,
-    destinoSelect,
-    { prependCualquiera = true } = {}
-  ) {
-    destinoSelect.innerHTML = "";
-    if (prependCualquiera) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "Cualquiera";
-      destinoSelect.appendChild(opt);
-    }
-    Array.from(origenSelect.options).forEach((o) => {
-      const opt = document.createElement("option");
-      opt.value = o.value;
-      opt.textContent = o.textContent;
-      destinoSelect.appendChild(opt);
-    });
+  // ==== Nuevo sistema de radios ====
+  function createRadio(name, value, label, checked = false) {
+    const id = `${name}_${value || "cualquiera"}`.replace(/\W+/g, "_");
+    const wrap = document.createElement("label");
+    wrap.className = "radio-card";
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = value ?? "";
+    if (checked) input.checked = true;
+    const span = document.createElement("span");
+    span.className = "radio-label";
+    span.textContent = label;
+    wrap.appendChild(input);
+    wrap.appendChild(span);
+    return wrap;
   }
 
-  function prepararLOVsModal() {
-    clonarLOV(campoId, filtroCampo);
-    clonarLOV(pasturaId, filtroPastura);
-    clonarLOV(categoriaId, filtroCategoria);
-    const optConCat = document.createElement("option");
-    optConCat.value = "__CON_CATEGORIA__";
-    optConCat.textContent = "Todas las categorías (sólo los que tienen)";
-    filtroCategoria.insertBefore(optConCat, filtroCategoria.options[1] || null);
-    filtroCampo.value = FILTROS.campoId || "";
-    filtroPastura.value = FILTROS.pasturaId || "";
-    filtroCategoria.value = FILTROS.categoria || "";
+  function buildRadioGroupFromSelect(
+    selectEl,
+    containerEl,
+    name,
+    currentValue,
+    extras = []
+  ) {
+    if (!selectEl || !containerEl) return;
+    containerEl.innerHTML = "";
+    containerEl.appendChild(createRadio(name, "", "Cualquiera", !currentValue));
+    extras.forEach(({ value, label }) =>
+      containerEl.appendChild(
+        createRadio(name, value, label, currentValue === value)
+      )
+    );
+    Array.from(selectEl.options)
+      .filter((o) => o.value)
+      .forEach((o) => {
+        const checked =
+          currentValue && String(currentValue) === String(o.value);
+        containerEl.appendChild(
+          createRadio(name, o.value, o.textContent.trim(), checked)
+        );
+      });
+  }
+
+  function prepararRadiosModal() {
+    const campoGroup = document.getElementById("filtroCampoGroup");
+    const pasturaGroup = document.getElementById("filtroPasturaGroup");
+    const categoriaGroup = document.getElementById("filtroCategoriaGroup");
+    buildRadioGroupFromSelect(
+      campoId,
+      campoGroup,
+      "filtro_campo",
+      FILTROS.campoId
+    );
+    buildRadioGroupFromSelect(
+      pasturaId,
+      pasturaGroup,
+      "filtro_pastura",
+      FILTROS.pasturaId
+    );
+    buildRadioGroupFromSelect(
+      categoriaId,
+      categoriaGroup,
+      "filtro_categoria",
+      FILTROS.categoria,
+      [{ value: "__CON_CATEGORIA__", label: "Sólo con categoría" }]
+    );
   }
 
   function abrirModalFiltros() {
-    prepararLOVsModal();
+    prepararRadiosModal();
     filtroModal.style.display = "flex";
   }
 
@@ -139,7 +173,6 @@ document.addEventListener("DOMContentLoaded", function () {
       partes.push(
         `Pastura: ${LOVS.pastura[FILTROS.pasturaId] || FILTROS.pasturaId}`
       );
-
     if (FILTROS.categoria === "__CON_CATEGORIA__") {
       partes.push("Categoría: sólo con categoría");
     } else if (FILTROS.categoria) {
@@ -152,31 +185,35 @@ document.addEventListener("DOMContentLoaded", function () {
       : "";
   }
 
-  abrirFiltrosBtn.addEventListener("click", abrirModalFiltros);
-  cerrarFiltrosBtn.addEventListener("click", cerrarModalFiltros);
-  filtroModal.addEventListener("click", (e) => {
+  abrirFiltrosBtn?.addEventListener("click", abrirModalFiltros);
+  cerrarFiltrosBtn?.addEventListener("click", cerrarModalFiltros);
+  filtroModal?.addEventListener("click", (e) => {
     if (e.target === filtroModal) cerrarModalFiltros();
   });
 
-  limpiarFiltrosBtn.addEventListener("click", async () => {
+  limpiarFiltrosBtn?.addEventListener("click", async () => {
     FILTROS.campoId = "";
     FILTROS.pasturaId = "";
     FILTROS.categoria = "";
-    prepararLOVsModal();
+    prepararRadiosModal();
     pintarResumenFiltros();
     await refrescarTabla();
   });
 
-  aplicarFiltrosBtn.addEventListener("click", async () => {
-    FILTROS.campoId = filtroCampo.value || "";
-    FILTROS.pasturaId = filtroPastura.value || "";
-    FILTROS.categoria = filtroCategoria.value || "";
+  aplicarFiltrosBtn?.addEventListener("click", async () => {
+    const val = (name) => {
+      const r = document.querySelector(`input[name="${name}"]:checked`);
+      return r ? r.value : "";
+    };
+    FILTROS.campoId = val("filtro_campo") || "";
+    FILTROS.pasturaId = val("filtro_pastura") || "";
+    FILTROS.categoria = val("filtro_categoria") || "";
     cerrarModalFiltros();
     pintarResumenFiltros();
     await refrescarTabla();
   });
 
-  // ===== Funciones principales =====
+  // ===== CRUD Principal =====
   function setRegistrarMode() {
     accionInput.value = "registrar";
     submitBtn.textContent = "Registrar";
@@ -239,14 +276,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
       for (const p of potreros) {
         const tr = document.createElement("tr");
-
         const _id = p.id ?? "";
         const _nombre = p.nombre ?? "";
         const _pasturaId = String(p.pasturaId ?? "");
         const _categoriaId = String(p.categoriaId ?? "");
         const _cantidad = p.cantidadCategoria ?? "";
         const _campoId = String(p.campoId ?? "");
-
         const pasturaNombre = LOVS.pastura[_pasturaId] || "";
         const categoriaNombre = LOVS.categoria[_categoriaId] || "";
         const campoNombre = LOVS.campo[_campoId] || "";
@@ -305,35 +340,31 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  if (confirmYes) {
-    confirmYes.addEventListener("click", async () => {
-      const id = modal.dataset.id;
-      modal.style.display = "none";
-      delete modal.dataset.id;
-      if (!id) return;
-      const fd = new FormData();
-      fd.append("accion", "eliminar");
-      fd.append("id", id);
-      try {
-        const data = await fetchJSON(API, { method: "POST", body: fd });
-        flash(data.tipo, data.mensaje);
-        if (data.tipo === "success") {
-          await refrescarTabla();
-          setRegistrarMode();
-        }
-      } catch (err) {
-        console.error(err);
-        flash("error", "Error al eliminar el potrero.");
+  confirmYes?.addEventListener("click", async () => {
+    const id = modal.dataset.id;
+    modal.style.display = "none";
+    delete modal.dataset.id;
+    if (!id) return;
+    const fd = new FormData();
+    fd.append("accion", "eliminar");
+    fd.append("id", id);
+    try {
+      const data = await fetchJSON(API, { method: "POST", body: fd });
+      flash(data.tipo, data.mensaje);
+      if (data.tipo === "success") {
+        await refrescarTabla();
+        setRegistrarMode();
       }
-    });
-  }
+    } catch (err) {
+      console.error(err);
+      flash("error", "Error al eliminar el potrero.");
+    }
+  });
 
-  if (confirmNo) {
-    confirmNo.addEventListener("click", () => {
-      modal.style.display = "none";
-      delete modal.dataset.id;
-    });
-  }
+  confirmNo?.addEventListener("click", () => {
+    modal.style.display = "none";
+    delete modal.dataset.id;
+  });
 
   cancelarEdicion.addEventListener("click", setRegistrarMode);
 
@@ -382,16 +413,37 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // ===== Modal mover categoría =====
+  // ==== Mover Categoría (sin cambios) ====
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest(".js-move");
     if (!btn) return;
     const tr = btn.closest("tr");
     const potreroOrigen = tr.dataset.id;
+    const categoriaOrigen = tr.dataset.categoriaId;
+    const cantidadOrigenTotal = tr.dataset.cantidadCategoria;
+    const categoriaNombre = LOVS.categoria[categoriaOrigen] || "N/A";
+
     const modalMover = document.getElementById("moverModal");
     const selectDestino = document.getElementById("potreroDestino");
     const btnConfirm = document.getElementById("confirmMover");
     const btnCancel = document.getElementById("cancelarMover");
+    const origenInfo = document.getElementById("origenInfo");
+
+    if (!modalMover || !selectDestino || !btnConfirm || !origenInfo) {
+      console.error("Error: faltan elementos del modal mover categoría.");
+      flash("error", "Error interno al cargar el modal de movimiento.");
+      return;
+    }
+
+    origenInfo.innerHTML = `
+      <strong>Potrero Origen:</strong> ${tr.dataset.nombre}<br>
+      <strong>Categoría:</strong> ${categoriaNombre}<br>
+      <strong>Cantidad Total a Mover:</strong> ${cantidadOrigenTotal}
+    `;
+
+    modalMover.querySelector("h3").textContent = "Mover Categoría (Total)";
+    modalMover.querySelector("p").textContent =
+      "Seleccioná a qué potrero querés mover toda la categoría:";
 
     modalMover.style.display = "flex";
     selectDestino.innerHTML = `<option value="">-- Seleccioná potrero destino --</option>`;
@@ -409,11 +461,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
       btnConfirm.onclick = async () => {
         const destino = selectDestino.value;
-        if (!destino) return alert("Seleccioná un potrero destino");
+        if (!destino) return flash("error", "Seleccioná un potrero destino.");
         btnConfirm.disabled = true;
-
         try {
-          const resp = await fetchJSON(`${API}`, {
+          const resp = await fetchJSON(API, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -427,12 +478,10 @@ document.addEventListener("DOMContentLoaded", function () {
           });
           flash(resp.tipo, resp.mensaje);
           modalMover.style.display = "none";
-          if (resp.tipo === "success") {
-            await refrescarTabla();
-          }
+          if (resp.tipo === "success") await refrescarTabla();
         } catch (err) {
           console.error(err);
-          alert("Error al mover la categoría.");
+          flash("error", "Error al mover la categoría.");
         } finally {
           btnConfirm.disabled = false;
         }
@@ -441,15 +490,17 @@ document.addEventListener("DOMContentLoaded", function () {
       btnCancel.onclick = () => {
         modalMover.style.display = "none";
         selectDestino.innerHTML = "";
+        selectDestino.innerHTML = "";
+        origenInfo.innerHTML = "";
       };
     } catch (err) {
       console.error(err);
       modalMover.style.display = "none";
-      alert("No se pudo cargar la lista de potreros.");
+      flash("error", "No se pudo cargar la lista de potreros.");
     }
   });
 
-  document.getElementById("moverModal").addEventListener("click", (e) => {
+  document.getElementById("moverModal")?.addEventListener("click", (e) => {
     if (e.target.id === "moverModal") {
       document.getElementById("cancelarMover").click();
     }
