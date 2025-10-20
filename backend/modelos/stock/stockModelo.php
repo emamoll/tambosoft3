@@ -1,9 +1,9 @@
 <?php
 
-// Clase de modelo para la entidad Proveedores
-class Proveedor
+// Clase de modelo para la entidad stock
+class Stock
 {
-  // Propiedades que corresponden a las columnas de la tabla Proveedores
+  // Propiedades que corresponden a las columnas de la tabla stocks
   private $id;
   private $alimentoId;
   private $cantidad;
@@ -11,18 +11,15 @@ class Proveedor
 
   private $proveedorId;
 
-  private $numeroLote;
-
   private $fechaIngreso;
 
-  public function __construct($id = null, $alimentoId = null, $cantidad = null, $produccionInterna = null, $proveedorId = null, $numeroLote = null, $fechaIngreso = null)
+  public function __construct($id = null, $alimentoId = null, $cantidad = null, $produccionInterna = null, $proveedorId = null, $fechaIngreso = null)
   {
     $this->id = $id;
     $this->alimentoId = $alimentoId;
     $this->cantidad = $cantidad;
     $this->produccionInterna = $produccionInterna;
     $this->proveedorId = $proveedorId;
-    $this->numeroLote = $numeroLote;
     $this->fechaIngreso = $fechaIngreso;
   }
   // Métodos "getter" para acceder a las propiedades.
@@ -52,11 +49,6 @@ class Proveedor
     return $this->proveedorId;
   }
 
-  public function getNumeroLote()
-  {
-    return $this->numeroLote;
-  }
-
   public function getFechaIngreso()
   {
     return $this->fechaIngreso;
@@ -82,11 +74,6 @@ class Proveedor
   public function setProveedorId($proveedorId)
   {
     $this->proveedorId = $proveedorId;
-  }
-
-  public function setnumeroLote($numeroLote)
-  {
-    $this->numeroLote = $numeroLote;
   }
 
   public function setFechaIngreso($fechaIngreso)
