@@ -165,40 +165,42 @@ function esc($s)
         <div id="filtroCategoriaGroup" class="radio-group"></div>
       </div>
 
-      <div class="modal-actions">
-        <button id="aplicarFiltros" class="btn btn-primary">Aplicar</button>
+      <div class="modal-actions" style="display:flex; gap:10px;">
+        <button id="aplicarFiltros" class="btn-usuario">Aplicar</button>
         <button id="limpiarFiltros" class="btn btn-secondary">Limpiar</button>
-        <button id="cerrarFiltros" class="btn btn-cancel">Cerrar</button>
+        <button id="cerrarFiltros" class="btn btn-cancel" style="background:#777; color:white">Cerrar</button>
       </div>
     </div>
   </div>
 
-
   <!-- ===== MODAL CONFIRMACIÓN ===== -->
-  <div id="confirmModal" class="modal" style="display:none;">
+  <div id="confirmModal" class="modal">
     <div class="modal-content">
       <h3>Confirmar eliminación</h3>
       <p id="confirmText">¿Seguro que deseas eliminar este potrero?</p>
       <div class="modal-actions">
-        <button id="confirmYes" class="btn btn-primary">Sí, eliminar</button>
-        <button id="confirmNo" class="btn btn-secondary">Cancelar</button>
+        <button id="confirmYes" class="btn btn-danger">Eliminar</button>
+        <button id="confirmNo" class="btn btn-cancel" style="background:#777; color:white">Cancelar</button>
       </div>
     </div>
   </div>
 
   <!-- ===== MODAL MOVER CATEGORÍA ===== -->
-  <div id="moverModal" class="modal" style="display:none;">
+  <div id="moverModal" class="modal">
     <div class="modal-content">
       <h3>Mover Categoría</h3>
       <p>Seleccioná a qué potrero querés mover la categoría:</p>
       <div class="form-group" id="origenInfo" style="margin-bottom:15px; text-align:left;"></div>
 
-      <select id="potreroDestino" class="campo-input" style="margin-bottom:15px;">
-        <option value="">-- Seleccioná un potrero destino --</option>
-      </select>
+      <div class="form-group" style="margin-bottom:15px;"> <label for="potreroDestino"
+          style="font-weight: normal; margin-bottom: 0.3rem;">Potrero Destino</label>
+        <select id="potreroDestino" name="potreroDestino" class="campo-input">
+          <option value="">-- Seleccioná un potrero destino --</option>
+        </select>
+      </div>
 
-      <div class="modal-actions" style="margin-top:15px;">
-        <button id="confirmMover" type="button" class="btn btn-primary">Mover</button>
+      <div class="modal-actions" style="display:flex; gap:10px;">
+        <button id="confirmMover" type="button" class="btn-usuario">Mover</button>
         <button id="cancelarMover" type="button" class="btn btn-secondary">Cancelar</button>
       </div>
     </div>
@@ -208,3 +210,5 @@ function esc($s)
 </body>
 
 </html>
+
+aca va bien

@@ -13,10 +13,19 @@ document.addEventListener("DOMContentLoaded", function () {
   const campoId = document.getElementById("campoId");
 
   const tableBody = document.querySelector(".table-modern tbody");
+
+  // Modal eliminar
   const modal = document.getElementById("confirmModal");
   const confirmText = document.getElementById("confirmText");
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
+
+  // Modal mover
+  const moverModal = document.getElementById("moverModal");
+  const origenInfo = document.getElementById("origenInfo");
+  const potreroDestino = document.getElementById("potreroDestino");
+  const confirmMover = document.getElementById("confirmMover");
+  const cancelarMover = document.getElementById("cancelarMover");
 
   const API = "../../../backend/controladores/potreroController.php";
 
@@ -66,14 +75,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Mapas ID -> Nombre tomados de las LOV del formulario
+  // ===== LOV maps =====
   const LOVS = {
     pastura: buildLovMap(pasturaId),
     categoria: buildLovMap(categoriaId),
     campo: buildLovMap(campoId),
   };
 
-  // ====== Filtros ======
+  // ===== Filtros =====
   const abrirFiltrosBtn = document.getElementById("abrirFiltros");
   const filtroModal = document.getElementById("filtroModal");
   const aplicarFiltrosBtn = document.getElementById("aplicarFiltros");
@@ -82,107 +91,107 @@ document.addEventListener("DOMContentLoaded", function () {
   const resumenFiltros = document.getElementById("resumenFiltros");
 
   const FILTROS = {
-    campoId: "",
-    pasturaId: "",
-    categoria: "",
+    campoIds: [],
+    pasturaIds: [],
+    categoriaIds: [],
+    soloConCategoria: false,
+    // todasCategorias: true, <-- ELIMINADO
   };
 
-  // ==== Nuevo sistema de radios ====
-  function createRadio(name, value, label, checked = false) {
-    const id = `${name}_${value || "cualquiera"}`.replace(/\W+/g, "_");
+  function createCheck(name, value, label, checked = false) {
     const wrap = document.createElement("label");
     wrap.className = "radio-card";
+
     const input = document.createElement("input");
-    input.type = "radio";
+    input.type = "checkbox";
     input.name = name;
-    input.value = value ?? "";
-    if (checked) input.checked = true;
+    input.value = value;
+    input.checked = !!checked;
+
     const span = document.createElement("span");
     span.className = "radio-label";
     span.textContent = label;
+
     wrap.appendChild(input);
     wrap.appendChild(span);
     return wrap;
   }
 
-  function buildRadioGroupFromSelect(
+  function buildCheckGroupFromSelect(
     selectEl,
     containerEl,
     name,
-    currentValue,
-    extras = []
+    selectedValues = []
   ) {
     if (!selectEl || !containerEl) return;
-    containerEl.innerHTML = "";
-    containerEl.appendChild(createRadio(name, "", "Cualquiera", !currentValue));
-    extras.forEach(({ value, label }) =>
-      containerEl.appendChild(
-        createRadio(name, value, label, currentValue === value)
-      )
-    );
+    const selectedSet = new Set((selectedValues || []).map(String));
+    // NO agregamos "Cualquiera"
     Array.from(selectEl.options)
       .filter((o) => o.value)
       .forEach((o) => {
-        const checked =
-          currentValue && String(currentValue) === String(o.value);
+        const checked = selectedSet.has(String(o.value));
         containerEl.appendChild(
-          createRadio(name, o.value, o.textContent.trim(), checked)
+          createCheck(name, String(o.value), o.textContent.trim(), checked)
         );
       });
   }
 
-  function prepararRadiosModal() {
+  function prepararChecksModal() {
     const campoGroup = document.getElementById("filtroCampoGroup");
     const pasturaGroup = document.getElementById("filtroPasturaGroup");
     const categoriaGroup = document.getElementById("filtroCategoriaGroup");
-    buildRadioGroupFromSelect(
+
+    if (!campoGroup || !pasturaGroup || !categoriaGroup) {
+      console.error("Faltan contenedores de filtros");
+      return;
+    }
+
+    campoGroup.innerHTML = "";
+    pasturaGroup.innerHTML = "";
+    categoriaGroup.innerHTML = "";
+
+    buildCheckGroupFromSelect(
       campoId,
       campoGroup,
       "filtro_campo",
-      FILTROS.campoId
+      FILTROS.campoIds
     );
-    buildRadioGroupFromSelect(
+    buildCheckGroupFromSelect(
       pasturaId,
       pasturaGroup,
       "filtro_pastura",
-      FILTROS.pasturaId
+      FILTROS.pasturaIds
     );
-    buildRadioGroupFromSelect(
+
+    // Categorías: Eliminamos "Todas las categorías".
+    // Solo mostramos "Sólo con categoría", + categorías reales
+
+    // Checkbox "Sólo con categoría"
+    categoriaGroup.appendChild(
+      createCheck(
+        "filtro_categoria_solo",
+        "__CON_CATEGORIA__",
+        "Sólo con categoría",
+        FILTROS.soloConCategoria
+      )
+    );
+
+    // Checkboxes de categorías reales
+    buildCheckGroupFromSelect(
       categoriaId,
       categoriaGroup,
       "filtro_categoria",
-      FILTROS.categoria,
-      [{ value: "__CON_CATEGORIA__", label: "Sólo con categoría" }]
+      FILTROS.categoriaIds
     );
   }
 
   function abrirModalFiltros() {
-    prepararRadiosModal();
+    prepararChecksModal();
     filtroModal.style.display = "flex";
   }
 
   function cerrarModalFiltros() {
     filtroModal.style.display = "none";
-  }
-
-  function pintarResumenFiltros() {
-    const partes = [];
-    if (FILTROS.campoId)
-      partes.push(`Campo: ${LOVS.campo[FILTROS.campoId] || FILTROS.campoId}`);
-    if (FILTROS.pasturaId)
-      partes.push(
-        `Pastura: ${LOVS.pastura[FILTROS.pasturaId] || FILTROS.pasturaId}`
-      );
-    if (FILTROS.categoria === "__CON_CATEGORIA__") {
-      partes.push("Categoría: sólo con categoría");
-    } else if (FILTROS.categoria) {
-      partes.push(
-        `Categoría: ${LOVS.categoria[FILTROS.categoria] || FILTROS.categoria}`
-      );
-    }
-    resumenFiltros.textContent = partes.length
-      ? `Filtros → ${partes.join(" · ")}`
-      : "";
   }
 
   abrirFiltrosBtn?.addEventListener("click", abrirModalFiltros);
@@ -191,29 +200,62 @@ document.addEventListener("DOMContentLoaded", function () {
     if (e.target === filtroModal) cerrarModalFiltros();
   });
 
+  function getCheckedValues(name) {
+    return Array.from(
+      document.querySelectorAll(`input[name="${name}"]:checked`)
+    ).map((i) => i.value);
+  }
+
+  function pintarResumenFiltros() {
+    const partes = [];
+    if (FILTROS.campoIds.length) {
+      const nombres = FILTROS.campoIds.map((id) => LOVS.campo[id] || id);
+      partes.push(`Campo: ${nombres.join(", ")}`);
+    }
+    if (FILTROS.pasturaIds.length) {
+      const nombres = FILTROS.pasturaIds.map((id) => LOVS.pastura[id] || id);
+      partes.push(`Pastura: ${nombres.join(", ")}`);
+    }
+
+    // Lógica de Categoría simplificada y sin "cualquiera"
+    if (FILTROS.soloConCategoria) {
+      partes.push("Categoría: sólo con categoría");
+    } else if (FILTROS.categoriaIds.length) {
+      const nombres = FILTROS.categoriaIds.map(
+        (id) => LOVS.categoria[id] || id
+      );
+      partes.push(`Categoría: ${nombres.join(", ")}`);
+    }
+    // Si no hay filtro, no se añade nada (se elimina "Categoría: cualquiera")
+
+    resumenFiltros.textContent = partes.length
+      ? `Filtros → ${partes.join(" · ")}`
+      : "";
+  }
+
   limpiarFiltrosBtn?.addEventListener("click", async () => {
-    FILTROS.campoId = "";
-    FILTROS.pasturaId = "";
-    FILTROS.categoria = "";
-    prepararRadiosModal();
+    FILTROS.campoIds = [];
+    FILTROS.pasturaIds = [];
+    FILTROS.categoriaIds = [];
+    FILTROS.soloConCategoria = false;
+    prepararChecksModal();
     pintarResumenFiltros();
     await refrescarTabla();
   });
 
   aplicarFiltrosBtn?.addEventListener("click", async () => {
-    const val = (name) => {
-      const r = document.querySelector(`input[name="${name}"]:checked`);
-      return r ? r.value : "";
-    };
-    FILTROS.campoId = val("filtro_campo") || "";
-    FILTROS.pasturaId = val("filtro_pastura") || "";
-    FILTROS.categoria = val("filtro_categoria") || "";
+    FILTROS.campoIds = getCheckedValues("filtro_campo");
+    FILTROS.pasturaIds = getCheckedValues("filtro_pastura");
+    FILTROS.categoriaIds = getCheckedValues("filtro_categoria");
+    FILTROS.soloConCategoria = getCheckedValues(
+      "filtro_categoria_solo"
+    ).includes("__CON_CATEGORIA__");
     cerrarModalFiltros();
     pintarResumenFiltros();
     await refrescarTabla();
   });
 
-  // ===== CRUD Principal =====
+  // ===== Modo form =====
   function setRegistrarMode() {
     accionInput.value = "registrar";
     submitBtn.textContent = "Registrar";
@@ -240,6 +282,8 @@ document.addEventListener("DOMContentLoaded", function () {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  cancelarEdicion.addEventListener("click", setRegistrarMode);
+
   function extractDataFromRow(tr) {
     return {
       id: tr.dataset.id,
@@ -251,17 +295,25 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
+  // ===== Tabla =====
   async function refrescarTabla() {
     try {
       const params = new URLSearchParams({ action: "list" });
-      if (FILTROS.campoId) params.append("campoId", FILTROS.campoId);
-      if (FILTROS.pasturaId) params.append("pasturaId", FILTROS.pasturaId);
-      if (FILTROS.categoria) {
-        if (FILTROS.categoria === "__CON_CATEGORIA__") {
-          params.append("conCategoria", "1");
-        } else {
-          params.append("categoriaId", FILTROS.categoria);
-        }
+
+      (FILTROS.campoIds || []).forEach((id) => params.append("campoId[]", id));
+      (FILTROS.pasturaIds || []).forEach((id) =>
+        params.append("pasturaId[]", id)
+      );
+
+      // Lógica de filtro de categoría
+      if (FILTROS.soloConCategoria) {
+        params.append("conCategoria", "1");
+        // No se envían IDs de categoría si "solo con categoría" está activo
+      } else {
+        // Se envían IDs específicos si hay
+        (FILTROS.categoriaIds || []).forEach((id) =>
+          params.append("categoriaId[]", id)
+        );
       }
 
       const potreros = await fetchJSON(`${API}?${params.toString()}`, {
@@ -276,15 +328,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
       for (const p of potreros) {
         const tr = document.createElement("tr");
+
         const _id = p.id ?? "";
         const _nombre = p.nombre ?? "";
         const _pasturaId = String(p.pasturaId ?? "");
         const _categoriaId = String(p.categoriaId ?? "");
         const _cantidad = p.cantidadCategoria ?? "";
         const _campoId = String(p.campoId ?? "");
-        const pasturaNombre = LOVS.pastura[_pasturaId] || "";
-        const categoriaNombre = LOVS.categoria[_categoriaId] || "";
-        const campoNombre = LOVS.campo[_campoId] || "";
+
+        const pasturaNombre = p.pasturaNombre || LOVS.pastura[_pasturaId] || "";
+        const categoriaNombre =
+          p.categoriaNombre || LOVS.categoria[_categoriaId] || "";
+        const campoNombre = p.campoNombre || LOVS.campo[_campoId] || "";
 
         tr.dataset.id = _id;
         tr.dataset.nombre = _nombre;
@@ -325,17 +380,26 @@ document.addEventListener("DOMContentLoaded", function () {
   tableBody.addEventListener("click", (e) => {
     const editBtn = e.target.closest(".js-edit");
     const delBtn = e.target.closest(".js-delete");
+    const moveBtn = e.target.closest(".js-move");
+
     if (editBtn) {
       const tr = editBtn.closest("tr");
       setEditarMode(extractDataFromRow(tr));
       return;
     }
+
     if (delBtn) {
       const tr = delBtn.closest("tr");
       const data = extractDataFromRow(tr);
       confirmText.textContent = `¿Seguro que deseás eliminar el potrero "${data.nombre}"?`;
       modal.dataset.id = data.id;
       modal.style.display = "flex";
+      return;
+    }
+
+    if (moveBtn) {
+      const tr = moveBtn.closest("tr");
+      abrirModalMoverCategoria(tr);
       return;
     }
   });
@@ -345,6 +409,7 @@ document.addEventListener("DOMContentLoaded", function () {
     modal.style.display = "none";
     delete modal.dataset.id;
     if (!id) return;
+
     const fd = new FormData();
     fd.append("accion", "eliminar");
     fd.append("id", id);
@@ -365,8 +430,6 @@ document.addEventListener("DOMContentLoaded", function () {
     modal.style.display = "none";
     delete modal.dataset.id;
   });
-
-  cancelarEdicion.addEventListener("click", setRegistrarMode);
 
   // ==== Submit Form ====
   form.addEventListener("submit", async function (e) {
@@ -413,27 +476,22 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // ==== Mover Categoría (sin cambios) ====
-  document.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".js-move");
-    if (!btn) return;
-    const tr = btn.closest("tr");
+  // ===== Mover Categoría (Total) =====
+  async function abrirModalMoverCategoria(tr) {
     const potreroOrigen = tr.dataset.id;
     const categoriaOrigen = tr.dataset.categoriaId;
     const cantidadOrigenTotal = tr.dataset.cantidadCategoria;
     const categoriaNombre = LOVS.categoria[categoriaOrigen] || "N/A";
 
-    const modalMover = document.getElementById("moverModal");
-    const selectDestino = document.getElementById("potreroDestino");
-    const btnConfirm = document.getElementById("confirmMover");
-    const btnCancel = document.getElementById("cancelarMover");
-    const origenInfo = document.getElementById("origenInfo");
-
-    if (!modalMover || !selectDestino || !btnConfirm || !origenInfo) {
-      console.error("Error: faltan elementos del modal mover categoría.");
+    if (!moverModal || !potreroDestino || !confirmMover || !origenInfo) {
+      console.error("Faltan elementos del modal mover categoría.");
       flash("error", "Error interno al cargar el modal de movimiento.");
       return;
     }
+
+    moverModal.querySelector("h3").textContent = "Mover Categoría (Total)";
+    moverModal.querySelector("p").textContent =
+      "Seleccioná a qué potrero querés mover toda la categoría:";
 
     origenInfo.innerHTML = `
       <strong>Potrero Origen:</strong> ${tr.dataset.nombre}<br>
@@ -441,28 +499,34 @@ document.addEventListener("DOMContentLoaded", function () {
       <strong>Cantidad Total a Mover:</strong> ${cantidadOrigenTotal}
     `;
 
-    modalMover.querySelector("h3").textContent = "Mover Categoría (Total)";
-    modalMover.querySelector("p").textContent =
-      "Seleccioná a qué potrero querés mover toda la categoría:";
-
-    modalMover.style.display = "flex";
-    selectDestino.innerHTML = `<option value="">-- Seleccioná potrero destino --</option>`;
+    moverModal.style.display = "flex";
+    potreroDestino.innerHTML = `<option value="">Cargando potreros...</option>`;
 
     try {
-      const potreros = await fetchJSON(`${API}?action=list`);
+      // Nota: Aquí se llama a la API con solo action=list, sin filtros
+      const potreros = await fetchJSON(`${API}?action=list`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+
+      potreroDestino.innerHTML = `<option value="">-- Seleccioná potrero destino --</option>`;
       potreros
-        .filter((p) => p.id != potreroOrigen && p.categoriaId == null)
+        .filter(
+          (p) =>
+            String(p.id) !== String(potreroOrigen) &&
+            (p.categoriaId == null || p.categoriaId === 0)
+        )
         .forEach((p) => {
           const opt = document.createElement("option");
           opt.value = p.id;
           opt.textContent = p.nombre;
-          selectDestino.appendChild(opt);
+          potreroDestino.appendChild(opt);
         });
 
-      btnConfirm.onclick = async () => {
-        const destino = selectDestino.value;
+      confirmMover.onclick = async () => {
+        const destino = potreroDestino.value;
         if (!destino) return flash("error", "Seleccioná un potrero destino.");
-        btnConfirm.disabled = true;
+
+        confirmMover.disabled = true;
         try {
           const resp = await fetchJSON(API, {
             method: "POST",
@@ -477,36 +541,35 @@ document.addEventListener("DOMContentLoaded", function () {
             }),
           });
           flash(resp.tipo, resp.mensaje);
-          modalMover.style.display = "none";
+          moverModal.style.display = "none";
           if (resp.tipo === "success") await refrescarTabla();
         } catch (err) {
           console.error(err);
           flash("error", "Error al mover la categoría.");
         } finally {
-          btnConfirm.disabled = false;
+          confirmMover.disabled = false;
         }
       };
 
-      btnCancel.onclick = () => {
-        modalMover.style.display = "none";
-        selectDestino.innerHTML = "";
-        selectDestino.innerHTML = "";
+      cancelarMover.onclick = () => {
+        moverModal.style.display = "none";
+        potreroDestino.innerHTML = "";
         origenInfo.innerHTML = "";
       };
     } catch (err) {
       console.error(err);
-      modalMover.style.display = "none";
+      potreroDestino.innerHTML = `<option value="">No se pudo cargar la lista (backend no JSON)</option>`;
       flash("error", "No se pudo cargar la lista de potreros.");
     }
-  });
+  }
 
-  document.getElementById("moverModal")?.addEventListener("click", (e) => {
+  moverModal?.addEventListener("click", (e) => {
     if (e.target.id === "moverModal") {
-      document.getElementById("cancelarMover").click();
+      cancelarMover?.click();
     }
   });
 
-  // Inicializar
+  // ===== Inicializar =====
   setRegistrarMode();
   pintarResumenFiltros();
   refrescarTabla();

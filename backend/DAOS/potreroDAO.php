@@ -88,38 +88,53 @@ class PotreroDAO
   // 🔹 Listar potreros con filtros dinámicos (Clave para que los filtros funcionen)
   public function listar(array $filtros = []): array
   {
-    $sql = "SELECT * FROM potreros WHERE 1=1";
+    // Unimos los nombres de las tablas de referencia para poder devolver los nombres
+    // y para usar los IDs de pastura/campo/categoría si la tabla original no los tiene.
+    $sql = "SELECT p.*, 
+                   pa.nombre AS pasturaNombre, 
+                   c.nombre AS categoriaNombre, 
+                   ca.nombre AS campoNombre
+            FROM potreros p
+            LEFT JOIN pasturas pa ON p.pasturaId = pa.id
+            LEFT JOIN categorias c ON p.categoriaId = c.id
+            LEFT JOIN campos ca ON p.campoId = ca.id
+            WHERE 1=1";
+
     $params = [];
     $types = "";
 
-    if (!empty($filtros['campoId'])) {
-      $sql .= " AND campoId = ?";
-      $params[] = $filtros['campoId'];
-      $types .= "i";
-    }
+    // -- Helper para crear la cláusula IN --
+    $addInClause = function (&$sql, &$params, &$types, $key, $column) use ($filtros) {
+      if (!empty($filtros[$key]) && is_array($filtros[$key])) {
+        $placeholders = implode(',', array_fill(0, count($filtros[$key]), '?'));
+        $sql .= " AND {$column} IN ({$placeholders})";
 
-    if (!empty($filtros['pasturaId'])) {
-      $sql .= " AND pasturaId = ?";
-      $params[] = $filtros['pasturaId'];
-      $types .= "i";
-    }
+        foreach ($filtros[$key] as $id) {
+          $params[] = $id;
+          $types .= "i";
+        }
+        return true;
+      }
+      return false;
+    };
+    // ------------------------------------
 
-    if (!empty($filtros['categoriaId'])) {
-      $sql .= " AND categoriaId = ?";
-      $params[] = $filtros['categoriaId'];
-      $types .= "i";
-    }
+    // 🆕 CORRECCIÓN CRÍTICA: Usamos cláusula IN para múltiples IDs
+    $addInClause($sql, $params, $types, 'campoId', 'p.campoId');
+    $addInClause($sql, $params, $types, 'pasturaId', 'p.pasturaId');
+    $addInClause($sql, $params, $types, 'categoriaId', 'p.categoriaId');
+
 
     // Filtro especial: sólo los que tienen categoría asignada
     if (!empty($filtros['conCategoria'])) {
-      $sql .= " AND categoriaId IS NOT NULL";
+      $sql .= " AND p.categoriaId IS NOT NULL AND p.cantidadCategoria > 0"; // Añadido > 0 por si acaso
     }
 
-    $sql .= " ORDER BY nombre ASC";
+    $sql .= " ORDER BY p.nombre ASC";
 
     $stmt = $this->conn->prepare($sql);
 
-    // CORRECCIÓN: Usar bind_param solo si hay parámetros
+    // CORRECCIÓN: Usar bind_param solo si hay parámetros, y desempacando el array
     if (!empty($params)) {
       $stmt->bind_param($types, ...$params);
     }

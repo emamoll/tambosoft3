@@ -105,8 +105,8 @@ function esc($s)
       <h3>Confirmar eliminación</h3>
       <p id="confirmText">¿Seguro que deseas eliminar este proveedor?</p>
       <div class="modal-actions">
-        <button id="confirmYes" class="btn-usuario" style="width:auto;">Sí, eliminar</button>
-        <button id="confirmNo" class="btn-usuario" style="width:auto; background:#888;">Cancelar</button>
+        <button type="button" id="confirmYes" class="btn-usuario" style="background:#c0392b;">Eliminar</button>
+        <button type="button" id="confirmNo" class="btn-usuario" style="background:#777;">Cancelar</button>
       </div>
     </div>
   </div>
