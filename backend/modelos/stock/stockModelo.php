@@ -5,17 +5,17 @@ class Stock
 {
   // Propiedades que corresponden a las columnas de la tabla stocks
   private $id;
+  private $almacenId;
   private $alimentoId;
   private $cantidad;
   private $produccionInterna;
-
   private $proveedorId;
-
   private $fechaIngreso;
 
-  public function __construct($id = null, $alimentoId = null, $cantidad = null, $produccionInterna = null, $proveedorId = null, $fechaIngreso = null)
+  public function __construct($id = null, $almacenId = null, $alimentoId = null, $cantidad = null, $produccionInterna = null, $proveedorId = null, $fechaIngreso = null)
   {
     $this->id = $id;
+    $this->almacenId = $almacenId;
     $this->alimentoId = $alimentoId;
     $this->cantidad = $cantidad;
     $this->produccionInterna = $produccionInterna;
@@ -27,6 +27,11 @@ class Stock
   public function getId()
   {
     return $this->id;
+  }
+
+  public function getAlmacenId()
+  {
+    return $this->almacenId;
   }
 
   public function getAlimentoId()
@@ -55,6 +60,11 @@ class Stock
   }
 
   // Métodos "setter" para modificar las propiedades.
+
+  public function setAlmacenId($almacenId)
+  {
+    $this->almacenId = $almacenId;
+  }
 
   public function setAlimentoId($alimentoId)
   {

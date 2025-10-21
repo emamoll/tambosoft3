@@ -9,14 +9,10 @@ require_once __DIR__ . '../../../../backend/controladores/stockController.php';
 
 $controller = new StockController();
 
-// Precargar Alimentos y Proveedores para los combos
+// Necesitamos precargar Alimentos, Proveedores y Almacenes para los combos (selects)
 $alimentos = $controller->obtenerAlimentos();
 $proveedores = $controller->obtenerProveedores();
-
-$mensaje = null;
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $mensaje = $controller->procesarFormularios();
-}
+$almacenes = $controller->obtenerAlmacenes();
 
 function esc($s)
 {
@@ -49,125 +45,169 @@ function esc($s)
   <main>
     <div style="display:flex; justify-content: center; flex-wrap: wrap; gap: 30px; padding: 20px;">
 
-      <!-- ===== FORMULARIO ===== -->
       <div class="form-container form" style="flex: 1; max-width: 600px;">
         <h2 id="form-title"><i class="fas fa-boxes"></i> Registrar Lote de Stock</h2>
 
-        <form id="stockForm">
-          <input type="hidden" name="accion" id="accion" value="registrar" />
-          <input type="hidden" name="id" id="id" />
+        <form id="stockForm" method="POST" novalidate>
+          <input type="hidden" id="id" name="id" value="">
+          <input type="hidden" id="accion" name="accion" value="registrar">
 
           <div class="form-group">
-            <label for="alimentoId">Alimento:</label>
-            <select id="alimentoId" name="alimentoId" required>
-              <option value="">-- Seleccioná un alimento --</option>
-              <?php foreach ($alimentos as $a): ?>
-                <option value="<?= esc($a['id']) ?>"><?= esc($a['nombre']) ?></option>
+            <label for="almacenId">Almacén de Destino</label>
+            <select id="almacenId" name="almacenId" required>
+              <option value="">-- Seleccioná un Almacén --</option>
+              <?php foreach ($almacenes as $almacen): ?>
+                <option value="<?= esc($almacen->getId()) ?>"><?= esc($almacen->getNombre()) ?></option>
               <?php endforeach; ?>
             </select>
+            <span class="error-message" id="error-almacenId">El almacén es obligatorio.</span>
           </div>
 
           <div class="form-group">
-            <label for="cantidad">Cantidad:</label>
-            <input type="number" id="cantidad" name="cantidad" min="0" step="0.01" required />
+            <label for="alimentoId">Alimento</label>
+            <select id="alimentoId" name="alimentoId" required>
+              <option value="">-- Seleccioná un Alimento --</option>
+              <?php foreach ($alimentos as $alimento): ?>
+                <option value="<?= esc($alimento->getId()) ?>"><?= esc($alimento->getNombre()) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <span class="error-message" id="error-alimentoId">El alimento es obligatorio.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cantidad">Cantidad (unidades/kg)</label>
+            <input type="number" id="cantidad" name="cantidad" min="1" step="1" required>
+            <span class="error-message" id="error-cantidad">La cantidad debe ser un número entero > 0.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="fechaIngreso">Fecha de Ingreso</label>
+            <input type="date" id="fechaIngreso" name="fechaIngreso" required>
+            <span class="error-message" id="error-fechaIngreso">La fecha es obligatoria.</span>
           </div>
 
           <div class="form-group row-checkbox">
-            <input type="checkbox" id="produccionInterna" name="produccionInterna" />
-            <label for="produccionInterna" class="label-checkbox">Producción interna</label>
+            <input type="checkbox" id="produccionInterna" name="produccionInterna">
+            <label for="produccionInterna" class="label-checkbox">Producción Interna</label>
           </div>
 
           <div class="form-group" id="proveedorGroup">
-            <label for="proveedorId">Proveedor:</label>
+            <label for="proveedorId">Proveedor</label>
             <select id="proveedorId" name="proveedorId">
-              <option value="">-- Seleccioná un proveedor --</option>
-              <?php foreach ($proveedores as $p): ?>
-                <option value="<?= esc($p['id']) ?>"><?= esc($p['denominacion']) ?></option>
+              <option value="">-- Seleccioná un Proveedor --</option>
+              <?php foreach ($proveedores as $proveedor): ?>
+                <option value="<?= esc($proveedor->getId()) ?>"><?= esc($proveedor->getDenominacion()) ?></option>
               <?php endforeach; ?>
             </select>
+            <span class="error-message" id="error-proveedorId">El proveedor es obligatorio si no es P. Interna.</span>
           </div>
 
-          <div class="form-group">
-            <label for="fechaIngreso">Fecha de Ingreso:</label>
-            <input type="date" id="fechaIngreso" name="fechaIngreso" required />
-          </div>
+          <div class="form-group" style="display:flex; gap:10px; align-items:center;">
+            <button type="submit" id="submitBtn" class="btn-usuario" style="width: 120px;">Registrar Lote</button>
 
-          <!-- ===== BOTONES Y FILTRO (igual que potrero) ===== -->
-          <div class="botonera"
-            style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-            <button type="submit" id="submitBtn" class="btn-usuario">Registrar Lote</button>
-            <button type="button" id="cancelarEdicion" class="btn-usuario"
-              style="display: none; background-color: #c0392b;">Cancelar edición</button>
-            <button type="button" id="abrirFiltros" class="btn btn-primary">🔍 Filtrar</button>
-            <span id="resumenFiltros" style="color: #084a83; font-weight: 600; margin-left: 8px;"></span>
+            <button type="button" id="abrirFiltros" class="btn-usuario" style="width: 120px;">
+              <i class="fas fa-filter"></i> Filtrar
+            </button>
+
+            <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
+
+            <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#777;">
+              Cancelar edición
+            </button>
           </div>
         </form>
       </div>
 
-      <!-- ===== TABLA ===== -->
-      <div class="form-container table">
-        <div class="table-wrapper">
-          <table class="table-modern">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Alimento</th>
-                <th>Cantidad</th>
-                <th>Tipo</th>
-                <th>Proveedor</th>
-                <th>Fecha Ingreso</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+    </div>
+    <div style="text-align:center; margin: 20px 0;">
+      <div
+        style="width: 300px; margin: 10px auto; padding: 10px; border: 1px solid var(--color-secundario); border-radius: 8px; background: #e6f0ff;">
+        <label for="alimentoStockTotal" style="font-weight: bold;">Ver Stock Total por Alimento:</label>
+        <select id="alimentoStockTotal" name="alimentoStockTotal" class="form-control">
+          <option value="">-- Seleccioná un Alimento --</option>
+          <?php foreach ($alimentos as $alimento): ?>
+            <option value="<?= esc($alimento->getId()) ?>"><?= esc($alimento->getNombre()) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <div id="stockActualInfo" style="margin-top: 10px; font-weight: bold; color: var(--color-secundario);">Stock
+          total: N/A</div>
       </div>
+    </div>
 
-      <!-- ===== MODAL FILTROS ===== -->
-      <div id="filtroModal" class="modal">
-        <div class="modal-content">
-          <h3>Filtrar Lotes de Stock</h3>
+
+    <div id="filtroModal" class="modal-overlay" style="display:none;">
+      <div class="modal-box" style="max-width: 500px; text-align: left;">
+        <h3><i class="fas fa-filter"></i> Filtrar Lotes</h3>
+        <form id="filterForm">
 
           <div class="filtro-grupo">
-            <h4>Alimentos</h4>
-            <div id="filtroAlimentoGroup" class="radio-group"></div>
+            <h4>Almacén</h4>
+            <div id="filtroAlmacenGroup" class="radio-group">
+            </div>
           </div>
 
           <div class="filtro-grupo">
-            <h4>Producción</h4>
-            <div id="filtroProduccionGroup" class="radio-group"></div>
+            <h4>Alimento</h4>
+            <div id="filtroAlimentoGroup" class="radio-group">
+            </div>
           </div>
 
           <div class="filtro-grupo">
-            <h4>Proveedores</h4>
-            <div id="filtroProveedorGroup" class="radio-group"></div>
+            <h4>Origen del Lote</h4>
+            <div id="filtroOrigenGroup" class="radio-group">
+            </div>
           </div>
 
-          <div class="modal-actions">
-            <button id="aplicarFiltros" class="btn btn-primary">Aplicar</button>
-            <button id="limpiarFiltros" class="btn btn-cancel">Limpiar</button>
-            <button id="cerrarFiltros" class="btn btn-cancel">Cerrar</button>
+          <div class="modal-actions" style="display:flex; gap:10px; margin-top: 20px;">
+            <button type="button" id="aplicarFiltros" class="btn-usuario" style="background:#2ecc71; flex: 1;">
+              Aplicar
+            </button>
+            <button type="button" id="limpiarFiltros" class="btn-usuario" style="background:#777; flex: 1;">
+              Limpiar
+            </button>
+            <button type="button" id="cerrarFiltros" class="btn-usuario" style="background:#777; flex: 1;">
+              Cerrar
+            </button>
           </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="confirmModal" class="modal-overlay" style="display:none;">
+      <div class="modal-box">
+        <h3>Confirmar eliminación</h3>
+        <p id="confirmText">¿Seguro que deseas eliminar este lote de stock?</p>
+        <div class="modal-actions">
+          <button type="button" id="confirmYes" class="btn-usuario" style="background:#c0392b;">Eliminar</button>
+          <button type="button" id="confirmNo" class="btn-usuario" style="background:#777;">Cancelar</button>
         </div>
       </div>
+    </div>
 
-      <!-- ===== MODAL CONFIRMACIÓN ===== -->
-      <div id="confirmModal" class="modal">
-        <div class="modal-content" style="max-width: 420px; text-align: center;">
-          <h3>Confirmar Eliminación</h3>
-          <p id="confirmText">¿Estás seguro de eliminar este registro?</p>
-          <div class="modal-actions">
-            <button id="confirmYes" class="btn btn-danger">Eliminar</button>
-            <button id="confirmNo" class="btn btn-cancel">Cancelar</button>
-          </div>
-        </div>
+    <div class="form-container table">
+      <h2>Lotes de Stock Registrados (Movimientos)</h2>
+
+      <div class="table-wrapper">
+        <table class="table-modern">
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Alimento</th>
+              <th>Cantidad</th>
+              <th>Almacén</th>
+              <th>Tipo</th>
+              <th>Proveedor</th>
+              <th>Fec. Ingreso</th>
+              <th style="width:120px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
       </div>
-
     </div>
   </main>
 
-  <!-- ===== JAVASCRIPT ===== -->
   <script src="../../javascript/stock.js"></script>
 </body>
 

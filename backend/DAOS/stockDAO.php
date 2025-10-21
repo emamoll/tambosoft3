@@ -5,8 +5,9 @@ require_once __DIR__ . '../../modelos/stock/stockModelo.php';
 require_once __DIR__ . '../../modelos/stock/stockTabla.php';
 require_once __DIR__ . '../../DAOS/alimentoDAO.php';
 require_once __DIR__ . '../../DAOS/proveedorDAO.php';
+require_once __DIR__ . '../../DAOS/almacenDAO.php'; // NUEVO REQUIRE
 
-// Clase para el acceso a datos (DAO) de la tabla stocks (inventario de lotes)
+// Clase para el acceso a datos (DAO) de la tabla stocks
 class StockDAO
 {
   private $db;
@@ -22,7 +23,6 @@ class StockDAO
   }
 
   // Obtiene la suma total de stock disponible para un alimento
-
   public function getStockDisponibleByAlimento(int $alimentoId): int
   {
     $sql = "SELECT SUM(cantidad) AS total_stock FROM stocks WHERE alimentoId = ?";
@@ -37,32 +37,31 @@ class StockDAO
   }
 
   // Registra un nuevo stock
-
   public function registrarStock(Stock $stock): bool
   {
+    $almacenId = $stock->getAlmacenId();
     $alimentoId = $stock->getAlimentoId();
     $cantidad = $stock->getCantidad();
     $produccionInterna = $stock->getProduccionInterna() ? 1 : 0;
     $proveedorId = $stock->getProveedorId();
     $fechaIngreso = $stock->getFechaIngreso();
 
-    $sql = "INSERT INTO stocks (alimentoId, cantidad, produccionInterna, proveedorId, fechaIngreso)
-      VALUES (?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO stocks (almacenId, alimentoId, cantidad, produccionInterna, proveedorId, fechaIngreso)
+            VALUES (?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->conn->prepare($sql);
 
     $proveedorIdSafe = $proveedorId ?? NULL;
+    $almacenIdSafe = $almacenId ?? NULL; 
 
-    // CORRECCIÓN: 5 parámetros (i:alimentoId, i:cantidad, i:produccionInterna, i:proveedorId, s:fechaIngreso)
-    $stmt->bind_param("iiiss", $alimentoId, $cantidad, $produccionInterna, $proveedorIdSafe, $fechaIngreso);
+    $stmt->bind_param("iiiiis", $almacenIdSafe, $alimentoId, $cantidad, $produccionInterna, $proveedorIdSafe, $fechaIngreso);
 
     $resultado = $stmt->execute();
     $stmt->close();
     return $resultado;
   }
 
-  // Modifica un stock existente
-
+  /** Modifica un stock existente */
   public function modificarStock(Stock $stock): bool
   {
     $id = $stock->getId();
@@ -70,35 +69,36 @@ class StockDAO
     $cantidad = $stock->getCantidad();
     $produccionInterna = $stock->getProduccionInterna() ? 1 : 0;
     $proveedorId = $stock->getProveedorId();
+    $almacenId = $stock->getAlmacenId();
     $fechaIngreso = $stock->getFechaIngreso();
 
     $sql = "UPDATE stocks
-      SET alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, fechaIngreso = ?
-      WHERE id = ?";
+            SET almacenId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, fechaIngreso = ?
+            WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
 
     $proveedorIdSafe = $proveedorId ?? NULL;
+    $almacenIdSafe = $almacenId ?? NULL;
 
-    // CORRECCIÓN: Ajustada la secuencia de tipos para 6 parámetros. (i, i, i, s, s, i)
-    $stmt->bind_param("iiissi", $alimentoId, $cantidad, $produccionInterna, $proveedorIdSafe, $fechaIngreso, $id);
+    $stmt->bind_param("iiiiisi", $almacenIdSafe, $alimentoId, $cantidad, $produccionInterna, $proveedorIdSafe, $fechaIngreso, $id);
 
     $resultado = $stmt->execute();
     $stmt->close();
     return $resultado;
   }
 
-  // Obtiene todos los stock
-
-  public function getAllStocksDetalle(?int $alimentoId = null, ?int $produccionInterna = -1): array
+  // Obtiene todos los stock 
+  public function getAllStocksDetalle(?int $alimentoId = null, ?int $produccionInterna = -1, ?int $almacenId = null): array
   {
-    // SELECT sin numeroLote
-    $sql = "SELECT s.id, s.alimentoId, s.cantidad, s.produccionInterna, s.proveedorId, s.fechaIngreso, 
-         a.nombre AS alimentoNombre,
-         p.denominacion AS proveedorNombre
-      FROM stocks s
-      INNER JOIN alimentos a ON s.alimentoId = a.id
-      LEFT JOIN proveedores p ON s.proveedorId = p.id";
+    $sql = "SELECT s.id, s.almacenId, s.alimentoId, s.cantidad, s.produccionInterna, s.proveedorId, s.fechaIngreso, 
+                   a.nombre AS alimentoNombre,
+                   p.denominacion AS proveedorNombre,
+                   alm.nombre AS almacenNombre
+            FROM stocks s
+            INNER JOIN alimentos a ON s.alimentoId = a.id
+            LEFT JOIN proveedores p ON s.proveedorId = p.id
+            LEFT JOIN almacenes alm ON s.almacenId = alm.id";
 
     $conditions = [];
     $types = '';
@@ -114,6 +114,12 @@ class StockDAO
       $conditions[] = "s.produccionInterna = ?";
       $types .= 'i';
       $params[] = $produccionInterna;
+    }
+
+    if ($almacenId > 0) {
+      $conditions[] = "s.almacenId = ?";
+      $types .= 'i';
+      $params[] = $almacenId;
     }
 
     if (!empty($conditions)) {
@@ -138,12 +144,12 @@ class StockDAO
 
     $stocks = [];
     while ($row = $result->fetch_assoc()) {
-      // Creación del objeto Stock
-      $stockObj = new Stock($row['id'], $row['alimentoId'], $row['cantidad'], $row['produccionInterna'], $row['proveedorId'], $row['fechaIngreso']);
+      $stockObj = new Stock($row['id'],  $row['almacenId'], $row['alimentoId'], $row['cantidad'], $row['produccionInterna'], $row['proveedorId'],$row['fechaIngreso']);
 
       $stockData = (array) $stockObj;
       $stockData['alimentoNombre'] = $row['alimentoNombre'];
       $stockData['proveedorNombre'] = $row['proveedorNombre'];
+      $stockData['almacenNombre'] = $row['almacenNombre']; 
 
       $stocks[] = (object) $stockData;
     }
@@ -151,8 +157,7 @@ class StockDAO
     return $stocks;
   }
 
-  // Obtiene un lote de stock por ID.
-
+  // Obtiene un stock por ID 
   public function getStockById($id): ?Stock
   {
     $sql = "SELECT * FROM stocks WHERE id = ?";
@@ -163,12 +168,11 @@ class StockDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    // Creación del objeto Stock
-    return $row ? new Stock($row['id'], $row['alimentoId'], $row['cantidad'], $row['produccionInterna'], $row['proveedorId'], $row['fechaIngreso']) : null;
+    // Creación del objeto Stock con almacenId
+    return $row ? new Stock($row['id'], $row['almacenId'], $row['alimentoId'], $row['cantidad'], $row['produccionInterna'], $row['proveedorId'], $row['fechaIngreso']) : null;
   }
 
-  // Eliminar un stock 
-
+  // Eliminar un stock
   public function eliminarStock($id): bool
   {
     $sql = "DELETE FROM stocks WHERE id = ?";
@@ -176,5 +180,4 @@ class StockDAO
     $stmt->bind_param("i", $id);
     return $stmt->execute();
   }
-
 }

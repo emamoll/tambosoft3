@@ -22,11 +22,13 @@ class StockCrearTabla
     $conn = $this->db->connect();
     $sql = "CREATE TABLE IF NOT EXISTS  stocks (
               id INT PRIMARY KEY AUTO_INCREMENT,  
+              almacenId INT NOT NULL,
               alimentoId INT NOT NULL,
               cantidad INT NOT NULL,
               producionInterna BOOLEAN NOT NULL,
               proveedorId INT,
               fechaIngreso DATE NOT NULL,
+              FOREIGN KEY (almacenId) REFERENCES almacenes(id),
               FOREIGN KEY (alimentoId) REFERENCES alimentos(id),
               FOREIGN KEY (proveedorId) REFERENCES proveedores(id))";
 
