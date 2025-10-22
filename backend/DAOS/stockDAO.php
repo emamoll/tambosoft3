@@ -145,21 +145,30 @@ class StockDAO
 
     $stocks = [];
     while ($row = $result->fetch_assoc()) {
-      // CORRECCIÓN CLAVE: Asegurar que el orden de los parámetros coincida con el constructor del modelo (id, alimentoId, cantidad, produccionInterna, proveedorId, almacenId, fechaIngreso)
+      // 1. Crear el objeto Stock (ya corregido en tu última versión)
       $stockObj = new Stock(
         $row['id'],
+        $row['almacenId'],
         $row['alimentoId'],
         $row['cantidad'],
         $row['produccionInterna'],
         $row['proveedorId'],
-        $row['almacenId'], // AlmacenId es el 6to parámetro en el constructor del modelo
         $row['fechaIngreso']
       );
 
-      $stockData = (array) $stockObj;
-      $stockData['alimentoNombre'] = $row['alimentoNombre'];
-      $stockData['proveedorNombre'] = $row['proveedorNombre'];
-      $stockData['almacenNombre'] = $row['almacenNombre'];
+      // 2. CORRECCIÓN CLAVE: Usar getters públicos para exponer todas las propiedades privadas
+      $stockData = [
+        'id' => $stockObj->getId(),
+        'almacenId' => $stockObj->getAlmacenId(),
+        'alimentoId' => $stockObj->getAlimentoId(),
+        'cantidad' => $stockObj->getCantidad(),
+        'produccionInterna' => $stockObj->getProduccionInterna(),
+        'proveedorId' => $stockObj->getProveedorId(),
+        'fechaIngreso' => $stockObj->getFechaIngreso(),
+        'alimentoNombre' => $row['alimentoNombre'],
+        'proveedorNombre' => $row['proveedorNombre'],
+        'almacenNombre' => $row['almacenNombre'],
+      ];
 
       $stocks[] = (object) $stockData;
     }
@@ -181,11 +190,11 @@ class StockDAO
     // CORRECCIÓN CLAVE: Orden de los parámetros
     return $row ? new Stock(
       $row['id'],
+      $row['almacenId'],
       $row['alimentoId'],
       $row['cantidad'],
       $row['produccionInterna'],
       $row['proveedorId'],
-      $row['almacenId'], // AlmacenId es el 6to parámetro
       $row['fechaIngreso']
     ) : null;
   }

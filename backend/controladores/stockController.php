@@ -41,7 +41,7 @@ class StockController
 
     $accion = $_REQUEST['action'] ?? $_REQUEST['accion'] ?? null;
 
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'list') {
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($accion === 'list' || $accion === null)) {
 
       $alimentoId = isset($_GET['alimentoId']) ? intval($_GET['alimentoId']) : 0;
       $almacenId = isset($_GET['almacenId']) ? intval($_GET['almacenId']) : 0;
@@ -184,7 +184,12 @@ class StockController
   }
 }
 
-if (php_sapi_name() !== 'cli') {
+$isAjax = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
+$isFormSubmit = ($_SERVER['REQUEST_METHOD'] === 'POST');
+$isGetList = ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_REQUEST['action'] ?? $_REQUEST['accion'] ?? null) !== null);
+
+// La lógica principal del controlador SOLO debe ejecutarse si es una llamada de API o un POST.
+if (php_sapi_name() !== 'cli' && ($isAjax || $isFormSubmit || $isGetList)) {
   $ctrl = new StockController();
   $ctrl->procesarFormularios();
 }
