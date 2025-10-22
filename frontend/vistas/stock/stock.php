@@ -19,10 +19,10 @@ $alimentos = $controllerAlimento->obtenerAlimentos();
 $almacenes = $controllerAlmacen->obtenerAlmacenes();
 $proveedores = $controllerProveedor->obtenerProveedores();
 
-$mensaje = null;
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $mensaje = $controllerStock->procesarFormularios();
-}
+// $mensaje = null;
+// if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+//   $mensaje = $controllerStock->procesarFormularios();
+// }
 
 function esc($s)
 {
