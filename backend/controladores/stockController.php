@@ -3,7 +3,7 @@
 require_once __DIR__ . '../../DAOS/stockDAO.php';
 require_once __DIR__ . '../../DAOS/alimentoDAO.php';
 require_once __DIR__ . '../../DAOS/proveedorDAO.php';
-require_once __DIR__ . '../../DAOS/almacenDAO.php'; 
+require_once __DIR__ . '../../DAOS/almacenDAO.php';
 require_once __DIR__ . '../../modelos/stock/stockModelo.php';
 
 class StockController
@@ -11,7 +11,7 @@ class StockController
   private $stockDAO;
   private $alimentoDAO;
   private $proveedorDAO;
-  private $almacenDAO; 
+  private $almacenDAO;
   private $connError = null;
 
   public function __construct()
@@ -20,7 +20,7 @@ class StockController
       $this->stockDAO = new StockDAO();
       $this->alimentoDAO = new AlimentoDAO();
       $this->proveedorDAO = new ProveedorDAO();
-      $this->almacenDAO = new AlmacenDAO(); 
+      $this->almacenDAO = new AlmacenDAO();
     } catch (Exception $e) {
       $this->stockDAO = null;
       $this->alimentoDAO = null;
@@ -32,50 +32,42 @@ class StockController
 
   public function procesarFormularios()
   {
+    // --- Error de conexión ---
     if ($this->connError !== null) {
-      if (php_sapi_name() !== 'cli') {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['tipo' => 'error', 'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError]);
-        exit;
-      }
-      return ['tipo' => 'error', 'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError];
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode(['tipo' => 'error', 'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError]);
+      exit;
     }
 
-    $accion = $_POST['accion'] ?? ($_GET['action'] ?? null);
+    $accion = $_REQUEST['action'] ?? $_REQUEST['accion'] ?? null;
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'list') {
 
-      $alimentoId = intval($_GET['alimentoId'] ?? 0);
-      $produccionInterna = $_GET['produccionInterna'] ?? '-1';
-      $almacenId = intval($_GET['almacenId'] ?? 0); 
+      $alimentoId = isset($_GET['alimentoId']) ? intval($_GET['alimentoId']) : 0;
+      $almacenId = isset($_GET['almacenId']) ? intval($_GET['almacenId']) : 0;
+      $produccionInterna = isset($_GET['produccionInterna']) ? intval($_GET['produccionInterna']) : -1;
 
-      if ($produccionInterna === '1') {
-        $filtroPI = 1;
-      } elseif ($produccionInterna === '0') {
-        $filtroPI = 0;
-      } else {
-        $filtroPI = -1;
+      try {
+        $stocks = $this->stockDAO->getAllStocksDetalle($alimentoId, $produccionInterna, $almacenId);
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($stocks, JSON_UNESCAPED_UNICODE);
+      } catch (Exception $e) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Error al obtener stocks: ' . $e->getMessage()]);
       }
-
-      $alimentoIdFiltro = $alimentoId > 0 ? $alimentoId : null;
-      $almacenIdFiltro = $almacenId > 0 ? $almacenId : null; // NUEVO
-
-      $stocks = $this->stockDAO->getAllStocksDetalle($alimentoIdFiltro, $filtroPI, $almacenIdFiltro);
-
-      header('Content-Type: application/json; charset=utf-8');
-      echo json_encode($stocks);
       exit;
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'getStockTotal') {
       $alimentoId = intval($_GET['alimentoId'] ?? 0);
-      if ($alimentoId > 0) {
-        $total = $this->stockDAO->getStockDisponibleByAlimento($alimentoId);
+      try {
+        $total = $alimentoId > 0 ? $this->stockDAO->getStockDisponibleByAlimento($alimentoId) : 0;
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['total' => $total]);
-      } else {
+      } catch (Exception $e) {
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['total' => 0]);
+        echo json_encode(['error' => 'Error al obtener stock total: ' . $e->getMessage()]);
       }
       exit;
     }
@@ -83,103 +75,112 @@ class StockController
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       $data = $_POST;
+      $accion = $data['accion'] ?? null;
 
       $id = intval($data['id'] ?? 0);
+      $almacenId = intval($data['almacenId'] ?? 0);
       $alimentoId = intval($data['alimentoId'] ?? 0);
-      $cantidad = intval($data['cantidad'] ?? 0);
-      $produccionInterna = isset($data['produccionInterna']) ? 1 : 0;
+      $cantidad = floatval($data['cantidad'] ?? 0);
+      $produccionInterna = isset($data['produccionInterna']) && $data['produccionInterna'] === 'on';
       $proveedorId = isset($data['proveedorId']) && $data['proveedorId'] !== '' ? intval($data['proveedorId']) : null;
-      $almacenId = isset($data['almacenId']) && $data['almacenId'] !== '' ? intval($data['almacenId']) : null; 
       $fechaIngreso = trim($data['fechaIngreso'] ?? '');
 
       $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida'];
 
-      // Validación para registrar/modificar (solo lotes de ingreso, cantidad > 0)
       if (in_array($accion, ['registrar', 'modificar'])) {
-        if (empty($alimentoId) || $cantidad <= 0 || empty($fechaIngreso)) {
-          $res = ['tipo' => 'error', 'mensaje' => 'Completá los campos obligatorios'];
+        if (empty($almacenId) || empty($alimentoId) || $cantidad <= 0 || empty($fechaIngreso)) {
+          $res = ['tipo' => 'error', 'mensaje' => 'Completá los campos obligatorios: Alimento, Cantidad (> 0), Fecha y Almacén.'];
         } elseif (!$produccionInterna && empty($proveedorId)) {
           $res = ['tipo' => 'error', 'mensaje' => 'Si no es producción interna, el proveedor es obligatorio.'];
-        } elseif (empty($almacenId)) { 
-          $res = ['tipo' => 'error', 'mensaje' => 'El Almacén es obligatorio.'];
         } else {
           $res = ['tipo' => 'success', 'mensaje' => ''];
         }
       }
 
       switch ($accion) {
+        // --- REGISTRAR ---
         case 'registrar':
           if ($res['tipo'] === 'error')
             break;
 
-          $stock = new Stock(null, $almacenId, $alimentoId, $cantidad, $produccionInterna, $proveedorId, $fechaIngreso); // PASAR ALMACEN ID
-          $ok = $this->stockDAO->registrarStock($stock);
-          $res = $ok
-            ? ['tipo' => 'success', 'mensaje' => 'Stock registrado correctamente.']
-            : ['tipo' => 'error', 'mensaje' => 'Error al registrar el stock.'];
+          $stock = new Stock(null, $almacenId, $alimentoId, $cantidad, $produccionInterna, $proveedorId, $fechaIngreso);
+          try {
+            $ok = $this->stockDAO->registrarStock($stock);
+            $res = $ok
+              ? ['tipo' => 'success', 'mensaje' => 'Lote de stock registrado correctamente.']
+              : ['tipo' => 'error', 'mensaje' => 'Error al registrar el lote de stock.'];
+          } catch (Exception $e) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Error SQL al registrar: ' . $e->getMessage()];
+          }
           break;
 
+        // --- MODIFICAR ---
         case 'modificar':
           if ($res['tipo'] === 'error')
             break;
           if (!$id) {
-            $res = ['tipo' => 'error', 'mensaje' => 'ID de stock inválido para modificar.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'ID de lote inválido para modificar.'];
             break;
           }
 
-          $stock = new Stock($id,  $almacenId, $alimentoId, $cantidad, $produccionInterna, $proveedorId,$fechaIngreso); // PASAR ALMACEN ID
-          $ok = $this->stockDAO->modificarStock($stock);
-          $res = $ok
-            ? ['tipo' => 'success', 'mensaje' => 'Stock modificado correctamente.']
-            : ['tipo' => 'error', 'mensaje' => 'Error al modificar el stock.'];
+          $stock = new Stock($id, $almacenId, $alimentoId, $cantidad, $produccionInterna, $proveedorId, $fechaIngreso);
+          try {
+            $ok = $this->stockDAO->modificarStock($stock);
+            $res = $ok
+              ? ['tipo' => 'success', 'mensaje' => 'Lote de stock modificado correctamente.']
+              : ['tipo' => 'error', 'mensaje' => 'Error al modificar el lote de stock.'];
+          } catch (Exception $e) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Error SQL al modificar: ' . $e->getMessage()];
+          }
           break;
 
+        // --- ELIMINAR ---
         case 'eliminar':
           if (!$id) {
-            $res = ['tipo' => 'error', 'mensaje' => 'ID de stock inválido para eliminar.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'ID de lote inválido para eliminar.'];
             break;
           }
-          $ok = $this->stockDAO->eliminarStock($id);
-          $res = $ok
-            ? ['tipo' => 'success', 'mensaje' => 'Stock eliminado correctamente.']
-            : ['tipo' => 'error', 'mensaje' => 'No se encontró el stock o no se pudo eliminar.'];
-          break;
-
-        default:
-          if ($res['tipo'] !== 'error') {
-            $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida.'];
+          try {
+            $ok = $this->stockDAO->eliminarStock($id);
+            $res = $ok
+              ? ['tipo' => 'success', 'mensaje' => 'Lote de stock eliminado correctamente.']
+              : ['tipo' => 'error', 'mensaje' => 'No se encontró el lote o no se pudo eliminar.'];
+          } catch (Exception $e) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Error SQL al eliminar: ' . $e->getMessage()];
           }
           break;
+
+        // --- DEFAULT ---
+        default:
+          $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida.'];
+          break;
       }
 
-      if (php_sapi_name() !== 'cli') {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($res);
-        exit;
-      }
+      // --- Envío de respuesta JSON ---
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode($res, JSON_UNESCAPED_UNICODE);
+      exit;
     }
+
+    // Si no hay coincidencia con GET o POST válidos
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['tipo' => 'error', 'mensaje' => 'Solicitud inválida.']);
+    exit;
   }
 
-  // Métodos para obtener datos auxiliares para el frontend
   public function obtenerAlimentos()
   {
-    if ($this->alimentoDAO === null)
-      return [];
-    return $this->alimentoDAO->getAllAlimentos();
+    return $this->alimentoDAO ? $this->alimentoDAO->getAllAlimentos() : [];
   }
 
   public function obtenerProveedores()
   {
-    if ($this->proveedorDAO === null)
-      return [];
-    return $this->proveedorDAO->getAllProveedores();
+    return $this->proveedorDAO ? $this->proveedorDAO->getAllProveedores() : [];
   }
 
-  public function obtenerAlmacenes() 
+  public function obtenerAlmacenes()
   {
-    if ($this->almacenDAO === null)
-      return [];
-    return $this->almacenDAO->getAllAlmacenes();
+    return $this->almacenDAO ? $this->almacenDAO->getAllAlmacenes() : [];
   }
 }
 
@@ -187,3 +188,4 @@ if (php_sapi_name() !== 'cli') {
   $ctrl = new StockController();
   $ctrl->procesarFormularios();
 }
+?>

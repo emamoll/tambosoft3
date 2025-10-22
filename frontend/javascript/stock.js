@@ -44,9 +44,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Almacenar el estado actual de los filtros (similar a potrero.js)
   let FILTROS = {
-    alimentoIds: [], // array de IDs (multi-select)
-    produccionInternaIds: [], // array de IDs ('1' o '0')
-    almacenIds: [], // array de IDs
+    alimentoIds: [],
+    produccionInternaIds: [], // ['1'] o ['0'] o []
+    almacenIds: [],
   };
 
   // ===== Helpers =====
@@ -105,7 +105,7 @@ document.addEventListener("DOMContentLoaded", function () {
     almacen: buildLovMap(almacenId),
     origen: {
       1: "Interna",
-      0: "Compra/Movimiento",
+      0: "Proveedores",
     },
   };
 
@@ -129,8 +129,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function setRegistrarMode() {
     accionInput.value = "registrar";
-    submitBtn.textContent = "Registrar Lote";
-    formTitle.textContent = "Registrar Lote de Stock";
+    submitBtn.textContent = "Registrar Stock";
+    formTitle.textContent = "Registrar Stock";
     cancelarEdicion.style.display = "none";
     idInput.value = "";
     form.reset();
@@ -152,10 +152,11 @@ document.addEventListener("DOMContentLoaded", function () {
     cancelarEdicion.style.display = "inline-block";
 
     idInput.value = data.id;
+    almacenId.value = data.almacenId;
     alimentoId.value = data.alimentoId;
     cantidad.value = data.cantidad;
     fechaIngreso.value = data.fechaIngreso;
-    almacenId.value = data.almacenId;
+    
 
     almacenId.disabled = true;
 
@@ -196,7 +197,7 @@ document.addEventListener("DOMContentLoaded", function () {
     wrap.className = "radio-card";
 
     const input = document.createElement("input");
-    input.type = "checkbox"; // Usamos checkbox para permitir la simulación de "todos" y multi-select.
+    input.type = "checkbox";
     input.name = name;
     input.value = value;
     input.checked = !!checked;
@@ -217,15 +218,9 @@ document.addEventListener("DOMContentLoaded", function () {
     selectedValues = []
   ) {
     if (!selectEl || !containerEl) return;
-    containerEl.innerHTML = ""; // Limpiar
+    containerEl.innerHTML = "";
 
     const selectedSet = new Set((selectedValues || []).map(String));
-
-    // 1. Opción "Todos"
-    const allIsSelected = selectedValues.length === 0;
-    containerEl.appendChild(
-      createCheck(name, "0", `-- Todos --`, allIsSelected)
-    );
 
     // 2. Opciones del Select
     Array.from(selectEl.options)
@@ -241,12 +236,6 @@ document.addEventListener("DOMContentLoaded", function () {
   function buildOrigenGroup(containerEl, selectedValues = []) {
     containerEl.innerHTML = "";
     const selectedSet = new Set((selectedValues || []).map(String));
-
-    // 1. Opción "Todos" (valor -1)
-    const allIsSelected = selectedValues.length === 0;
-    containerEl.appendChild(
-      createCheck("filtro_origen", "-1", `-- Todos --`, allIsSelected)
-    );
 
     // 2. Opción Interna (valor 1)
     containerEl.appendChild(
@@ -332,22 +321,22 @@ document.addEventListener("DOMContentLoaded", function () {
     const filterParams = new URLSearchParams();
     filterParams.append("action", "list");
 
-    // Se envían múltiples IDs si están seleccionados (ej: alimentoId=1&alimentoId=5)
-    (FILTROS.alimentoIds || []).forEach((id) =>
-      filterParams.append("alimentoId", id)
-    );
-    (FILTROS.almacenIds || []).forEach((id) =>
-      filterParams.append("almacenId", id)
-    );
+    // Parámetros de Alimento y Almacén (se envía el primer ID si hay múltiples, o 0 si no hay)
+    // El backend solo maneja un ID de filtro, por lo que tomamos el primero o '0' (todos).
+    const filtroAlimento =
+      FILTROS.alimentoIds.length > 0 ? FILTROS.alimentoIds[0] : "0";
+    const filtroAlmacen =
+      FILTROS.almacenIds.length > 0 ? FILTROS.almacenIds[0] : "0";
 
-    // Producción Interna solo se envía si hay una selección simple ('0' o '1')
+    filterParams.append("alimentoId", filtroAlimento);
+    filterParams.append("almacenId", filtroAlmacen);
+
+    // Producción Interna (se envía '1', '0', o '-1' para todos)
+    let filtroOrigen = "-1";
     if (FILTROS.produccionInternaIds.length === 1) {
-      filterParams.append("produccionInterna", FILTROS.produccionInternaIds[0]);
-    } else {
-      // Si se selecciona "Todos" o si se seleccionan "Interna" y "Compra/Movimiento",
-      // o si no se selecciona nada, se pasa un valor que el controlador ignora (-1).
-      filterParams.append("produccionInterna", "-1");
+      filtroOrigen = FILTROS.produccionInternaIds[0];
     }
+    filterParams.append("produccionInterna", filtroOrigen);
 
     try {
       const url = `${API}?${filterParams.toString()}`;
@@ -360,7 +349,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Colspan ajustado a 7
       if (!Array.isArray(stocks) || stocks.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#666;">No hay lotes de stock registrados con los filtros aplicados.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#666;">No hay stock registrados con los filtros aplicados.</td></tr>`;
         return;
       }
 
@@ -432,7 +421,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==== Eventos de Filtros (Modal) ====
 
   abrirFiltrosBtn?.addEventListener("click", () => {
-    prepararChecksModal(); // Llenar el modal con el estado actual de FILTROS
+    prepararChecksModal();
     filtroModal.style.display = "flex";
   });
 
@@ -465,9 +454,16 @@ document.addEventListener("DOMContentLoaded", function () {
     let nuevosOrigenes = getCheckedValues("filtro_origen");
 
     // 2. Limpiar valores "Todos" ('0' y '-1')
-    FILTROS.almacenIds = nuevosAlmacenes.filter((id) => id !== "0");
-    FILTROS.alimentoIds = nuevosAlimentos.filter((id) => id !== "0");
-    FILTROS.produccionInternaIds = nuevosOrigenes.filter((id) => id !== "-1"); // '-1' es "Todos" para Origen
+    // El backend solo soporta un filtro por parámetro, por lo que tomamos solo el primer ID que no sea '0'.
+    FILTROS.almacenIds = nuevosAlmacenes.filter((id) => id !== "0").slice(0, 1);
+    FILTROS.alimentoIds = nuevosAlimentos
+      .filter((id) => id !== "0")
+      .slice(0, 1);
+
+    // Origen: solo soporta un valor ('1' o '0'). Si se selecciona "Todos" o más de uno, el array queda vacío y PHP usa '-1'.
+    FILTROS.produccionInternaIds = nuevosOrigenes
+      .filter((id) => id !== "-1")
+      .slice(0, 1);
 
     cerrarFiltrosBtn.click();
     await refrescarTabla();

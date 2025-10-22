@@ -95,7 +95,6 @@ document.addEventListener("DOMContentLoaded", function () {
     pasturaIds: [],
     categoriaIds: [],
     soloConCategoria: false,
-    // todasCategorias: true, <-- ELIMINADO
   };
 
   function createCheck(name, value, label, checked = false) {

@@ -5,7 +5,7 @@ require_once __DIR__ . '../../modelos/stock/stockModelo.php';
 require_once __DIR__ . '../../modelos/stock/stockTabla.php';
 require_once __DIR__ . '../../DAOS/alimentoDAO.php';
 require_once __DIR__ . '../../DAOS/proveedorDAO.php';
-require_once __DIR__ . '../../DAOS/almacenDAO.php'; // NUEVO REQUIRE
+require_once __DIR__ . '../../DAOS/almacenDAO.php';
 
 // Clase para el acceso a datos (DAO) de la tabla stocks
 class StockDAO
@@ -52,7 +52,7 @@ class StockDAO
     $stmt = $this->conn->prepare($sql);
 
     $proveedorIdSafe = $proveedorId ?? NULL;
-    $almacenIdSafe = $almacenId ?? NULL; 
+    $almacenIdSafe = $almacenId ?? NULL;
 
     $stmt->bind_param("iiiiis", $almacenIdSafe, $alimentoId, $cantidad, $produccionInterna, $proveedorIdSafe, $fechaIngreso);
 
@@ -81,6 +81,7 @@ class StockDAO
     $proveedorIdSafe = $proveedorId ?? NULL;
     $almacenIdSafe = $almacenId ?? NULL;
 
+    // Tipos: i (almacenId), i (alimentoId), i (cantidad), i (produccionInterna), i (proveedorId), s (fechaIngreso), i (id)
     $stmt->bind_param("iiiiisi", $almacenIdSafe, $alimentoId, $cantidad, $produccionInterna, $proveedorIdSafe, $fechaIngreso, $id);
 
     $resultado = $stmt->execute();
@@ -144,12 +145,21 @@ class StockDAO
 
     $stocks = [];
     while ($row = $result->fetch_assoc()) {
-      $stockObj = new Stock($row['id'],  $row['almacenId'], $row['alimentoId'], $row['cantidad'], $row['produccionInterna'], $row['proveedorId'],$row['fechaIngreso']);
+      // CORRECCIÓN CLAVE: Asegurar que el orden de los parámetros coincida con el constructor del modelo (id, alimentoId, cantidad, produccionInterna, proveedorId, almacenId, fechaIngreso)
+      $stockObj = new Stock(
+        $row['id'],
+        $row['alimentoId'],
+        $row['cantidad'],
+        $row['produccionInterna'],
+        $row['proveedorId'],
+        $row['almacenId'], // AlmacenId es el 6to parámetro en el constructor del modelo
+        $row['fechaIngreso']
+      );
 
       $stockData = (array) $stockObj;
       $stockData['alimentoNombre'] = $row['alimentoNombre'];
       $stockData['proveedorNombre'] = $row['proveedorNombre'];
-      $stockData['almacenNombre'] = $row['almacenNombre']; 
+      $stockData['almacenNombre'] = $row['almacenNombre'];
 
       $stocks[] = (object) $stockData;
     }
@@ -168,8 +178,16 @@ class StockDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    // Creación del objeto Stock con almacenId
-    return $row ? new Stock($row['id'], $row['almacenId'], $row['alimentoId'], $row['cantidad'], $row['produccionInterna'], $row['proveedorId'], $row['fechaIngreso']) : null;
+    // CORRECCIÓN CLAVE: Orden de los parámetros
+    return $row ? new Stock(
+      $row['id'],
+      $row['alimentoId'],
+      $row['cantidad'],
+      $row['produccionInterna'],
+      $row['proveedorId'],
+      $row['almacenId'], // AlmacenId es el 6to parámetro
+      $row['fechaIngreso']
+    ) : null;
   }
 
   // Eliminar un stock

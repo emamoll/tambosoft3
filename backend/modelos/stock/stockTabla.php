@@ -25,7 +25,7 @@ class StockCrearTabla
               almacenId INT NOT NULL,
               alimentoId INT NOT NULL,
               cantidad INT NOT NULL,
-              producionInterna BOOLEAN NOT NULL,
+              produccionInterna INT NOT NULL,
               proveedorId INT,
               fechaIngreso DATE NOT NULL,
               FOREIGN KEY (almacenId) REFERENCES almacenes(id),

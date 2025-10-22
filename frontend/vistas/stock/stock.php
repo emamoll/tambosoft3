@@ -6,13 +6,23 @@ if (!isset($_SESSION['username']) || !isset($_SESSION['rolId'])) {
 }
 
 require_once __DIR__ . '../../../../backend/controladores/stockController.php';
+require_once __DIR__ . '../../../../backend/controladores/alimentoController.php';
+require_once __DIR__ . '../../../../backend/controladores/almacenController.php';
+require_once __DIR__ . '../../../../backend/controladores/proveedorController.php';
 
-$controller = new StockController();
+$controllertock = new StockController();
+$controllerAlimento = new AlimentoController();
+$controllerAlmacen = new AlmacenController();
+$controllerProveedor = new ProveedorController();
 
-// Necesitamos precargar Alimentos, Proveedores y Almacenes para los combos (selects)
-$alimentos = $controller->obtenerAlimentos();
-$proveedores = $controller->obtenerProveedores();
-$almacenes = $controller->obtenerAlmacenes();
+$alimentos = $controllerAlimento->obtenerAlimentos();
+$almacenes = $controllerAlmacen->obtenerAlmacenes();
+$proveedores = $controllerProveedor->obtenerProveedores();
+
+$mensaje = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $mensaje = $controllerStock->procesarFormularios();
+}
 
 function esc($s)
 {
@@ -41,26 +51,23 @@ function esc($s)
 <body class="bodyHome">
   <?php require_once __DIR__ . '../../secciones/header.php'; ?>
   <?php require_once __DIR__ . '../../secciones/navbar.php'; ?>
-
-  <main>
-    <div style="display:flex; justify-content: center; flex-wrap: wrap; gap: 30px; padding: 20px;">
-
+    
       <div class="form-container form" style="flex: 1; max-width: 600px;">
-        <h2 id="form-title"><i class="fas fa-boxes"></i> Registrar Lote de Stock</h2>
+        <h2 id="form-title"> Registrar Stock</h2>
 
         <form id="stockForm" method="POST" novalidate>
           <input type="hidden" id="id" name="id" value="">
           <input type="hidden" id="accion" name="accion" value="registrar">
 
           <div class="form-group">
-            <label for="almacenId">Almacén de Destino</label>
+            <label for="almacenId">Campo</label>
             <select id="almacenId" name="almacenId" required>
-              <option value="">-- Seleccioná un Almacén --</option>
+              <option value="">-- Seleccioná un Campo --</option>
               <?php foreach ($almacenes as $almacen): ?>
                 <option value="<?= esc($almacen->getId()) ?>"><?= esc($almacen->getNombre()) ?></option>
               <?php endforeach; ?>
             </select>
-            <span class="error-message" id="error-almacenId">El almacén es obligatorio.</span>
+            <span class="error-message" id="error-almacenId">El campo es obligatorio.</span>
           </div>
 
           <div class="form-group">
@@ -75,9 +82,9 @@ function esc($s)
           </div>
 
           <div class="form-group">
-            <label for="cantidad">Cantidad (unidades/kg)</label>
+            <label for="cantidad">Cantidad</label>
             <input type="number" id="cantidad" name="cantidad" min="1" step="1" required>
-            <span class="error-message" id="error-cantidad">La cantidad debe ser un número entero > 0.</span>
+            <span class="error-message" id="error-cantidad">La cantidad debe ser mayor a 0.</span>
           </div>
 
           <div class="form-group">
@@ -99,19 +106,17 @@ function esc($s)
                 <option value="<?= esc($proveedor->getId()) ?>"><?= esc($proveedor->getDenominacion()) ?></option>
               <?php endforeach; ?>
             </select>
-            <span class="error-message" id="error-proveedorId">El proveedor es obligatorio si no es P. Interna.</span>
+            <span class="error-message" id="error-proveedorId">El proveedor es obligatorio si no es producción
+              interna.</span>
           </div>
 
           <div class="form-group" style="display:flex; gap:10px; align-items:center;">
-            <button type="submit" id="submitBtn" class="btn-usuario" style="width: 120px;">Registrar Lote</button>
+            <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
 
-            <button type="button" id="abrirFiltros" class="btn-usuario" style="width: 120px;">
-              <i class="fas fa-filter"></i> Filtrar
-            </button>
-
+            <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
             <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
 
-            <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#777;">
+            <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#888;">
               Cancelar edición
             </button>
           </div>
@@ -119,57 +124,35 @@ function esc($s)
       </div>
 
     </div>
-    <div style="text-align:center; margin: 20px 0;">
-      <div
-        style="width: 300px; margin: 10px auto; padding: 10px; border: 1px solid var(--color-secundario); border-radius: 8px; background: #e6f0ff;">
-        <label for="alimentoStockTotal" style="font-weight: bold;">Ver Stock Total por Alimento:</label>
-        <select id="alimentoStockTotal" name="alimentoStockTotal" class="form-control">
-          <option value="">-- Seleccioná un Alimento --</option>
-          <?php foreach ($alimentos as $alimento): ?>
-            <option value="<?= esc($alimento->getId()) ?>"><?= esc($alimento->getNombre()) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <div id="stockActualInfo" style="margin-top: 10px; font-weight: bold; color: var(--color-secundario);">Stock
-          total: N/A</div>
-      </div>
-    </div>
 
 
-    <div id="filtroModal" class="modal-overlay" style="display:none;">
-      <div class="modal-box" style="max-width: 500px; text-align: left;">
-        <h3><i class="fas fa-filter"></i> Filtrar Lotes</h3>
-        <form id="filterForm">
+    <div id="filtroModal" class="modal">
+      <div class="modal-content">
+        <h3>Filtrar Stock</h3>
 
-          <div class="filtro-grupo">
-            <h4>Almacén</h4>
-            <div id="filtroAlmacenGroup" class="radio-group">
-            </div>
+        <div class="filtro-grupo">
+          <h4>Campo</h4>
+          <div id="filtroAlmacenGroup" class="radio-group">
           </div>
+        </div>
 
-          <div class="filtro-grupo">
-            <h4>Alimento</h4>
-            <div id="filtroAlimentoGroup" class="radio-group">
-            </div>
+        <div class="filtro-grupo">
+          <h4>Alimento</h4>
+          <div id="filtroAlimentoGroup" class="radio-group">
           </div>
+        </div>
 
-          <div class="filtro-grupo">
-            <h4>Origen del Lote</h4>
-            <div id="filtroOrigenGroup" class="radio-group">
-            </div>
+        <div class="filtro-grupo">
+          <h4>Origen</h4>
+          <div id="filtroOrigenGroup" class="radio-group">
           </div>
+        </div>
 
-          <div class="modal-actions" style="display:flex; gap:10px; margin-top: 20px;">
-            <button type="button" id="aplicarFiltros" class="btn-usuario" style="background:#2ecc71; flex: 1;">
-              Aplicar
-            </button>
-            <button type="button" id="limpiarFiltros" class="btn-usuario" style="background:#777; flex: 1;">
-              Limpiar
-            </button>
-            <button type="button" id="cerrarFiltros" class="btn-usuario" style="background:#777; flex: 1;">
-              Cerrar
-            </button>
-          </div>
-        </form>
+        <div class="modal-actions" style="display:flex; gap:10px;">
+          <button id="aplicarFiltros" class="btn-usuario">Aplicar</button>
+          <button id="limpiarFiltros" class="btn btn-secondary">Limpiar</button>
+          <button id="cerrarFiltros" class="btn btn-cancel" style="background:#777; color:white">Cerrar</button>
+        </div>
       </div>
     </div>
 
@@ -185,7 +168,7 @@ function esc($s)
     </div>
 
     <div class="form-container table">
-      <h2>Lotes de Stock Registrados (Movimientos)</h2>
+      <h2>Stock Registrados</h2>
 
       <div class="table-wrapper">
         <table class="table-modern">
@@ -206,7 +189,6 @@ function esc($s)
         </table>
       </div>
     </div>
-  </main>
 
   <script src="../../javascript/stock.js"></script>
 </body>

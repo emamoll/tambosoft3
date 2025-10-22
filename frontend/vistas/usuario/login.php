@@ -1,47 +1,22 @@
 <?php
 
 session_start();
+// Solo requerimos el controlador de usuario por ahora
 require_once __DIR__ . '../../../../backend/controladores/usuarioController.php';
-require_once __DIR__ . '../../../../backend/controladores/alimentoController.php';
-require_once __DIR__ . '../../../../backend/controladores/almacenController.php';
-require_once __DIR__ . '../../../../backend/controladores/campoController.php';
-require_once __DIR__ . '../../../../backend/controladores/categoriaController.php';
-// require_once __DIR__ . '../backend/controladores/estadoController.php';
-// require_once __DIR__ . '../backend/controladores/ordenController.php';
-//require_once __DIR__ . '../../../../backend/controladores/pasturaController.php';
-require_once __DIR__ . '../../../../backend/controladores/potreroController.php';
- require_once __DIR__ . '../../../../backend/controladores/stockController.php';
-// require_once __DIR__ . '../backend/modelos//orden_cancelada/orden_canceladaTabla.php';
 
-try {
-  new UsuarioController();
-  new AlimentoController();
-  new AlmacenController();
-  new CampoController();
-  new CategoriaController();
-  // new EstadoController();
-  // new OrdenController();
-  //new PasturaController();
-  new PotreroController();
-  new StockController();
+$error = "";
 
-  $db = DatabaseFactory::createDatabaseConnection('mysql');
-  // $orden_canceladaCrearTabla = new Orden_canceladaCrearTabla($db);
-  // $orden_canceladaCrearTabla->crearTablaOrdenes_canceladas();
-  // No es necesario guardar las instancias en variables si solo es para ejecutar el constructor.
-} catch (Exception $e) {
-  error_log("Error al crear tablas: " . $e->getMessage());
-}
-
-$mensaje = "";
-
+// 1. Manejar el POST de LOGIN inmediatamente
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $username = trim($_POST['username'] ?? '');
   $password = trim($_POST['password'] ?? '');
   $controller = new UsuarioController();
-  $usuario = $controller->loginUsuario($_POST['username'], $_POST['password']);
+
+  // Llama directamente al método de login
+  $usuario = $controller->loginUsuario($username, $password);
 
   if ($usuario) {
+    // Si el login es exitoso, establece la sesión y redirige
     $_SESSION['username'] = $usuario->getUsername();
     $_SESSION['rolId'] = $usuario->getRolId();
     $_SESSION['imagen'] = $usuario->getImagen();
@@ -49,8 +24,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: ../usuario/index.php');
     exit;
   } else {
+    // Si el login falla, establece el mensaje de error
     $error = "Usuario o contraseña incorrectos.";
   }
+}
+
+// 2. Lógica de Creación de Tablas y Requisitos de Controladores (Solo corre si no hubo redirección)
+require_once __DIR__ . '../../../../backend/controladores/alimentoController.php';
+require_once __DIR__ . '../../../../backend/controladores/almacenController.php';
+require_once __DIR__ . '../../../../backend/controladores/campoController.php';
+require_once __DIR__ . '../../../../backend/controladores/categoriaController.php';
+require_once __DIR__ . '../../../../backend/controladores/potreroController.php';
+require_once __DIR__ . '../../../../backend/controladores/stockController.php';
+require_once __DIR__ . '../../../../backend/servicios/databaseFactory.php'; // Necesario para DatabaseFactory::createDatabaseConnection
+
+try {
+  // Instanciar controladores para forzar la creación de tablas (si sus constructores lo hacen)
+  // Nota: Estas instanciaciones no deberían tener side effects de procesamiento HTTP.
+  new UsuarioController();
+  new AlimentoController();
+  new AlmacenController();
+  new CampoController();
+  new CategoriaController();
+  new PotreroController();
+  new StockController();
+
+  $db = DatabaseFactory::createDatabaseConnection('mysql');
+  // ... cualquier otra lógica de configuración de tablas
+} catch (Exception $e) {
+  error_log("Error al crear tablas: " . $e->getMessage());
 }
 
 ?>
@@ -92,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </span>
         </div>
       </div>
-      <?php if (isset($error)): ?>
+      <?php if (isset($error) && $error !== ""): ?>
         <p class="error-message" style="display:block;"><?= $error ?></p>
       <?php endif; ?>
       <button type="submit" class="btn-usuario">Ingresar</button>
