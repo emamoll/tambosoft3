@@ -27,6 +27,7 @@ class StockCrearTabla
               cantidad INT NOT NULL,
               produccionInterna INT NOT NULL,
               proveedorId INT,
+              precio INT,
               fechaIngreso DATE NOT NULL,
               FOREIGN KEY (almacenId) REFERENCES almacenes(id),
               FOREIGN KEY (alimentoId) REFERENCES alimentos(id),

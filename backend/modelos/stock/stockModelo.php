@@ -10,9 +10,10 @@ class Stock
   private $cantidad;
   private $produccionInterna;
   private $proveedorId;
+  private $precio;
   private $fechaIngreso;
 
-  public function __construct($id = null, $almacenId = null, $alimentoId = null, $cantidad = null, $produccionInterna = null, $proveedorId = null, $fechaIngreso = null)
+  public function __construct($id = null, $almacenId = null, $alimentoId = null, $cantidad = null, $produccionInterna = null, $proveedorId = null, $precio = null, $fechaIngreso = null)
   {
     $this->id = $id;
     $this->almacenId = $almacenId;
@@ -20,6 +21,7 @@ class Stock
     $this->cantidad = $cantidad;
     $this->produccionInterna = $produccionInterna;
     $this->proveedorId = $proveedorId;
+    $this->precio = $precio;
     $this->fechaIngreso = $fechaIngreso;
   }
   // Métodos "getter" para acceder a las propiedades.
@@ -54,6 +56,11 @@ class Stock
     return $this->proveedorId;
   }
 
+  public function getPrecio()
+  {
+    return $this->precio;
+  }
+
   public function getFechaIngreso()
   {
     return $this->fechaIngreso;
@@ -84,6 +91,11 @@ class Stock
   public function setProveedorId($proveedorId)
   {
     $this->proveedorId = $proveedorId;
+  }
+
+  public function setPrecio($precio)
+  {
+    $this->precio = $precio;
   }
 
   public function setFechaIngreso($fechaIngreso)
