@@ -16,6 +16,8 @@ class AlimentoDAO
   {
     $this->db = DatabaseFactory::createDatabaseConnection('mysql');
     $this->crearTabla = new AlimentoCrearTabla($this->db);
+    $this->crearTabla->crearTablaTiposAlimentosId();
+    $this->crearTabla->insertarTiposAlimentosPredeterminados();
     $this->crearTabla->crearTablaAlimento();
     $this->conn = $this->db->connect();
   }
@@ -24,7 +26,7 @@ class AlimentoDAO
    * Verifica si existe un Alimento con el mismo nombre.
    * Si se pasa un $id, lo excluye de la validación (para modificaciones).
    */
-  public function existeNombre($nombre, $id = null): bool
+  public function existeNombreYTipo($tipoAlimentoId, $nombre, $id = null): bool
   {
     $sql = "SELECT id FROM alimentos WHERE LOWER(TRIM(nombre)) = LOWER(?)";
     if ($id !== null) {
@@ -33,9 +35,9 @@ class AlimentoDAO
 
     $stmt = $this->conn->prepare($sql);
     if ($id !== null) {
-      $stmt->bind_param("si", $nombre, $id);
+      $stmt->bind_param("isi", $tipoAlimentoId, $nombre, $id);
     } else {
-      $stmt->bind_param("s", $nombre);
+      $stmt->bind_param("is", $tipoAlimentoId, $nombre);
     }
 
     $stmt->execute();
@@ -45,19 +47,73 @@ class AlimentoDAO
     return $existe;
   }
 
+  // Listar alimentos con filtros dinámicos
+  public function listar(array $filtros = []): array
+  {
+    // Unimos los nombres de las tablas de referencia para poder devolver los nombres
+    $sql = "SELECT a.*, 
+                   ta.nombre AS tipoAlimentoNombre
+            FROM alimentos a
+            LEFT JOIN tiposAlimentos ta ON  a.tipoAlimentoId = ta.id
+            WHERE 1=1";
+
+    $params = [];
+    $types = "";
+
+    // -- Helper para crear la cláusula IN --
+    $addInClause = function (&$sql, &$params, &$types, $key, $column) use ($filtros) {
+      if (!empty($filtros[$key]) && is_array($filtros[$key])) {
+        $placeholders = implode(',', array_fill(0, count($filtros[$key]), '?'));
+        $sql .= " AND {$column} IN ({$placeholders})";
+
+        foreach ($filtros[$key] as $id) {
+          $params[] = $id;
+          $types .= "i";
+        }
+        return true;
+      }
+      return false;
+    };
+    // ------------------------------------
+
+    //  CORRECCIÓN CRÍTICA: Usamos cláusula IN para múltiples IDs
+    $addInClause($sql, $params, $types, 'tipoAlimentoId', 'a.tipoAlimentoId');
+
+    $sql .= " ORDER BY a.nombre ASC";
+
+    $stmt = $this->conn->prepare($sql);
+
+    // CORRECCIÓN: Usar bind_param solo si hay parámetros, y desempacando el array
+    if (!empty($params)) {
+      $stmt->bind_param($types, ...$params);
+    }
+
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $rows = [];
+    while ($r = $result->fetch_assoc()) {
+      $rows[] = $r;
+    }
+
+    $stmt->close();
+    return $rows;
+  }
+
   // Registrar un nuev alimento
   public function registrarAlimento(Alimento $alimento): bool
   {
+    $tipoAlimentoId = trim($alimento->getTipoAlimentoId());
     $nombre = trim($alimento->getNombre());
 
-    // Verificación de duplicado usando existeNombre
-    if ($this->existeNombre($nombre)) {
+    // Verificación de duplicado usando existeNombreYTipo
+    if ($this->existeNombreYTipo($tipoAlimentoId,$nombre)) {
       return false;
     }
 
-    $sql = "INSERT INTO alimentos (nombre) VALUES (?)";
+    $sql = "INSERT INTO alimentos (tipoAlimentoId, nombre) VALUES (?, ?)";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("s", $nombre);
+    $stmt->bind_param("is", $tipoAlimentoId, $nombre);
     $resultado = $stmt->execute();
     $stmt->close();
 
@@ -68,16 +124,17 @@ class AlimentoDAO
   public function modificarAlimento(Alimento $alimento): bool
   {
     $id = $alimento->getId();
+    $tipoAlimentoId = trim($alimento->getTipoAlimentoId());
     $nombre = trim($alimento->getNombre());
 
     // Verificación de duplicado excluyendo el propio ID
-    if ($this->existeNombre($nombre, $id)) {
+    if ($this->existeNombreYTipo($tipoAlimentoId, $nombre, $id)) {
       return false;
     }
 
-    $sql = "UPDATE alimentos SET nombre = ? WHERE id = ?";
+    $sql = "UPDATE alimentos SET tipoAlimentoId = ?, nombre = ? WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("si", $nombre, $id);
+    $stmt->bind_param("isi", $tipoAlimentoId, $nombre, $id);
     $resultado = $stmt->execute();
     $stmt->close();
 
@@ -97,7 +154,7 @@ class AlimentoDAO
 
     $alimentos = [];
     while ($row = $result->fetch_assoc()) {
-      $alimentos[] = new Alimento($row['id'], $row['nombre']);
+      $alimentos[] = new Alimento($row['id'], $row['tipoAlimentoId'],$row['nombre']);
     }
     return $alimentos;
   }
@@ -113,7 +170,21 @@ class AlimentoDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Alimento($row['id'], $row['nombre']) : null;
+    return $row ? new Alimento($row['id'], $row['tipoAlimentoId'],$row['nombre']) : null;
+  }
+
+    // Obtener una alimento por tipo
+  public function getAlimentoByTipoAlimentoId($tipoAlimentoId): ? Alimento
+  {
+    $sql = "SELECT * FROM alimentos WHERE tipo$tipoAlimentoId = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $tipoAlimentoId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+
+    return $row ? new Alimento($row['id'], $row['tipoAlimentoId'], $row['nombre']) : null;
   }
 
   // Obtener una alimento por nombre
@@ -127,7 +198,7 @@ class AlimentoDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Alimento($row['id'], $row['nombre']) : null;
+    return $row ? new Alimento($row['id'], $row['tipoAlimentoId'],$row['nombre']) : null;
   }
 
   // Eliminar una alimento

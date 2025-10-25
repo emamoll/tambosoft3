@@ -5,11 +5,13 @@ class Alimento
 {
   // Propiedades que corresponden a las columnas de la tabla `alimntos`.
   private $id;
+  private $tipoAlimentoId;
   private $nombre;
 
-  public function __construct($id = null, $nombre = null)
+  public function __construct($id = null, $tipoAlimentoId = null, $nombre = null)
   {
     $this->id = $id;
+    $this->tipoAlimentoId = $tipoAlimentoId;
     $this->nombre = $nombre;
   }
 
@@ -20,12 +22,22 @@ class Alimento
     return $this->id;
   }
 
+    public function getTipoAlimentoId()
+  {
+    return $this->tipoAlimentoId;
+  }
+
   public function getNombre()
   {
     return $this->nombre;
   }
 
-  // Método "setter" para modificar la propiedad `nombre`.
+  // Método "setter" 
+
+    public function setTipoAlimentoId($tipoAlimentoId)
+  {
+    $this->$tipoAlimentoId = $tipoAlimentoId;
+  }
 
   public function setNombre($nombre)
   {

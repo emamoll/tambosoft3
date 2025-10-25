@@ -161,7 +161,7 @@ class StockDAO
   }
 
   // Obtener por almacen
-  public function getStockByAlmacen($almacenId): ?Stock
+  public function getStockByAlmacenId($almacenId): ?Stock
   {
     $sql = "SELECT * FROM stocks WHERE almacenId = ?";
     $stmt = $this->conn->prepare($sql);
@@ -175,7 +175,7 @@ class StockDAO
   }
 
   // Obtener stock por alimento
-  public function getStockByAlimento($alimentoId): ?Stock
+  public function getStockByAlimentoId($alimentoId): ?Stock
   {
     $sql = "SELECT * FROM stocks WHERE alimentoId = ?";
     $stmt = $this->conn->prepare($sql);
@@ -291,7 +291,7 @@ class StockDAO
   }
 
   // Filtro de Stock
-  public function getStocksFiltradas(array $almacenId, array $alimentoId, array $proveedorId)
+  public function getStocksFiltradas(array $almacenId, array $alimentoId, array $produccionInterna)
   {
     // Construye la consulta SQL dinámicamente.
     $sql = "SELECT * FROM stocks WHERE 1=1";
@@ -312,11 +312,11 @@ class StockDAO
       $tipos .= str_repeat('i', count($alimentoId));
     }
 
-    if (!empty($proveedorId)) {
-      $placeholders = implode(',', array_fill(0, count($proveedorId), '?'));
-      $sql .= " AND proveedorId IN ($placeholders)";
-      $params = array_merge($params, $proveedorId);
-      $tipos .= str_repeat('i', count($proveedorId));
+    if (!empty($produccionInterna)) {
+      $placeholders = implode(',', array_fill(0, count($produccionInterna), '?'));
+      $sql .= " AND produccionInterna IN ($placeholders)";
+      $params = array_merge($params, $produccionInterna);
+      $tipos .= str_repeat('i', count($produccionInterna));
     }
 
     $sql .= " ORDER BY id";

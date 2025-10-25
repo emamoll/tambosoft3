@@ -42,6 +42,16 @@ $alimentos = $controller->obtenerAlimentos();
       <input type="hidden" id="accion" name="accion" value="registrar">
 
       <div class="form-group">
+        <label for="tipoAlimentoId">Tipo de Alimentos</label>
+        <select id="tipoAlimentoId" name="tipoAlimentoId">
+          <option value="">-- Seleccioná un tipo de Alimento --</option>
+          <option value="1">Fardo</option>
+          <option value="2">Silopack</option>
+        </select>
+        <span class="error-message" id="error-tipoAlimentoId">Seleccioná un tipo de alimento.</span>
+      </div>
+
+      <div class="form-group">
         <label for="nombre">Nombre del Alimento</label>
         <input type="text" id="nombre" name="nombre" required>
         <span class="error-message" id="error-nombre">El nombre es obligatorio</span>
@@ -49,6 +59,10 @@ $alimentos = $controller->obtenerAlimentos();
 
       <div style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
+
+        <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
+        <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
+
         <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#777;">
           Cancelar edición
         </button>
@@ -68,41 +82,43 @@ $alimentos = $controller->obtenerAlimentos();
     </div>
   </div>
 
-  <!-- ===== Tabla ===== -->
+  <!-- ===== TABLA DE Alimentos ===== -->
   <div class="form-container table">
-    <h2>ALimentos Registrados</h2>
-
+    <h2>Alimentos Registrados</h2>
     <div class="table-wrapper">
-      <table class="table-modern">
+      <table class="table-modern" aria-label="Listado de Alimentos">
         <thead>
           <tr>
-            <th>Id</th>
+            <th>ID</th>
+            <th>Tipo de Alimento</th>
             <th>Nombre</th>
-            <th style="width:120px;">Acciones</th>
           </tr>
         </thead>
-        <tbody>
-          <?php foreach ($alimentos as $alimento): ?>
-            <tr data-id="<?= htmlspecialchars($alimento->getId()) ?>"
-              data-nombre="<?= htmlspecialchars($alimento->getNombre()) ?>">
-              <td><?= htmlspecialchars($alimento->getId()) ?></td>
-              <td><?= htmlspecialchars($alimento->getNombre()) ?></td>
-              <td>
-                <div class="table-actions">
-                  <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
-                  <button type="button" class="btn-icon delete js-delete" title="Eliminar"
-                    aria-label="Eliminar">🗑️</button>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-          <?php if (empty($alimentos)): ?>
-            <tr>
-              <td colspan="3" style="text-align:center; color:#666;">No hay alimentos registrados</td>
-            </tr>
-          <?php endif; ?>
-        </tbody>
+        <tbody></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ===== MODAL DE FILTROS (RADIOS) ===== -->
+  <div id="filtroModal" class="modal">
+    <div class="modal-content">
+      <h3>Filtrar Alimentos</h3>
+
+      <div class="filtro-grupo">
+        <h4>Tipo de Alimento</h4>
+        <div id="filtroTipoAlimentoGroup" class="radio-group"></div>
+      </div>
+
+      <div class="filtro-grupo">
+        <h4>Nombre</h4>
+        <div id="filtroNombreGroup" class="radio-group"></div>
+      </div>
+
+      <div class="modal-actions" style="display:flex; gap:10px;">
+        <button id="aplicarFiltros" class="btn-usuario">Aplicar</button>
+        <button id="limpiarFiltros" class="btn btn-secondary">Limpiar</button>
+        <button id="cerrarFiltros" class="btn btn-cancel" style="background:#777; color:white">Cerrar</button>
+      </div>
     </div>
   </div>
 

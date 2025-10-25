@@ -15,6 +15,38 @@ class AlimentoCrearTabla
     $this->db = $db;
   }
 
+  // Crea la tabla tiposAlimentos si no existe
+  public function crearTablaTiposAlimentosId()
+  {
+    $this->db = DatabaseFactory::createDatabaseConnection('mysql');
+    $conn = $this->db->connect();
+    $sql = "CREATE TABLE IF NOT EXISTS tiposAlimentos (
+              id INT PRIMARY KEY AUTO_INCREMENT, 
+              tipoAlimento VARCHAR(255) NOT NULL UNIQUE)";
+
+    $conn->query($sql);
+    $conn->close();
+  }
+
+  // Inserta los tipos de alimentos predeterminados si no existen
+  public function insertarTiposAlimentosPredeterminados()
+  {
+    $this->db = DatabaseFactory::createDatabaseConnection('mysql');
+    $conn = $this->db->connect();
+
+    // Roles a insertar.
+    $roles = ['Fardo', 'Silopack'];
+
+    foreach ($roles as $rol) {
+      $stmt = $conn->prepare("INSERT IGNORE INTO tiposAlimentos (tipoAlimento) VALUES (?)");
+      $stmt->bind_param("s", $rol);
+      $stmt->execute();
+      $stmt->close();
+    }
+
+    $conn->close();
+  }
+
   // Crea la tabla Alimento si no existe.
 
   public function crearTablaAlimento()
@@ -26,7 +58,9 @@ class AlimentoCrearTabla
     // Sentencia SQL para la creación de la tabla.
     $sql = "CREATE TABLE IF NOT EXISTS alimentos (
               id INT PRIMARY KEY AUTO_INCREMENT,
-              nombre VARCHAR(255) NOT NULL UNIQUE)";
+              tipoAlimentoId INT NOT NULL,
+              nombre VARCHAR(255) NOT NULL UNIQUE,
+              FOREIGN KEY (tipoId) REFERENCES tiposAlimentos(id))";
 
     // Ejecuta la consulta y cierra la conexión.
     $conn->query($sql);

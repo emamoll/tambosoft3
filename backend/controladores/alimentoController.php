@@ -24,20 +24,63 @@ class AlimentoController
       return ['tipo' => 'error', 'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError];
     }
 
+    $accion = $_GET['action'] ?? null;
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'list') {
+
+      // Función auxiliar: convierte parámetros GET en arrays de enteros
+      $getArrayOfInts = function ($key) {
+        if (!isset($_GET[$key]))
+          return null;
+        $val = $_GET[$key];
+        // Asegura que siempre sea un array para procesar los [] de JS
+        if (!is_array($val))
+          $val = [$val];
+        // Convierte a int y elimina valores vacíos (como el string vacío de un checkbox no marcado)
+        $ints = array_map('intval', array_filter($val, fn($v) => $v !== ''));
+        return count($ints) > 0 ? $ints : null;
+      };
+
+      // Filtros admitidos (ahora esperan arrays de IDs o null)
+      $filtros = [
+        'nombre' => $getArrayOfInts('nombre'),
+        'tipoAlimentoId' => $getArrayOfInts('tipoAlimentoId')
+      ];
+
+      $alimentos = $this->alimentoDAO->listar($filtros);
+      $out = [];
+
+      foreach ($alimentos as $alimento) {
+        $out[] = [
+          'id' => $alimento['id'],
+          'tipoAlimentoId' => $alimento['tipoAlimentoId'],
+          'nombre' => $alimento['nombre'],
+          'tipoAlimentoNombre' => $p['tipoAlimentoNombre'] ?? '',
+        ];
+      }
+
+      if (ob_get_level())
+        ob_clean();
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode($out);
+      exit;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $accion = $_POST['accion'] ?? '';
       $id = isset($_POST['id']) ? intval($_POST['id']) : null;
+      $tipoAlimentoId = trim($_POST['tipoAlimentoId'] ?? '');
       $nombre = trim($_POST['nombre'] ?? '');
 
       switch ($accion) {
         case 'registrar':
-          if (empty($nombre)) {
+          if (empty($nombre) || empty($$tipoAlimentoId)) {
             return ['tipo' => 'error', 'mensaje' => 'Por favor, completá todos los campos para registrar'];
           }
-          if ($this->alimentoDAO->existeNombre($nombre)) {
+          if ($this->alimentoDAO->existeNombreYTipo($tipoAlimentoId, $nombre)) {
             return ['tipo' => 'error', 'mensaje' => 'Ya existe un alimento con ese nombre'];
           }
-          $ok = $this->alimentoDAO->registrarAlimento(new Alimento(null, $nombre));
+          $ok = $this->alimentoDAO->registrarAlimento(new Alimento(null, $tipoAlimentoId, $nombre));
           return $ok
             ? ['tipo' => 'success', 'mensaje' => 'Alimento registrad correctamente']
             : ['tipo' => 'error', 'mensaje' => 'Error al registrar el alimento'];
@@ -46,13 +89,13 @@ class AlimentoController
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para modificar'];
           }
-          if (empty($nombre)) {
+          if (empty($nombre) || empty($$tipoAlimentoId)) {
             return ['tipo' => 'error', 'mensaje' => 'Completá todos los campos para modificar'];
           }
-          if ($this->alimentoDAO->existeNombre($nombre, $id)) {
+          if ($this->alimentoDAO->existeNombreYTipo($tipoAlimentoId, $nombre, $id)) {
             return ['tipo' => 'error', 'mensaje' => 'Ya existe un alimento con ese nombre'];
           }
-          $ok = $this->alimentoDAO->modificarAlimento(new Alimento($id, $nombre));
+          $ok = $this->alimentoDAO->modificarAlimento(new Alimento($id, $tipoAlimentoId, $nombre));
           return $ok
             ? ['tipo' => 'success', 'mensaje' => 'Alimento modificado correctamente']
             : ['tipo' => 'error', 'mensaje' => 'Error al modificar el alimento'];
@@ -92,6 +135,22 @@ class AlimentoController
     }
     return $this->alimentoDAO->getAlimentoById($id);
   }
+
+  public function getAlimentoByTipoAlimentoId($tipoAlimentoId)
+  {
+    if ($this->connError !== null) {
+      return null;
+    }
+    return $this->alimentoDAO->getAlimentoByTipoAlimentoId($tipoAlimentoId);
+  }
+
+  public function getAlimentoByNombre($nombre)
+  {
+    if ($this->connError !== null) {
+      return null;
+    }
+    return $this->alimentoDAO->getAlimentoByNombre($nombre);
+  }
 }
 
 $isAjax = (
@@ -108,6 +167,7 @@ if (php_sapi_name() !== 'cli') {
     foreach ($alimentos as $alimento) {
       $out[] = [
         'id' => $alimento->getId(),
+        'tipoAlimentoId' => $alimento->getTipoAlimentoId(),
         'nombre' => $alimento->getNombre(),
       ];
     }

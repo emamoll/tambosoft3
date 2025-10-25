@@ -32,9 +32,8 @@ class PotreroController
 
     $accion = $_GET['action'] ?? null;
 
-    // ==========================================
-    // GET → LISTAR POTREROS (con filtros)
-    // ==========================================
+    // LISTAR POTREROS (con filtros)
+
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'list') {
 
       // Función auxiliar: convierte parámetros GET en arrays de enteros
@@ -85,9 +84,8 @@ class PotreroController
       exit;
     }
 
-    // ==========================================
-    // POST → CRUD Y MOVER CATEGORÍA
-    // ==========================================
+    // ABM POTRERO Y MOVER CATEGORÍA
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $data = $_POST;
       if (empty($data)) {

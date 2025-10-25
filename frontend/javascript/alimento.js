@@ -6,18 +6,20 @@ document.addEventListener("DOMContentLoaded", function () {
   const cancelarEdicion = document.getElementById("cancelarEdicion");
   const formTitle = document.getElementById("form-title");
 
+  const tipoAlimentoId = document.getElementById("tipoAlimentoId");
   const nombre = document.getElementById("nombre");
 
+  const tableBody = document.querySelector(".table-modern tbody");
+
+  // Modal eliminar
   const modal = document.getElementById("confirmModal");
   const confirmText = document.getElementById("confirmText");
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
 
-  const tableBody = document.querySelector(".table-modern tbody");
-
   const API = "../../../backend/controladores/alimentoController.php";
 
-  // UI helpers
+  // ===== Helpers =====
   function flash(tipo, mensaje) {
     let alertBox = document.querySelector(".form .alert");
     if (!alertBox) {
@@ -31,6 +33,174 @@ document.addEventListener("DOMContentLoaded", function () {
     alertBox.textContent = mensaje;
   }
 
+  function buildLovMap(selectEl) {
+    const map = {};
+    if (!selectEl) return map;
+    Array.from(selectEl.options).forEach((opt) => {
+      if (opt.value) map[opt.value] = opt.textContent.trim();
+    });
+    return map;
+  }
+
+  async function fetchJSON(url, options = {}) {
+    const resp = await fetch(url, options);
+    const ct = resp.headers.get("content-type") || "";
+    const text = await resp.text();
+
+    if (!ct.includes("application/json")) {
+      console.error("[Backend NON-JSON]", {
+        url,
+        status: resp.status,
+        contentType: ct,
+        preview: text.slice(0, 400),
+      });
+      throw new Error("Respuesta no JSON del backend.");
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("[JSON Parse Error]", text.slice(0, 400));
+      throw e;
+    }
+  }
+
+  // ===== LOV maps =====
+  const LOVS = {
+    tipoAlimento: buildLovMap(tipoAlimentoId),
+  };
+
+  // ===== Filtros =====
+  const abrirFiltrosBtn = document.getElementById("abrirFiltros");
+  const filtroModal = document.getElementById("filtroModal");
+  const aplicarFiltrosBtn = document.getElementById("aplicarFiltros");
+  const limpiarFiltrosBtn = document.getElementById("limpiarFiltros");
+  const cerrarFiltrosBtn = document.getElementById("cerrarFiltros");
+  const resumenFiltros = document.getElementById("resumenFiltros");
+
+  const FILTROS = {
+    tipoAlimentosIds: [],
+    nombres: [],
+  };
+
+  function createCheck(name, value, label, checked = false) {
+    const wrap = document.createElement("label");
+    wrap.className = "radio-card";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.name = name;
+    input.value = value;
+    input.checked = !!checked;
+
+    const span = document.createElement("span");
+    span.className = "radio-label";
+    span.textContent = label;
+
+    wrap.appendChild(input);
+    wrap.appendChild(span);
+    return wrap;
+  }
+
+  function buildCheckGroupFromSelect(
+    selectEl,
+    containerEl,
+    name,
+    selectedValues = []
+  ) {
+    if (!selectEl || !containerEl) return;
+    const selectedSet = new Set((selectedValues || []).map(String));
+    // NO agregamos "Cualquiera"
+    Array.from(selectEl.options)
+      .filter((o) => o.value)
+      .forEach((o) => {
+        const checked = selectedSet.has(String(o.value));
+        containerEl.appendChild(
+          createCheck(name, String(o.value), o.textContent.trim(), checked)
+        );
+      });
+  }
+
+  function prepararChecksModal() {
+    const tipoAlimentoGroup = document.getElementById("filtrotipoAlimentoGroup");
+    const nombreGroup = document.getElementById("filtroNombreGroup");
+
+    if (!tipoAlimentoGroup || !nombreGroup) {
+      console.error("Faltan contenedores de filtros");
+      return;
+    }
+
+    tipoAlimentoGroup.innerHTML = "";
+    nombreGroup.innerHTML = "";
+
+    buildCheckGroupFromSelect(
+      tipoAlimentoId,
+      tipoAlimentoGroup,
+      "filtro_tipoAlimentoId",
+      FILTROS.tipoAlimentosIds
+    );
+    buildCheckGroupFromSelect(
+      nombre,
+      nombreGroup,
+      "filtro_nombre",
+      FILTROS.nombres
+    );
+  }
+
+  function abrirModalFiltros() {
+    prepararChecksModal();
+    filtroModal.style.display = "flex";
+  }
+
+  function cerrarModalFiltros() {
+    filtroModal.style.display = "none";
+  }
+
+  abrirFiltrosBtn?.addEventListener("click", abrirModalFiltros);
+  cerrarFiltrosBtn?.addEventListener("click", cerrarModalFiltros);
+  filtroModal?.addEventListener("click", (e) => {
+    if (e.target === filtroModal) cerrarModalFiltros();
+  });
+
+  function getCheckedValues(name) {
+    return Array.from(
+      document.querySelectorAll(`input[name="${name}"]:checked`)
+    ).map((i) => i.value);
+  }
+
+  function pintarResumenFiltros() {
+    const partes = [];
+    if (FILTROS.tipoAlimentosIds.length) {
+      const nombres = FILTROS.tipoAlimentosIds.map((id) => LOVS.tipoAlimento[id] || id);
+      partes.push(`Tipo de Alimento: ${nombres.join(", ")}`);
+    }
+    if (FILTROS.nombres.length) {
+      const nombres = FILTROS.nombres.map((id) => LOVS.nombre[id] || id);
+      partes.push(`Nombre: ${nombres.join(", ")}`);
+    }
+
+    resumenFiltros.textContent = partes.length
+      ? `Filtros → ${partes.join(" · ")}`
+      : "";
+  }
+
+  limpiarFiltrosBtn?.addEventListener("click", async () => {
+    FILTROS.tipoAlimentosIds = [];
+    FILTROS.nombres = [];
+    prepararChecksModal();
+    pintarResumenFiltros();
+    await refrescarTabla();
+  });
+
+  aplicarFiltrosBtn?.addEventListener("click", async () => {
+    FILTROS.tipoAlimentosIds = getCheckedValues("filtro_tipoAlimentoId");
+    FILTROS.nombres = getCheckedValues("filtro_nombre");
+    cerrarModalFiltros();
+    pintarResumenFiltros();
+    await refrescarTabla();
+  });
+
+  // ===== Modo form =====
   function setRegistrarMode() {
     accionInput.value = "registrar";
     submitBtn.textContent = "Registrar";
@@ -38,10 +208,6 @@ document.addEventListener("DOMContentLoaded", function () {
     cancelarEdicion.style.display = "none";
     idInput.value = "";
     form.reset();
-    ["nombre"].forEach((k) => {
-      const el = document.getElementById("error-" + k);
-      if (el) el.style.display = "none";
-    });
   }
 
   function setEditarMode(data) {
@@ -51,75 +217,98 @@ document.addEventListener("DOMContentLoaded", function () {
     cancelarEdicion.style.display = "inline-block";
 
     idInput.value = data.id;
-    nombre.value = data.nombre;
+    tipoAlimentoId.value = data.tipoAlimentoId || "";
+    nombre.value = data.nombre || "";
+
     nombre.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  cancelarEdicion.addEventListener("click", setRegistrarMode);
+
   function extractDataFromRow(tr) {
     return {
       id: tr.dataset.id,
+      tipoAlimentoIdId: tr.dataset.tipoAlimentoIdId,
       nombre: tr.dataset.nombre,
     };
   }
 
+  // ===== Tabla =====
   async function refrescarTabla() {
     try {
-      const resp = await fetch(`${API}?action=list`, {
+      const params = new URLSearchParams({ action: "list" });
+
+      (FILTROS.tipoAlimentosIds || []).forEach((id) => params.append("tipoAlimentoId[]", id));
+      (FILTROS.nombres || []).forEach((id) =>
+        params.append("nombre[]", id)
+      );
+
+      const alimentos = await fetchJSON(`${API}?${params.toString()}`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
-      const alimentos = await resp.json();
 
       tableBody.innerHTML = "";
       if (!Array.isArray(alimentos) || alimentos.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#666;">No hay alimentos registrados.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#666;">No hay alimentos para los filtros aplicados.</td></tr>`;
         return;
       }
 
-      for (const a of alimentos) {
+      for (const alimento of alimentos) {
         const tr = document.createElement("tr");
-        tr.dataset.id = a.id;
-        tr.dataset.nombre = a.nombre;
+
+        const _id = alimento.id ?? "";
+        const _tipoAlimentoId = String(alimento.tipoAlimentoId ?? "");
+        const _nombre = alimento.nombre ?? "";
+
+        const tipoAlimentoNombre = alimento.tipoAlimentoNombre || LOVS.tipoAlimento[_tipoAlimentoId] || "";
+        const nombre = alimento.nombre || LOVS.nombre[_nombre] || "";
+
+        tr.dataset.id = _id;
+        tr.dataset.tipoAlimentoId = _tipoAlimentoId;
+        tr.dataset.nombre = _nombre;
 
         tr.innerHTML = `
-          <td>${a.id}</td>
-          <td>${a.nombre}</td>
+          <td>${_id}</td>
+          <td>${tipoAlimentoNombre}</td>
+          <td>${_nombre}</td>
           <td>
             <div class="table-actions">
-              <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
-              <button type="button" class="btn-icon delete js-delete" title="Eliminar" aria-label="Eliminar">🗑️</button>
+              <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
+              <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
             </div>
-          </td>
-        `;
+          </td>`;
         tableBody.appendChild(tr);
       }
     } catch (err) {
-      console.error("Error al refrescar la tabla:", err);
-      flash("error", "No se pudo actualizar la lista de alimentos.");
+      console.error(err);
+      tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#a00;">Error cargando tabla.</td></tr>`;
     }
   }
 
-  // Delegación de eventos
+  // ==== Editar / Eliminar ====
   tableBody.addEventListener("click", (e) => {
     const editBtn = e.target.closest(".js-edit");
     const delBtn = e.target.closest(".js-delete");
+    const moveBtn = e.target.closest(".js-move");
+
     if (editBtn) {
       const tr = editBtn.closest("tr");
       setEditarMode(extractDataFromRow(tr));
       return;
     }
+
     if (delBtn) {
       const tr = delBtn.closest("tr");
       const data = extractDataFromRow(tr);
-      confirmText.textContent = `¿Seguro que deseas eliminar el alimento "${data.nombre}"?`;
+      confirmText.textContent = `¿Seguro que deseás eliminar el alimento "${data.nombre}"?`;
       modal.dataset.id = data.id;
       modal.style.display = "flex";
       return;
     }
   });
 
-  // Confirmación de eliminación
-  confirmYes.addEventListener("click", async () => {
+  confirmYes?.addEventListener("click", async () => {
     const id = modal.dataset.id;
     modal.style.display = "none";
     delete modal.dataset.id;
@@ -128,14 +317,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const fd = new FormData();
     fd.append("accion", "eliminar");
     fd.append("id", id);
-
     try {
-      const resp = await fetch(API, {
-        method: "POST",
-        body: fd,
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      const data = await resp.json();
+      const data = await fetchJSON(API, { method: "POST", body: fd });
       flash(data.tipo, data.mensaje);
       if (data.tipo === "success") {
         await refrescarTabla();
@@ -143,44 +326,26 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (err) {
       console.error(err);
-      flash("error", "Error al eliminar el alimento");
+      flash("error", "Error al eliminar el alimento.");
     }
   });
 
-  confirmNo.addEventListener("click", () => {
+  confirmNo?.addEventListener("click", () => {
     modal.style.display = "none";
     delete modal.dataset.id;
   });
 
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      modal.style.display = "none";
-      delete modal.dataset.id;
-    }
-  });
-
-  cancelarEdicion.addEventListener("click", setRegistrarMode);
-
-  // Submit del formulario
+  // ==== Submit Form ====
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    let ok = true;
-    document.getElementById("error-nombre").style.display = nombre.value.trim()
-      ? "none"
-      : "block";
-    if (!nombre.value.trim()) ok = false;
-
-    if (!ok) return;
-
     const fd = new FormData(form);
     try {
-      const resp = await fetch(API, {
+      const data = await fetchJSON(API, {
         method: "POST",
         body: fd,
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
-      const data = await resp.json();
       flash(data.tipo, data.mensaje);
       if (data.tipo === "success") {
         await refrescarTabla();
@@ -192,7 +357,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Estado inicial
+  moverModal?.addEventListener("click", (e) => {
+    if (e.target.id === "moverModal") {
+      cancelarMover?.click();
+    }
+  });
+
+  // ===== Inicializar =====
   setRegistrarMode();
+  pintarResumenFiltros();
   refrescarTabla();
 });

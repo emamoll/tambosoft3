@@ -85,7 +85,7 @@ class PotreroDAO
     return $ok;
   }
 
-  // 🔹 Listar potreros con filtros dinámicos (Clave para que los filtros funcionen)
+  // Listar potreros con filtros dinámicos (Clave para que los filtros funcionen)
   public function listar(array $filtros = []): array
   {
     // Unimos los nombres de las tablas de referencia para poder devolver los nombres
@@ -119,7 +119,7 @@ class PotreroDAO
     };
     // ------------------------------------
 
-    // 🆕 CORRECCIÓN CRÍTICA: Usamos cláusula IN para múltiples IDs
+    // CORRECCIÓN CRÍTICA: Usamos cláusula IN para múltiples IDs
     $addInClause($sql, $params, $types, 'campoId', 'p.campoId');
     $addInClause($sql, $params, $types, 'pasturaId', 'p.pasturaId');
     $addInClause($sql, $params, $types, 'categoriaId', 'p.categoriaId');
@@ -151,7 +151,7 @@ class PotreroDAO
     return $rows;
   }
 
-  // 🔹 Obtener todos
+  //  Obtener todos
   public function getAllPotreros(): array
   {
     $sql = "SELECT * FROM potreros ORDER BY nombre ASC";
