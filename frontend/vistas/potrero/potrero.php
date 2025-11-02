@@ -105,12 +105,6 @@ function esc($s)
         <div id="error-categoriaId" class="error-message">Seleccioná la categoría</div>
       </div>
 
-      <div class="form-group">
-        <label for="cantidadCategoria">Cantidad de Categoría</label>
-        <input type="number" id="cantidadCategoria" name="cantidadCategoria" />
-        <div id="error-cantidadCategoria" class="error-message">Ingresá la cantidad.</div>
-      </div>
-
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
 

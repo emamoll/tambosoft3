@@ -26,7 +26,7 @@ class AlimentoController
 
     $accion = $_GET['action'] ?? null;
 
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'list') {
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'listar') {
 
       // Función auxiliar: convierte parámetros GET en arrays de enteros
       $getArrayOfInts = function ($key) {
@@ -55,7 +55,6 @@ class AlimentoController
           'id' => $alimento['id'],
           'tipoAlimentoId' => $alimento['tipoAlimentoId'],
           'nombre' => $alimento['nombre'],
-          'tipoAlimentoNombre' => $p['tipoAlimentoNombre'] ?? '',
         ];
       }
 
@@ -74,7 +73,7 @@ class AlimentoController
 
       switch ($accion) {
         case 'registrar':
-          if (empty($nombre) || empty($$tipoAlimentoId)) {
+          if (empty($nombre) || empty($tipoAlimentoId)) {
             return ['tipo' => 'error', 'mensaje' => 'Por favor, completá todos los campos para registrar'];
           }
           if ($this->alimentoDAO->existeNombreYTipo($tipoAlimentoId, $nombre)) {
@@ -82,14 +81,14 @@ class AlimentoController
           }
           $ok = $this->alimentoDAO->registrarAlimento(new Alimento(null, $tipoAlimentoId, $nombre));
           return $ok
-            ? ['tipo' => 'success', 'mensaje' => 'Alimento registrad correctamente']
+            ? ['tipo' => 'success', 'mensaje' => 'Alimento registrado correctamente']
             : ['tipo' => 'error', 'mensaje' => 'Error al registrar el alimento'];
 
         case 'modificar':
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para modificar'];
           }
-          if (empty($nombre) || empty($$tipoAlimentoId)) {
+          if (empty($nombre) || empty($tipoAlimentoId)) {
             return ['tipo' => 'error', 'mensaje' => 'Completá todos los campos para modificar'];
           }
           if ($this->alimentoDAO->existeNombreYTipo($tipoAlimentoId, $nombre, $id)) {

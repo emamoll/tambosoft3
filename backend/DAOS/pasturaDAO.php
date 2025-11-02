@@ -17,6 +17,7 @@ class PasturaDAO
     $this->db = DatabaseFactory::createDatabaseConnection('mysql');
     $this->crearTabla = new PasturaCrearTabla($this->db);
     $this->crearTabla->crearTablaPastura();
+    $this->crearTabla->insertarPasturas();
     $this->conn = $this->db->connect();
   }
 
@@ -49,16 +50,15 @@ class PasturaDAO
   public function registrarPastura(Pastura $pastura): bool
   {
     $nombre = trim($pastura->getNombre());
-    $fechaSiembra = $pastura->getFechaSiembra();
 
     // Verificación de duplicado usando existeNombre
     if ($this->existeNombre($nombre)) {
       return false;
     }
 
-    $sql = "INSERT INTO pasturas (nombre, fechaSiembra) VALUES (?, ?)";
+    $sql = "INSERT INTO pasturas (nombre) VALUES (?)";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("ss", $nombre, $fechaSiembra);
+    $stmt->bind_param("s", $nombre,);
     $resultado = $stmt->execute();
     $stmt->close();
 
@@ -70,16 +70,15 @@ class PasturaDAO
   {
     $id = $pastura->getId();
     $nombre = trim($pastura->getNombre());
-    $fechaSiembra = $pastura->getFechaSiembra();
 
     // Verificación de duplicado excluyendo el propio ID
     if ($this->existeNombre($nombre, $id)) {
       return false;
     }
 
-    $sql = "UPDATE pasturas SET nombre = ?, fechaSiembra = ? WHERE id = ?";
+    $sql = "UPDATE pasturas SET nombre = ? WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("ssi", $nombre, $fechaSiembra, $id);
+    $stmt->bind_param("si", $nombre, $id);
     $resultado = $stmt->execute();
     $stmt->close();
 
@@ -99,7 +98,7 @@ class PasturaDAO
 
     $pasturas = [];
     while ($row = $result->fetch_assoc()) {
-      $pasturas[] = new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']);
+      $pasturas[] = new Pastura($row['id'], $row['nombre']);
     }
     return $pasturas;
   }
@@ -115,7 +114,7 @@ class PasturaDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']) : null;
+    return $row ? new Pastura($row['id'], $row['nombre']) : null;
   }
 
   // Obtener una pastura por nombre
@@ -129,21 +128,7 @@ class PasturaDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']) : null;
-  }
-
-  // Obtener una pastura por fecha de siembra
-  public function getPasturaByFechaSiembra($fechaSiembra): ?Pastura
-  {
-    $sql = "SELECT * FROM pasturas WHERE fechaSiembra = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("s", $fechaSiembra);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $stmt->close();
-
-    return $row ? new Pastura($row['id'], $row['nombre'], $row['fechaSiembra']) : null;
+    return $row ? new Pastura($row['id'], $row['nombre']) : null;
   }
 
   // Eliminar una pastura

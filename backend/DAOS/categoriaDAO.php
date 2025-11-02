@@ -47,15 +47,16 @@ class CategoriaDAO
   public function registrarCategoria(Categoria $categoria): bool
   {
     $nombre = trim($categoria->getNombre());
+    $cantidad = trim($categoria->getCantidad());
 
     // Verificación de duplicado usando existeNombre
     if ($this->existeNombre($nombre)) {
       return false;
     }
 
-    $sql = "INSERT INTO categorias (nombre) VALUES (?)";
+    $sql = "INSERT INTO categorias (nombre, cantidad) VALUES (?, ?)";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("s", $nombre);
+    $stmt->bind_param("si", $nombre, $cantidad);
     $resultado = $stmt->execute();
     $stmt->close();
 
@@ -67,15 +68,16 @@ class CategoriaDAO
   {
     $id = $categoria->getId();
     $nombre = trim($categoria->getNombre());
+    $cantidad = trim($categoria->getCantidad());
 
     // Verificación de duplicado excluyendo el propio ID
     if ($this->existeNombre($nombre, $id)) {
       return false;
     }
 
-    $sql = "UPDATE categorias SET nombre = ? WHERE id = ?";
+    $sql = "UPDATE categorias SET nombre = ?, cantidad = ? WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("si", $nombre, $id);
+    $stmt->bind_param("sii", $nombre, $cantidad, $id);
     $resultado = $stmt->execute();
     $stmt->close();
 
@@ -95,7 +97,7 @@ class CategoriaDAO
 
     $categorias = [];
     while ($row = $result->fetch_assoc()) {
-      $categorias[] = new Categoria($row['id'], $row['nombre']);
+      $categorias[] = new Categoria($row['id'], $row['nombre'], $row['cantidad']);
     }
     return $categorias;
   }
@@ -111,7 +113,7 @@ class CategoriaDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Categoria($row['id'], $row['nombre']) : null;
+    return $row ? new Categoria($row['id'], $row['nombre'], $row['cantidad']) : null;
   }
 
   // Obtener una categoria por nombre
@@ -125,7 +127,7 @@ class CategoriaDAO
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    return $row ? new Categoria($row['id'], $row['nombre']) : null;
+    return $row ? new Categoria($row['id'], $row['nombre'], $row['cantidad']) : null;
   }
 
   // Eliminar una categoria

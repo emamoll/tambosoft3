@@ -28,17 +28,16 @@ class PasturaController
       $accion = $_POST['accion'] ?? '';
       $id = isset($_POST['id']) ? intval($_POST['id']) : null;
       $nombre = trim($_POST['nombre'] ?? '');
-      $fechaSiembra = trim($_POST['fechaSiembra'] ?? '');
 
       switch ($accion) {
         case 'registrar':
-          if (empty($nombre) || empty($fechaSiembra)) {
+          if (empty($nombre)) {
             return ['tipo' => 'error', 'mensaje' => 'Por favor, completá todos los campos para registrar'];
           }
           if ($this->pasturaDAO->existeNombre($nombre)) {
             return ['tipo' => 'error', 'mensaje' => 'Ya existe una pastura con ese nombre'];
           }
-          $ok = $this->pasturaDAO->registrarPastura(new Pastura(null, $nombre, $fechaSiembra));
+          $ok = $this->pasturaDAO->registrarPastura(new Pastura(null, $nombre));
           return $ok
             ? ['tipo' => 'success', 'mensaje' => 'Pastura registrada correctamente']
             : ['tipo' => 'error', 'mensaje' => 'Error al registrar la pastura'];
@@ -47,13 +46,13 @@ class PasturaController
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para modificar'];
           }
-          if (empty($nombre) || empty($fechaSiembra)) {
+          if (empty($nombre)) {
             return ['tipo' => 'error', 'mensaje' => 'Completá todos los campos para modificar'];
           }
           if ($this->pasturaDAO->existeNombre($nombre, $id)) {
             return ['tipo' => 'error', 'mensaje' => 'Ya existe una pastura con ese nombre'];
           }
-          $ok = $this->pasturaDAO->modificarPastura(new Pastura($id, $nombre, $fechaSiembra));
+          $ok = $this->pasturaDAO->modificarPastura(new Pastura($id, $nombre));
           return $ok
             ? ['tipo' => 'success', 'mensaje' => 'Pastura modificada correctamente']
             : ['tipo' => 'error', 'mensaje' => 'Error al modificar la pastura'];
@@ -110,7 +109,6 @@ if (php_sapi_name() !== 'cli') {
       $out[] = [
         'id' => $pastura->getId(),
         'nombre' => $pastura->getNombre(),
-        'fechaSiembra' => $pastura->getFechaSiembra(),
       ];
     }
     // Limpiar cualquier salida previa (espacios/BOM/notices)

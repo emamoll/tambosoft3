@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const formTitle = document.getElementById("form-title");
 
   const nombre = document.getElementById("nombre");
+  const cantidad = document.getElementById("cantidad")
 
   const modal = document.getElementById("confirmModal");
   const confirmText = document.getElementById("confirmText");
@@ -42,6 +43,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const el = document.getElementById("error-" + k);
       if (el) el.style.display = "none";
     });
+    form.reset();
+    ["cantidad"].forEach((k) => {
+      const el = document.getElementById("error-" + k);
+      if (el) el.style.display = "none";
+    });
   }
 
   function setEditarMode(data) {
@@ -52,7 +58,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     idInput.value = data.id;
     nombre.value = data.nombre;
+    cantidad.value = data.cantidad;
     nombre.focus({ preventScroll: true });
+    cantidad.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -60,6 +68,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return {
       id: tr.dataset.id,
       nombre: tr.dataset.nombre,
+      cantidad: tr.dataset.cantidad,
     };
   }
 
@@ -72,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       tableBody.innerHTML = "";
       if (!Array.isArray(categorias) || categorias.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#666;">No hay categorías registradas.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#666;">No hay categorías registradas.</td></tr>`;
         return;
       }
 
@@ -80,10 +89,12 @@ document.addEventListener("DOMContentLoaded", function () {
         const tr = document.createElement("tr");
         tr.dataset.id = c.id;
         tr.dataset.nombre = c.nombre;
+        tr.dataset.cantidad = c.cantidad;
 
         tr.innerHTML = `
           <td>${c.id}</td>
           <td>${c.nombre}</td>
+          <td>${c.cantidad}</td>
           <td>
             <div class="table-actions">
               <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
@@ -170,6 +181,13 @@ document.addEventListener("DOMContentLoaded", function () {
       ? "none"
       : "block";
     if (!nombre.value.trim()) ok = false;
+
+    const cantNum = Number(cantidad.value);
+    const canValida = Number.isInteger(cantNum) && cantNum > 0;
+    document.getElementById("error-cantidad").style.display = canValida
+      ? "none"
+      : "block";
+    if (!canValida) ok = false;
 
     if (!ok) return;
 

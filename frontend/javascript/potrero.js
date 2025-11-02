@@ -9,7 +9,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const nombre = document.getElementById("nombre");
   const pasturaId = document.getElementById("pasturaId");
   const categoriaId = document.getElementById("categoriaId");
-  const cantidadCategoria = document.getElementById("cantidadCategoria");
   const campoId = document.getElementById("campoId");
 
   const tableBody = document.querySelector(".table-modern tbody");

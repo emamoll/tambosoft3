@@ -25,7 +25,8 @@ class CategoriaCrearTabla
     // Sentencia SQL para la creación de la tabla.
     $sql = "CREATE TABLE IF NOT EXISTS categorias (
                 id INT PRIMARY KEY AUTO_INCREMENT,
-                nombre VARCHAR(255) NOT NULL)";
+                nombre VARCHAR(255) NOT NULL,
+                cantidad INT NOT NULL)";
 
     // Ejecuta la consulta y cierra la conexión.
     $conn->query($sql);

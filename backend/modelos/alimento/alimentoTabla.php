@@ -59,8 +59,8 @@ class AlimentoCrearTabla
     $sql = "CREATE TABLE IF NOT EXISTS alimentos (
               id INT PRIMARY KEY AUTO_INCREMENT,
               tipoAlimentoId INT NOT NULL,
-              nombre VARCHAR(255) NOT NULL UNIQUE,
-              FOREIGN KEY (tipoId) REFERENCES tiposAlimentos(id))";
+              nombre VARCHAR(255) NOT NULL,
+              FOREIGN KEY (tipoAlimentoId) REFERENCES tiposAlimentos(id))";
 
     // Ejecuta la consulta y cierra la conexión.
     $conn->query($sql);

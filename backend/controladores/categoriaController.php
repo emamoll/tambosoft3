@@ -28,16 +28,17 @@ class CategoriaController
       $accion = $_POST['accion'] ?? '';
       $id = isset($_POST['id']) ? intval($_POST['id']) : null;
       $nombre = trim($_POST['nombre'] ?? '');
+      $cantidad = trim($_POST['cantidad'] ?? '');
 
       switch ($accion) {
         case 'registrar':
-          if (empty($nombre)) {
+          if (empty($nombre) || empty($cantidad)) {
             return ['tipo' => 'error', 'mensaje' => 'Por favor, completá todos los campos para registrar'];
           }
           if ($this->categoriaDAO->existeNombre($nombre)) {
             return ['tipo' => 'error', 'mensaje' => 'Ya existe una categoría con ese nombre'];
           }
-          $ok = $this->categoriaDAO->registrarCategoria(new Categoria(null, $nombre));
+          $ok = $this->categoriaDAO->registrarCategoria(new Categoria(null, $nombre, $cantidad));
           return $ok
             ? ['tipo' => 'success', 'mensaje' => 'Categoría registrada correctamente']
             : ['tipo' => 'error', 'mensaje' => 'Error al registrar la categoría'];
@@ -46,13 +47,13 @@ class CategoriaController
           if (!$id) {
             return ['tipo' => 'error', 'mensaje' => 'ID inválido para modificar'];
           }
-          if (empty($nombre)) {
+          if (empty($nombre) || empty($cantidad)) {
             return ['tipo' => 'error', 'mensaje' => 'Completá todos los campos para modificar'];
           }
           if ($this->categoriaDAO->existeNombre($nombre, $id)) {
             return ['tipo' => 'error', 'mensaje' => 'Ya existe una categoría con ese nombre'];
           }
-          $ok = $this->categoriaDAO->modificarCategoria(new Categoria($id, $nombre));
+          $ok = $this->categoriaDAO->modificarCategoria(new Categoria($id, $nombre, $cantidad));
           return $ok
             ? ['tipo' => 'success', 'mensaje' => 'Categoría modificada correctamente']
             : ['tipo' => 'error', 'mensaje' => 'Error al modificar la categoría'];
@@ -105,6 +106,7 @@ if (php_sapi_name() !== 'cli') {
       $out[] = [
         'id' => $categoria->getId(),
         'nombre' => $categoria->getNombre(),
+        'cantidad' => $categoria->getCantidad(),
       ];
     }
     header('Content-Type: application/json; charset=utf-8');

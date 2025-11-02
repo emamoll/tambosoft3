@@ -110,7 +110,6 @@ document.addEventListener("DOMContentLoaded", function () {
   ) {
     if (!selectEl || !containerEl) return;
     const selectedSet = new Set((selectedValues || []).map(String));
-    // NO agregamos "Cualquiera"
     Array.from(selectEl.options)
       .filter((o) => o.value)
       .forEach((o) => {
@@ -122,8 +121,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function prepararChecksModal() {
-    const tipoAlimentoGroup = document.getElementById("filtrotipoAlimentoGroup");
-    const nombreGroup = document.getElementById("filtroNombreGroup");
+    const tipoAlimentoGroup = document.getElementById(
+      "filtrotipoAlimentoGroup"
+    );
+    const nombreGroup = document.getElementById("filtronombreGroup");
 
     if (!tipoAlimentoGroup || !nombreGroup) {
       console.error("Faltan contenedores de filtros");
@@ -133,18 +134,26 @@ document.addEventListener("DOMContentLoaded", function () {
     tipoAlimentoGroup.innerHTML = "";
     nombreGroup.innerHTML = "";
 
+    // Tipos de alimento (desde el combo principal)
     buildCheckGroupFromSelect(
       tipoAlimentoId,
       tipoAlimentoGroup,
       "filtro_tipoAlimentoId",
       FILTROS.tipoAlimentosIds
     );
-    buildCheckGroupFromSelect(
-      nombre,
-      nombreGroup,
-      "filtro_nombre",
-      FILTROS.nombres
-    );
+
+    // Nombres (desde lo que ya existe en la tabla)
+    const nombresSet = new Set();
+    document.querySelectorAll(".table-modern tbody tr").forEach((tr) => {
+      const n = tr.dataset.nombre;
+      if (n) nombresSet.add(n);
+    });
+
+    [...nombresSet].forEach((n) => {
+      nombreGroup.appendChild(
+        createCheck("filtro_nombre", n, n, FILTROS.nombres.includes(n))
+      );
+    });
   }
 
   function abrirModalFiltros() {
@@ -171,12 +180,13 @@ document.addEventListener("DOMContentLoaded", function () {
   function pintarResumenFiltros() {
     const partes = [];
     if (FILTROS.tipoAlimentosIds.length) {
-      const nombres = FILTROS.tipoAlimentosIds.map((id) => LOVS.tipoAlimento[id] || id);
+      const nombres = FILTROS.tipoAlimentosIds.map(
+        (id) => LOVS.tipoAlimento[id] || id
+      );
       partes.push(`Tipo de Alimento: ${nombres.join(", ")}`);
     }
     if (FILTROS.nombres.length) {
-      const nombres = FILTROS.nombres.map((id) => LOVS.nombre[id] || id);
-      partes.push(`Nombre: ${nombres.join(", ")}`);
+      partes.push(`Nombre: ${FILTROS.nombres.join(", ")}`);
     }
 
     resumenFiltros.textContent = partes.length
@@ -229,7 +239,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function extractDataFromRow(tr) {
     return {
       id: tr.dataset.id,
-      tipoAlimentoIdId: tr.dataset.tipoAlimentoIdId,
+      tipoAlimentoId: tr.dataset.tipoAlimentoId,
       nombre: tr.dataset.nombre,
     };
   }
@@ -237,12 +247,12 @@ document.addEventListener("DOMContentLoaded", function () {
   // ===== Tabla =====
   async function refrescarTabla() {
     try {
-      const params = new URLSearchParams({ action: "list" });
+      const params = new URLSearchParams({ action: "listar" });
 
-      (FILTROS.tipoAlimentosIds || []).forEach((id) => params.append("tipoAlimentoId[]", id));
-      (FILTROS.nombres || []).forEach((id) =>
-        params.append("nombre[]", id)
+      (FILTROS.tipoAlimentosIds || []).forEach((id) =>
+        params.append("tipoAlimentoId[]", id)
       );
+      (FILTROS.nombres || []).forEach((n) => params.append("nombre[]", n));
 
       const alimentos = await fetchJSON(`${API}?${params.toString()}`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
@@ -250,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       tableBody.innerHTML = "";
       if (!Array.isArray(alimentos) || alimentos.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#666;">No hay alimentos para los filtros aplicados.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#666;">No hay alimentos para los filtros aplicados.</td></tr>`;
         return;
       }
 
@@ -261,8 +271,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const _tipoAlimentoId = String(alimento.tipoAlimentoId ?? "");
         const _nombre = alimento.nombre ?? "";
 
-        const tipoAlimentoNombre = alimento.tipoAlimentoNombre || LOVS.tipoAlimento[_tipoAlimentoId] || "";
-        const nombre = alimento.nombre || LOVS.nombre[_nombre] || "";
+        const tipoAlimentoNombre =
+          alimento.tipoAlimentoNombre ||
+          LOVS.tipoAlimento[_tipoAlimentoId] ||
+          "";
 
         tr.dataset.id = _id;
         tr.dataset.tipoAlimentoId = _tipoAlimentoId;
@@ -282,7 +294,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (err) {
       console.error(err);
-      tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#a00;">Error cargando tabla.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#a00;">Error cargando tabla.</td></tr>`;
     }
   }
 
@@ -290,7 +302,6 @@ document.addEventListener("DOMContentLoaded", function () {
   tableBody.addEventListener("click", (e) => {
     const editBtn = e.target.closest(".js-edit");
     const delBtn = e.target.closest(".js-delete");
-    const moveBtn = e.target.closest(".js-move");
 
     if (editBtn) {
       const tr = editBtn.closest("tr");
@@ -354,12 +365,6 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (err) {
       console.error(err);
       flash("error", "Error al procesar la solicitud.");
-    }
-  });
-
-  moverModal?.addEventListener("click", (e) => {
-    if (e.target.id === "moverModal") {
-      cancelarMover?.click();
     }
   });
 

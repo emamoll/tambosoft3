@@ -35,20 +35,20 @@ $alimentos = $controller->obtenerAlimentos();
 
   <!-- ===== Formulario ===== -->
   <div class="form-container form">
-    <h2 id="form-title"><i class="fas fa-seedling"></i> Registrar Alimento</h2>
+    <h2 id="form-title"> Registrar Alimento</h2>
 
     <form id="alimentoForm" method="POST" novalidate>
       <input type="hidden" id="id" name="id" value="">
       <input type="hidden" id="accion" name="accion" value="registrar">
 
       <div class="form-group">
-        <label for="tipoAlimentoId">Tipo de Alimentos</label>
-        <select id="tipoAlimentoId" name="tipoAlimentoId">
+        <label for="tipoAlimentoId">Tipos de Alimentos</label>
+        <select id="tipoAlimentoId" name="tipoAlimentoId" class="campo-input">
           <option value="">-- Seleccioná un tipo de Alimento --</option>
           <option value="1">Fardo</option>
           <option value="2">Silopack</option>
         </select>
-        <span class="error-message" id="error-tipoAlimentoId">Seleccioná un tipo de alimento.</span>
+        <div id="error-tipoAlimentoId" class="error-message">Seleccioná el tipo de Pastura</div>
       </div>
 
       <div class="form-group">
@@ -92,6 +92,7 @@ $alimentos = $controller->obtenerAlimentos();
             <th>ID</th>
             <th>Tipo de Alimento</th>
             <th>Nombre</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody></tbody>

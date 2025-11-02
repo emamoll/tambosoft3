@@ -47,6 +47,12 @@ $categorias = $controller->obtenerCategorias();
         <span class="error-message" id="error-nombre">El nombre es obligatorio</span>
       </div>
 
+      <div class="form-group">
+        <label for="cantidad">Cantidad</label>
+        <input type="text" id="cantidad" name="cantidad" required>
+        <span class="error-message" id="error-cantidad">La cantidad es obligatoria</span>
+      </div>
+
       <div style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
         <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#777;">
@@ -78,15 +84,18 @@ $categorias = $controller->obtenerCategorias();
           <tr>
             <th>Id</th>
             <th>Nombre</th>
+            <th>Cantidad</th>
             <th style="width:120px;">Acciones</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($categorias as $categoria): ?>
             <tr data-id="<?= htmlspecialchars($categoria->getId()) ?>"
-              data-nombre="<?= htmlspecialchars($categoria->getNombre()) ?>">
+              data-nombre="<?= htmlspecialchars($categoria->getNombre()) ?>"
+              data-cantidad="<?= htmlspecialchars($categoria->getCantidad()) ?>">
               <td><?= htmlspecialchars($categoria->getId()) ?></td>
               <td><?= htmlspecialchars($categoria->getNombre()) ?></td>
+              <td><?= htmlspecialchars($categoria->getCantidad()) ?></td>
               <td>
                 <div class="table-actions">
                   <button type="button" class="btn-icon edit js-edit" title="Modificar" aria-label="Modificar">✏️</button>
@@ -98,7 +107,7 @@ $categorias = $controller->obtenerCategorias();
           <?php endforeach; ?>
           <?php if (empty($categorias)): ?>
             <tr>
-              <td colspan="3" style="text-align:center; color:#666;">No hay categorías registradas</td>
+              <td colspan="4" style="text-align:center; color:#666;">No hay categorías registradas</td>
             </tr>
           <?php endif; ?>
         </tbody>
