@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const formTitle = document.getElementById("form-title");
 
   const nombre = document.getElementById("nombre");
-  const cantidad = document.getElementById("cantidad")
+  const cantidad = document.getElementById("cantidad");
 
   const modal = document.getElementById("confirmModal");
   const confirmText = document.getElementById("confirmText");
@@ -27,9 +27,23 @@ document.addEventListener("DOMContentLoaded", function () {
       const h2 = document.getElementById("form-title");
       h2.insertAdjacentElement("afterend", alertBox);
     }
+
+    // 1. Configura la alerta y la hace completamente visible (opacity: 1)
     alertBox.className =
       "alert " + (tipo === "success" ? "alert-success" : "alert-danger");
     alertBox.textContent = mensaje;
+    alertBox.style.display = "block"; // Asegura que esté en el flujo
+    alertBox.style.opacity = "1"; // Establece opacidad a 1 para empezar visible
+
+    // 2. Espera 3 segundos y luego INICIA la atenuación (fade out)
+    setTimeout(() => {
+      alertBox.style.opacity = "0"; // Esto activa la transición CSS
+
+      // 3. Oculta COMPLETAMENTE el elemento después de que la transición CSS termine (0.5s)
+      setTimeout(() => {
+        alertBox.style.display = "none";
+      }, 500); // 500ms es el tiempo de la transición definida en campo.css
+    }, 3000); // Muestra por 3 segundos antes de empezar a desvanecerse
   }
 
   function setRegistrarMode() {

@@ -23,6 +23,7 @@ class StockCrearTabla
     $sql = "CREATE TABLE IF NOT EXISTS  stocks (
               id INT PRIMARY KEY AUTO_INCREMENT,  
               almacenId INT NOT NULL,
+              tipoAlimentoId INT NOT NULL,
               alimentoId INT NOT NULL,
               cantidad INT NOT NULL,
               produccionInterna INT NOT NULL,
@@ -30,6 +31,7 @@ class StockCrearTabla
               precio INT,
               fechaIngreso DATE NOT NULL,
               FOREIGN KEY (almacenId) REFERENCES almacenes(id),
+              FOREIGN KEY (tipoAlimentoId) REFERENCES tiposAlimentos(id),
               FOREIGN KEY (alimentoId) REFERENCES alimentos(id),
               FOREIGN KEY (proveedorId) REFERENCES proveedores(id))";
 

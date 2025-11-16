@@ -68,7 +68,7 @@ class PotreroController
           'nombre' => $p['nombre'],
           'pasturaId' => $p['pasturaId'],
           'categoriaId' => $p['categoriaId'],
-          'cantidadCategoria' => $p['cantidadCategoria'],
+          'categoriaCantidad' => $p['categoriaCantidad'],
           'campoId' => $p['campoId'],
           // Es útil devolver estos nombres para la tabla sin tener que hacer otra consulta o mapeo en JS
           'pasturaNombre' => $p['pasturaNombre'] ?? '',
@@ -112,12 +112,6 @@ class PotreroController
             $res = ['tipo' => 'error', 'mensaje' => 'Completá los campos obligatorios.'];
           } elseif ($this->potreroDAO->existeNombre($nombre)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Ya existe un potrero con ese nombre.'];
-          } elseif ($categoriaId !== null && $cantidadCategoria === null) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una categoría, debés ingresar la cantidad.'];
-          } elseif ($cantidadCategoria !== null && $categoriaId === null) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una cantidad, debés seleccionar una categoría.'];
-          } elseif ($cantidadCategoria !== null && $cantidadCategoria <= 0) {
-            $res = ['tipo' => 'error', 'mensaje' => 'La cantidad debe ser mayor a 0.'];
           } else {
             $ok = $this->potreroDAO->registrarPotrero(
               new Potrero(null, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId)
@@ -132,18 +126,25 @@ class PotreroController
         // MODIFICAR POTRERO
         // ------------------------------
         case 'modificar':
+
+          $id = intval($data['id'] ?? 0);
+          $nombre = trim($data['nombre'] ?? '');
+          $pasturaId = intval($data['pasturaId'] ?? 0);
+          $campoId = intval($data['campoId'] ?? 0);
+
+          // ✅ Asegurar que si no hay categoría seleccionada, sea NULL
+          $categoriaId = isset($data['categoriaId']) && $data['categoriaId'] !== ''
+            ? intval($data['categoriaId'])
+            : null;
+
+          // ✅ La cantidad de la categoría debe ser NULL, ya que no se edita aquí
+          $cantidadCategoria = null;
           if (!$id) {
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido.'];
           } elseif (empty($nombre) || empty($pasturaId) || empty($campoId)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Completá los campos obligatorios.'];
           } elseif ($this->potreroDAO->existeNombre($nombre, $id)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Ya existe un potrero con ese nombre.'];
-          } elseif ($categoriaId !== null && $cantidadCategoria === null) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una categoría, debés ingresar la cantidad.'];
-          } elseif ($cantidadCategoria !== null && $categoriaId === null) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Si ingresás una cantidad, debés seleccionar una categoría.'];
-          } elseif ($cantidadCategoria !== null && $cantidadCategoria <= 0) {
-            $res = ['tipo' => 'error', 'mensaje' => 'La cantidad debe ser mayor a 0.'];
           } else {
             $ok = $this->potreroDAO->modificarPotrero(
               new Potrero($id, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId)

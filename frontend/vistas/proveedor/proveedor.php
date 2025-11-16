@@ -54,21 +54,21 @@ function esc($s)
       <input type="hidden" id="accion" name="accion" value="registrar" />
 
       <div class="form-group">
-        <label for="denominacion">Denominación</label>
+        <label for="denominacion">Denominación *</label>
         <input type="text" id="denominacion" name="denominacion" />
-        <div id="error-denominacion" class="error-message">Ingresá la denominación</div>
+        <div id="error-denominacion" class="error-message">La denominación es obligatoria</div>
       </div>
 
       <div class="form-group">
-        <label for="emailP">Email</label>
+        <label for="emailP">Email *</label>
         <input type="emailP" id="emailP" name="emailP">
-        <span class="error-message" id="error-emailP">Ingrese un correo válido.</span>
+        <span class="error-message" id="error-emailP">El email es obligatorio</span>
       </div>
 
       <div class="form-group">
-        <label for="telefono">Teléfono</label>
+        <label for="telefono">Teléfono *</label>
         <input type="number" id="telefono" name="telefono" />
-        <div id="error-telefono" class="error-message">Ingresá el teléfono.</div>
+        <div id="error-telefono" class="error-message">El telefono es obligatorio</div>
       </div>
 
       <div class="form-group" style="display:flex; gap:10px;">

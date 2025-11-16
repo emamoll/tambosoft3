@@ -20,18 +20,32 @@ document.addEventListener("DOMContentLoaded", function () {
   const API = "../../../backend/controladores/campoController.php";
 
   // UI helpers
-  function flash(tipo, mensaje) {
-    // Reusa el bloque de alerta si existe; si no, lo crea
+function flash(tipo, mensaje) {
     let alertBox = document.querySelector(".form .alert");
     if (!alertBox) {
       alertBox = document.createElement("div");
       alertBox.className = "alert";
       const h2 = document.getElementById("form-title");
-      h2.insertAdjacentElement("afterend", alertBox);
+      h2.insertAdjacentElement("afterend", alertBox); 
     }
+    
+    // 1. Configura la alerta y la hace completamente visible (opacity: 1)
     alertBox.className =
       "alert " + (tipo === "success" ? "alert-success" : "alert-danger");
     alertBox.textContent = mensaje;
+    alertBox.style.display = "block"; // Asegura que esté en el flujo
+    alertBox.style.opacity = "1"; // Establece opacidad a 1 para empezar visible
+    
+    // 2. Espera 3 segundos y luego INICIA la atenuación (fade out)
+    setTimeout(() => {
+      alertBox.style.opacity = "0"; // Esto activa la transición CSS
+      
+      // 3. Oculta COMPLETAMENTE el elemento después de que la transición CSS termine (0.5s)
+      setTimeout(() => {
+        alertBox.style.display = "none";
+      }, 500); // 500ms es el tiempo de la transición definida en campo.css
+      
+    }, 3000); // Muestra por 3 segundos antes de empezar a desvanecerse
   }
 
   function setRegistrarMode() {

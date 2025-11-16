@@ -28,9 +28,23 @@ document.addEventListener("DOMContentLoaded", function () {
       const h2 = document.getElementById("form-title");
       h2.insertAdjacentElement("afterend", alertBox);
     }
+
+    // 1. Configura la alerta y la hace completamente visible (opacity: 1)
     alertBox.className =
       "alert " + (tipo === "success" ? "alert-success" : "alert-danger");
     alertBox.textContent = mensaje;
+    alertBox.style.display = "block"; // Asegura que esté en el flujo
+    alertBox.style.opacity = "1"; // Establece opacidad a 1 para empezar visible
+
+    // 2. Espera 3 segundos y luego INICIA la atenuación (fade out)
+    setTimeout(() => {
+      alertBox.style.opacity = "0"; // Esto activa la transición CSS
+
+      // 3. Oculta COMPLETAMENTE el elemento después de que la transición CSS termine (0.5s)
+      setTimeout(() => {
+        alertBox.style.display = "none";
+      }, 500); // 500ms es el tiempo de la transición definida en campo.css
+    }, 3000); // Muestra por 3 segundos antes de empezar a desvanecerse
   }
 
   function buildLovMap(selectEl) {
@@ -120,11 +134,11 @@ document.addEventListener("DOMContentLoaded", function () {
       });
   }
 
-  function prepararChecksModal() {
+  async function prepararChecksModal() {
     const tipoAlimentoGroup = document.getElementById(
-      "filtrotipoAlimentoGroup"
+      "filtroTipoAlimentoGroup"
     );
-    const nombreGroup = document.getElementById("filtronombreGroup");
+    const nombreGroup = document.getElementById("filtroNombreGroup");
 
     if (!tipoAlimentoGroup || !nombreGroup) {
       console.error("Faltan contenedores de filtros");
@@ -134,24 +148,68 @@ document.addEventListener("DOMContentLoaded", function () {
     tipoAlimentoGroup.innerHTML = "";
     nombreGroup.innerHTML = "";
 
-    // Tipos de alimento (desde el combo principal)
-    buildCheckGroupFromSelect(
-      tipoAlimentoId,
-      tipoAlimentoGroup,
-      "filtro_tipoAlimentoId",
-      FILTROS.tipoAlimentosIds
-    );
+    try {
+      // Pedimos TODO (alimentos + filtros)
+      const data = await fetchJSON(`${API}?action=listar`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
 
-    // Nombres (desde lo que ya existe en la tabla)
-    const nombresSet = new Set();
-    document.querySelectorAll(".table-modern tbody tr").forEach((tr) => {
-      const n = tr.dataset.nombre;
-      if (n) nombresSet.add(n);
+      const opciones = data.opciones || {};
+
+      // Tipos de alimento
+      (opciones.tipos || []).forEach((t) => {
+        const label = t.nombre ?? t.tipoAlimento ?? t.tipo ?? "(sin nombre)";
+        tipoAlimentoGroup.appendChild(
+          createCheck(
+            "filtro_tipoAlimentoId",
+            String(t.id),
+            label,
+            (FILTROS.tipoAlimentosIds || []).includes(String(t.id))
+          )
+        );
+      });
+
+      // Nombres de alimento
+      (opciones.nombres || []).forEach((n) => {
+        nombreGroup.appendChild(
+          createCheck(
+            "filtro_nombre",
+            n,
+            n,
+            (FILTROS.nombres || []).includes(n)
+          )
+        );
+      });
+    } catch (err) {
+      console.error("No se pudieron cargar opciones de filtro", err);
+    }
+  }
+
+  function actualizarModalFiltros(opciones) {
+    const tipoAlimentoGroup = document.getElementById(
+      "filtroTipoAlimentoGroup"
+    );
+    const nombreGroup = document.getElementById("filtroNombreGroup");
+    if (!tipoAlimentoGroup || !nombreGroup) return;
+
+    tipoAlimentoGroup.innerHTML = "";
+    nombreGroup.innerHTML = "";
+
+    (opciones.tipos || []).forEach((t) => {
+      const label = t.nombre ?? t.tipoAlimento ?? t.tipo ?? "(sin nombre)";
+      tipoAlimentoGroup.appendChild(
+        createCheck(
+          "filtro_tipoAlimentoId",
+          String(t.id),
+          label,
+          (FILTROS.tipoAlimentosIds || []).includes(String(t.id))
+        )
+      );
     });
 
-    [...nombresSet].forEach((n) => {
+    (opciones.nombres || []).forEach((n) => {
       nombreGroup.appendChild(
-        createCheck("filtro_nombre", n, n, FILTROS.nombres.includes(n))
+        createCheck("filtro_nombre", n, n, (FILTROS.nombres || []).includes(n))
       );
     });
   }
@@ -197,7 +255,6 @@ document.addEventListener("DOMContentLoaded", function () {
   limpiarFiltrosBtn?.addEventListener("click", async () => {
     FILTROS.tipoAlimentosIds = [];
     FILTROS.nombres = [];
-    prepararChecksModal();
     pintarResumenFiltros();
     await refrescarTabla();
   });
@@ -254,12 +311,19 @@ document.addEventListener("DOMContentLoaded", function () {
       );
       (FILTROS.nombres || []).forEach((n) => params.append("nombre[]", n));
 
-      const alimentos = await fetchJSON(`${API}?${params.toString()}`, {
+      const data = await fetchJSON(`${API}?${params.toString()}`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
+      const alimentos = data.alimentos || [];
+      const opciones = data.opciones || {};
+
+      // Actualizamos filtros disponibles en el modal
+      actualizarModalFiltros(opciones);
+
+      // Pintamos la tabla
       tableBody.innerHTML = "";
-      if (!Array.isArray(alimentos) || alimentos.length === 0) {
+      if (alimentos.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#666;">No hay alimentos para los filtros aplicados.</td></tr>`;
         return;
       }
@@ -270,7 +334,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const _id = alimento.id ?? "";
         const _tipoAlimentoId = String(alimento.tipoAlimentoId ?? "");
         const _nombre = alimento.nombre ?? "";
-
         const tipoAlimentoNombre =
           alimento.tipoAlimentoNombre ||
           LOVS.tipoAlimento[_tipoAlimentoId] ||
@@ -281,15 +344,15 @@ document.addEventListener("DOMContentLoaded", function () {
         tr.dataset.nombre = _nombre;
 
         tr.innerHTML = `
-          <td>${_id}</td>
-          <td>${tipoAlimentoNombre}</td>
-          <td>${_nombre}</td>
-          <td>
-            <div class="table-actions">
-              <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
-              <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
-            </div>
-          </td>`;
+        <td>${_id}</td>
+        <td>${tipoAlimentoNombre}</td>
+        <td>${_nombre}</td>
+        <td>
+          <div class="table-actions">
+            <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
+            <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
+          </div>
+        </td>`;
         tableBody.appendChild(tr);
       }
     } catch (err) {
@@ -350,6 +413,26 @@ document.addEventListener("DOMContentLoaded", function () {
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
+    // 🔹 Validaciones específicas
+    let ok = true;
+
+    // Tipo de Alimento
+    const tipoError = document.getElementById("error-tipoAlimentoId");
+    if (!tipoAlimentoId.value.trim()) {
+      tipoError.style.display = "block";
+      ok = false;
+    } else tipoError.style.display = "none";
+
+    // Nombre
+    const nombreError = document.getElementById("error-nombre");
+    if (!nombre.value.trim()) {
+      nombreError.style.display = "block";
+      ok = false;
+    } else nombreError.style.display = "none";
+
+    if (!ok) return; // 🚫 No envía si hay errores
+
+    // 🔹 Si todo está bien, enviamos
     const fd = new FormData(form);
     try {
       const data = await fetchJSON(API, {

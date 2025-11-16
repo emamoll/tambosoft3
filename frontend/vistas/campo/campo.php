@@ -34,7 +34,6 @@ if ($modoEdicion && isset($_GET['id'])) {
     crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
     crossorigin="anonymous"></script>
-  <script src="../../javascript/campo.js"></script>
   <script src="../../javascript/header.js"></script>
 </head>
 
@@ -57,19 +56,19 @@ if ($modoEdicion && isset($_GET['id'])) {
       <input type="hidden" id="accion" name="accion" value="registrar">
 
       <div class="form-group">
-        <label for="nombre">Nombre del campo</label>
+        <label for="nombre">Nombre *</label>
         <input type="text" id="nombre" name="nombre" required>
         <span class="error-message" id="error-nombre">El nombre es obligatorio.</span>
       </div>
 
       <div class="form-group">
-        <label for="ubicacion">Ubicación</label>
+        <label for="ubicacion">Ubicación *</label>
         <input type="text" id="ubicacion" name="ubicacion" required>
         <span class="error-message" id="error-ubicacion">La ubicación es obligatoria.</span>
       </div>
 
       <div class="form-group">
-        <label for="superficie">Superficie (ha)</label>
+        <label for="superficie">Superficie (ha) *</label>
         <input type="number" id="superficie" name="superficie" min="1" step="1" required>
         <span class="error-message" id="error-superficie">Ingresá un número entero mayor a 0.</span>
       </div>

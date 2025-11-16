@@ -19,17 +19,32 @@ document.addEventListener("DOMContentLoaded", function () {
   const API = "../../../backend/controladores/proveedorController.php";
 
   // ===== Helpers =====
-  function flash(tipo, mensaje) {
+function flash(tipo, mensaje) {
     let alertBox = document.querySelector(".form .alert");
     if (!alertBox) {
       alertBox = document.createElement("div");
       alertBox.className = "alert";
       const h2 = document.getElementById("form-title");
-      h2.insertAdjacentElement("afterend", alertBox);
+      h2.insertAdjacentElement("afterend", alertBox); 
     }
+    
+    // 1. Configura la alerta y la hace completamente visible (opacity: 1)
     alertBox.className =
       "alert " + (tipo === "success" ? "alert-success" : "alert-danger");
     alertBox.textContent = mensaje;
+    alertBox.style.display = "block"; // Asegura que esté en el flujo
+    alertBox.style.opacity = "1"; // Establece opacidad a 1 para empezar visible
+    
+    // 2. Espera 3 segundos y luego INICIA la atenuación (fade out)
+    setTimeout(() => {
+      alertBox.style.opacity = "0"; // Esto activa la transición CSS
+      
+      // 3. Oculta COMPLETAMENTE el elemento después de que la transición CSS termine (0.5s)
+      setTimeout(() => {
+        alertBox.style.display = "none";
+      }, 500); // 500ms es el tiempo de la transición definida en campo.css
+      
+    }, 3000); // Muestra por 3 segundos antes de empezar a desvanecerse
   }
 
   function buildLovMap(selectEl) {
@@ -123,17 +138,17 @@ document.addEventListener("DOMContentLoaded", function () {
         tr.dataset.telefono = _telefono;
 
         tr.innerHTML = `
-          <td>${_id}</td>
-          <td>${_denominacion}</td>
-          <td>${_emailP}</td>
-          <td>${_telefono}</td>
-          <td>
-            <div class="table-actions">
-              <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
-              <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
-            </div>
-          </td>
-        `;
+            <td>${_id}</td>
+            <td>${_denominacion}</td>
+            <td>${_emailP}</td>
+            <td>${_telefono}</td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
+                <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
+              </div>
+            </td>
+          `;
         tableBody.appendChild(tr);
       }
     } catch (err) {
@@ -205,29 +220,50 @@ document.addEventListener("DOMContentLoaded", function () {
   // Submit del formulario
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
+
+    // Obtenemos los valores de los campos
+    const denominacionValue = denominacion.value.trim();
     const emailPValue = emailP.value.trim();
     const telefonoValue = telefono.value.trim();
 
+    // Refs para los mensajes de error
+    const denominacionError = document.getElementById("error-denominacion");
+    const emailPError = document.getElementById("error-emailP");
+    const telefonoError = document.getElementById("error-telefono");
+
+    // Limpieza de errores anteriores
+    denominacionError.style.display = "none";
+    emailPError.style.display = "none";
+    telefonoError.style.display = "none";
+
+    let valid = true;
+
+    // Validación del campo denominación
+    if (!denominacionValue) {
+      denominacionError.style.display = "block"; // Muestra el error específico
+      valid = false;
+    }
+
+    // Validación del email
     const emailPRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPRegex.test(emailPValue)) {
-      flash(
-        "error",
-        "Por favor ingresá un email válido."
-      );
-      emailP.focus();
-      return;
+      emailPError.style.display = "block"; // Muestra el error específico
+      valid = false;
     }
 
+    // Validación del teléfono
     const telefonoRegex = /^\d{7,11}$/;
     if (!telefonoRegex.test(telefonoValue)) {
-      flash(
-        "error",
-        "El teléfono debe contener solo números y tener entre 7 y 11 dígitos."
-      );
-      telefono.focus();
+      telefonoError.style.display = "block"; // Muestra el error específico
+      valid = false;
+    }
+
+    // Si hay errores, no enviamos el formulario
+    if (!valid) {
       return;
     }
 
+    // Si todas las validaciones son correctas, enviamos el formulario
     const fd = new FormData(form);
     try {
       const data = await fetchJSON(API, {
@@ -242,7 +278,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (err) {
       console.error(err);
-      flash("error", "Error al procesar la solicitud. Revisá la consola.");
+      flash("error", "Error al procesar la solicitud.");
     }
   });
 

@@ -181,6 +181,8 @@
   border-radius: 6px !important;
   margin-bottom: 15px !important;
   font-size: 0.95rem !important;
+  opacity: 1; /* Valor inicial de opacidad */
+  transition: opacity 1.0s ease-out; /* Transición de 0.5 segundos para la opacidad */
 }
 .alert-success {
   background-color: #44f26d !important;

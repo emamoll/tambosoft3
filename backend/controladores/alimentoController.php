@@ -27,41 +27,29 @@ class AlimentoController
     $accion = $_GET['action'] ?? null;
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'listar') {
-
-      // Función auxiliar: convierte parámetros GET en arrays de enteros
-      $getArrayOfInts = function ($key) {
+      $getArray = function ($key) {
         if (!isset($_GET[$key]))
           return null;
         $val = $_GET[$key];
-        // Asegura que siempre sea un array para procesar los [] de JS
         if (!is_array($val))
           $val = [$val];
-        // Convierte a int y elimina valores vacíos (como el string vacío de un checkbox no marcado)
-        $ints = array_map('intval', array_filter($val, fn($v) => $v !== ''));
-        return count($ints) > 0 ? $ints : null;
+        $vals = array_filter($val, fn($v) => trim($v) !== '');
+        return count($vals) > 0 ? $vals : null;
       };
 
-      // Filtros admitidos (ahora esperan arrays de IDs o null)
       $filtros = [
-        'nombre' => $getArrayOfInts('nombre'),
-        'tipoAlimentoId' => $getArrayOfInts('tipoAlimentoId')
+        'tipoAlimentoId' => $getArray('tipoAlimentoId'),
+        'nombre' => $getArray('nombre'),
       ];
 
-      $alimentos = $this->alimentoDAO->listar($filtros);
-      $out = [];
+      $data = $this->alimentoDAO->listar($filtros);
 
-      foreach ($alimentos as $alimento) {
-        $out[] = [
-          'id' => $alimento['id'],
-          'tipoAlimentoId' => $alimento['tipoAlimentoId'],
-          'nombre' => $alimento['nombre'],
-        ];
-      }
-
-      if (ob_get_level())
-        ob_clean();
+      // Limpieza antes de enviar
+      while (ob_get_level())
+        ob_end_clean();
       header('Content-Type: application/json; charset=utf-8');
-      echo json_encode($out);
+      header('Cache-Control: no-store');
+      echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
       exit;
     }
 
@@ -150,6 +138,16 @@ class AlimentoController
     }
     return $this->alimentoDAO->getAlimentoByNombre($nombre);
   }
+
+  public function procesarListar(array $filtros = []): array
+  {
+    if ($this->connError !== null) {
+      return ['alimentos' => [], 'opciones' => ['tipos' => [], 'nombres' => []]];
+    }
+
+    return $this->alimentoDAO->listar($filtros);
+  }
+
 }
 
 $isAjax = (
@@ -160,25 +158,31 @@ $isAjax = (
 if (php_sapi_name() !== 'cli') {
   $ctrl = new AlimentoController();
 
-  if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'GET' && (($_GET['action'] ?? '') === 'list')) {
-    $alimentos = $ctrl->obtenerAlimentos();
-    $out = [];
-    foreach ($alimentos as $alimento) {
-      $out[] = [
-        'id' => $alimento->getId(),
-        'tipoAlimentoId' => $alimento->getTipoAlimentoId(),
-        'nombre' => $alimento->getNombre(),
-      ];
-    }
-    // Limpiar cualquier salida previa (espacios/BOM/notices)
-    while (ob_get_level()) {
+  if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'GET' && (($_GET['action'] ?? '') === 'listar' || ($_GET['action'] ?? '') === 'list')) {
+
+    $getArray = function ($key) {
+      if (!isset($_GET[$key]))
+        return null;
+      $val = $_GET[$key];
+      if (!is_array($val))
+        $val = [$val];
+      $vals = array_filter($val, fn($v) => trim($v) !== '');
+      return count($vals) > 0 ? $vals : null;
+    };
+
+    $filtros = [
+      'tipoAlimentoId' => $getArray('tipoAlimentoId'),
+      'nombre' => $getArray('nombre')
+    ];
+
+    $data = $ctrl->procesarListar($filtros);
+
+
+    while (ob_get_level())
       ob_end_clean();
-    }
-    if (!headers_sent()) {
-      header('Content-Type: application/json; charset=utf-8');
-      header('Cache-Control: no-store');
-    }
-    echo json_encode($out);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
   }
 

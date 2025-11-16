@@ -42,17 +42,17 @@ $alimentos = $controller->obtenerAlimentos();
       <input type="hidden" id="accion" name="accion" value="registrar">
 
       <div class="form-group">
-        <label for="tipoAlimentoId">Tipos de Alimentos</label>
+        <label for="tipoAlimentoId">Tipo de Alimento *</label>
         <select id="tipoAlimentoId" name="tipoAlimentoId" class="campo-input">
           <option value="">-- Seleccioná un tipo de Alimento --</option>
           <option value="1">Fardo</option>
           <option value="2">Silopack</option>
         </select>
-        <div id="error-tipoAlimentoId" class="error-message">Seleccioná el tipo de Pastura</div>
+        <div id="error-tipoAlimentoId" class="error-message">El tipo de alimento es obligatorio</div>
       </div>
 
       <div class="form-group">
-        <label for="nombre">Nombre del Alimento</label>
+        <label for="nombre">Nombre *</label>
         <input type="text" id="nombre" name="nombre" required>
         <span class="error-message" id="error-nombre">El nombre es obligatorio</span>
       </div>
@@ -71,13 +71,13 @@ $alimentos = $controller->obtenerAlimentos();
   </div>
 
   <!-- ===== Modal confirmación ===== -->
-  <div id="confirmModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
+  <div id="confirmModal" class="modal">
+    <div class="modal-content">
       <h3>Confirmar eliminación</h3>
       <p id="confirmText">¿Seguro que deseas eliminar este alimento?</p>
       <div class="modal-actions">
-        <button type="button" id="confirmYes" class="btn-usuario" style="background:#c0392b;">Eliminar</button>
-        <button type="button" id="confirmNo" class="btn-usuario" style="background:#777;">Cancelar</button>
+        <button id="confirmYes" class="btn btn-danger">Eliminar</button>
+        <button id="confirmNo" class="btn btn-cancel" style="background:#777; color:white">Cancelar</button>
       </div>
     </div>
   </div>

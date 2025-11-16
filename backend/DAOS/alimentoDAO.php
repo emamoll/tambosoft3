@@ -55,19 +55,18 @@ class AlimentoDAO
   {
     // Consulta base con JOIN al tipo de alimento
     $sql = "SELECT 
-              a.id,
-              a.nombre,
-              COALESCE(a.tipoAlimentoId) AS tipoAlimentoId,
-              ta.nombre AS tipoAlimentoNombre
-          FROM alimentos a
-          LEFT JOIN tiposAlimentos ta 
-                 ON COALESCE(a.tipoAlimentoId) = ta.id
-          WHERE 1=1";
+          a.id,
+          a.nombre,
+          a.tipoAlimentoId,
+          ta.tipoAlimento AS tipoAlimentoNombre
+        FROM alimentos a
+        LEFT JOIN tiposAlimentos ta ON a.tipoAlimentoId = ta.id
+        WHERE 1=1";
 
     $params = [];
     $types = "";
 
-    // === Helper para agregar filtros IN dinámicos ===
+    // Helper para filtros dinámicos (IN)
     $addInClause = function (&$sql, &$params, &$types, $key, $column, $typeChar) use ($filtros) {
       if (!empty($filtros[$key]) && is_array($filtros[$key])) {
         $placeholders = implode(',', array_fill(0, count($filtros[$key]), '?'));
@@ -80,40 +79,55 @@ class AlimentoDAO
       }
       return false;
     };
-    // =================================================
 
-    // Filtro por tipo de alimento (números)
-    $addInClause($sql, $params, $types, 'tipoAlimentoId', 'COALESCE(a.tipoAlimentoId)', 'i');
-
-    // 🔹 Nuevo filtro por nombre (texto)
+    // === Filtros dinámicos ===
+    $addInClause($sql, $params, $types, 'tipoAlimentoId', 'a.tipoAlimentoId', 'i');
     $addInClause($sql, $params, $types, 'nombre', 'a.nombre', 's');
 
-    // Ordenar por nombre
     $sql .= " ORDER BY a.nombre ASC";
 
-    // Preparar la sentencia
+    // Preparar y ejecutar la consulta
     $stmt = $this->conn->prepare($sql);
     if ($stmt === false) {
       throw new Exception("Error al preparar SQL: " . $this->conn->error . " | SQL: " . $sql);
     }
 
-    // Enlazar parámetros si existen
     if (!empty($params)) {
       $stmt->bind_param($types, ...$params);
     }
 
-    // Ejecutar y obtener resultados
     $stmt->execute();
     $result = $stmt->get_result();
 
-    $rows = [];
+    $alimentos = [];
     while ($r = $result->fetch_assoc()) {
-      $rows[] = $r;
+      $alimentos[] = $r;
+    }
+    $stmt->close();
+
+    // === Opciones para filtros (tipos + nombres) ===
+    $tiposDisponibles = [];
+    $rsTipos = $this->conn->query("SELECT id, tipoAlimento FROM tiposAlimentos ORDER BY tipoAlimento");
+    while ($row = $rsTipos->fetch_assoc()) {
+      $tiposDisponibles[] = $row;
     }
 
-    $stmt->close();
-    return $rows;
+    $nombresDisponibles = [];
+    $rsNombres = $this->conn->query("SELECT DISTINCT nombre FROM alimentos WHERE nombre IS NOT NULL AND nombre <> '' ORDER BY nombre");
+    while ($row = $rsNombres->fetch_row()) {
+      $nombresDisponibles[] = $row[0];
+    }
+
+    // === Retornar todo en una sola estructura ===
+    return [
+      'alimentos' => $alimentos,
+      'opciones' => [
+        'tipos' => $tiposDisponibles,
+        'nombres' => $nombresDisponibles
+      ]
+    ];
   }
+
 
 
   // Registrar un nuev alimento
@@ -191,7 +205,7 @@ class AlimentoDAO
   // Obtener una alimento por tipo
   public function getAlimentoByTipoAlimentoId($tipoAlimentoId): ?Alimento
   {
-    $sql = "SELECT * FROM alimentos WHERE tipo$tipoAlimentoId = ?";
+    $sql = "SELECT * FROM alimentos WHERE tipoAlimentoId = ?";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $tipoAlimentoId);
     $stmt->execute();
@@ -201,6 +215,7 @@ class AlimentoDAO
 
     return $row ? new Alimento($row['id'], $row['tipoAlimentoId'], $row['nombre']) : null;
   }
+
 
   // Obtener una alimento por nombre
   public function getAlimentoByNombre($nombre): ?Alimento

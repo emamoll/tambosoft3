@@ -65,10 +65,10 @@ class PotreroDAO
   public function modificarPotrero(Potrero $potrero): bool
   {
     $id = $potrero->getId();
-    $nombre = trim($potrero->getNombre());
+    $nombre = $potrero->getNombre();
     $pasturaId = $potrero->getPasturaId();
-    $categoriaId = $potrero->getCategoriaId() ?: null;
-    $cantidadCategoria = $potrero->getCantidadCategoria() ?: null;
+    $categoriaId = $potrero->getCategoriaId();
+    $cantidadCategoria = $potrero->getCantidadCategoria();
     $campoId = $potrero->getCampoId();
 
     if ($this->existeNombre($nombre, $id))
@@ -78,9 +78,20 @@ class PotreroDAO
             SET nombre = ?, pasturaId = ?, categoriaId = ?, cantidadCategoria = ?, campoId = ?
             WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("siiiii", $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId, $id);
+
+    // 🎯 CAMBIO CRÍTICO: Usar 's' para categoriaId y cantidadCategoria
+    // Tipos: s (nombre), i (pasturaId), s (categoriaId), s (cantidadCategoria), i (campoId), i (id)
+    $tipos = "sissii";
+
+    $stmt->bind_param($tipos, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId, $id);
 
     $ok = $stmt->execute();
+
+    // 📝 Agregamos registro de error para futura depuración
+    if (!$ok) {
+      error_log("Error al modificar potrero ID: {$id}. SQL Error: " . $this->conn->error);
+    }
+
     $stmt->close();
     return $ok;
   }
@@ -92,7 +103,8 @@ class PotreroDAO
     // y para usar los IDs de pastura/campo/categoría si la tabla original no los tiene.
     $sql = "SELECT p.*, 
                    pa.nombre AS pasturaNombre, 
-                   c.nombre AS categoriaNombre, 
+                   c.nombre AS categoriaNombre,
+                   c.cantidad AS categoriaCantidad, 
                    ca.nombre AS campoNombre
             FROM potreros p
             LEFT JOIN pasturas pa ON p.pasturaId = pa.id
@@ -248,8 +260,15 @@ class PotreroDAO
     $this->conn->begin_transaction();
 
     try {
-      // 1️⃣ Obtener datos de origen (cantidad y categoría)
-      $sqlSelect = "SELECT categoriaId, cantidadCategoria FROM potreros WHERE id = ?";
+      // 1️⃣ Obtener datos de origen (categoría y cantidad desde la tabla categorias)
+      $sqlSelect = "
+            SELECT 
+                p.categoriaId,
+                COALESCE(p.cantidadCategoria, c.cantidad) AS cantidadTotal
+            FROM potreros p
+            LEFT JOIN categorias c ON c.id = p.categoriaId
+            WHERE p.id = ?
+        ";
       $stmt = $this->conn->prepare($sqlSelect);
       $stmt->bind_param("i", $idOrigen);
       $stmt->execute();
@@ -257,21 +276,22 @@ class PotreroDAO
 
       if (!$res || $res->num_rows === 0) {
         $this->conn->rollback();
-        return ['tipo' => 'error', 'mensaje' => 'Potrero origen no encontrado'];
+        return ['tipo' => 'error', 'mensaje' => 'Potrero origen no encontrado.'];
       }
 
       $row = $res->fetch_assoc();
-      $categoriaId = $row['categoriaId'];
-      $cantidadTotalMover = $row['cantidadCategoria'];
       $stmt->close();
 
-      // 2️⃣ Validar que haya animales para mover
-      if ($categoriaId === null || $cantidadTotalMover === null || $cantidadTotalMover <= 0) {
+      $categoriaId = $row['categoriaId'];
+      $cantidadTotalMover = (int) $row['cantidadTotal'];
+
+      // 2️⃣ Validar que haya animales/cantidad
+      if ($categoriaId === null || $cantidadTotalMover <= 0) {
         $this->conn->rollback();
-        return ['tipo' => 'error', 'mensaje' => 'El potrero origen no tiene animales asignados.'];
+        return ['tipo' => 'error', 'mensaje' => 'El potrero origen no tiene una categoría válida o su cantidad es 0.'];
       }
 
-      // 3️⃣ Verificar que destino esté vacío 
+      // 3️⃣ Verificar que el potrero destino exista y esté vacío
       $sqlSelectDestino = "SELECT categoriaId FROM potreros WHERE id = ?";
       $stmtDestino = $this->conn->prepare($sqlSelectDestino);
       $stmtDestino->bind_param("i", $idDestino);
@@ -279,37 +299,47 @@ class PotreroDAO
       $rowDestino = $stmtDestino->get_result()->fetch_assoc();
       $stmtDestino->close();
 
-      if ($rowDestino === null) {
+      if (!$rowDestino) {
         $this->conn->rollback();
-        return ['tipo' => 'error', 'mensaje' => 'Potrero destino no encontrado'];
+        return ['tipo' => 'error', 'mensaje' => 'Potrero destino no encontrado.'];
       }
 
       if ($rowDestino['categoriaId'] !== null) {
         $this->conn->rollback();
-        return ['tipo' => 'error', 'mensaje' => 'El potrero destino no está vacío. Solo se permite mover a potreros libres.'];
+        return ['tipo' => 'error', 'mensaje' => 'El potrero destino no está vacío. Solo se puede mover a potreros libres.'];
       }
 
-      // 4️⃣ Actualizar destino (Mover la cantidad TOTAL)
-      $sqlUpdateDestino = "UPDATE potreros SET categoriaId = ?, cantidadCategoria = ? WHERE id = ?";
+      // 4️⃣ Actualizar destino con la categoría y cantidad total
+      $sqlUpdateDestino = "
+            UPDATE potreros
+            SET categoriaId = ?, cantidadCategoria = ?
+            WHERE id = ?
+        ";
       $stmt2 = $this->conn->prepare($sqlUpdateDestino);
       $stmt2->bind_param("iii", $categoriaId, $cantidadTotalMover, $idDestino);
       $stmt2->execute();
       $stmt2->close();
 
-      // 5️⃣ Actualizar origen (Limpiar categoría y cantidad)
-      $sqlUpdateOrigen = "UPDATE potreros SET categoriaId = NULL, cantidadCategoria = NULL WHERE id = ?";
+      // 5️⃣ Limpiar origen (quitar categoría y cantidad)
+      $sqlUpdateOrigen = "
+            UPDATE potreros
+            SET categoriaId = NULL, cantidadCategoria = NULL
+            WHERE id = ?
+        ";
       $stmt3 = $this->conn->prepare($sqlUpdateOrigen);
       $stmt3->bind_param("i", $idOrigen);
       $stmt3->execute();
       $stmt3->close();
 
+      // 6️⃣ Confirmar la transacción
       $this->conn->commit();
-      return ['tipo' => 'success', 'mensaje' => 'Movimiento de la categoría completado correctamente.'];
 
+      return ['tipo' => 'success', 'mensaje' => 'Movimiento de la categoría completado correctamente.'];
     } catch (Exception $e) {
       $this->conn->rollback();
       error_log("Error en moverCategoria: " . $e->getMessage());
       return ['tipo' => 'error', 'mensaje' => 'Error en el proceso de movimiento.'];
     }
   }
+
 }

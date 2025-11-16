@@ -29,17 +29,32 @@ document.addEventListener("DOMContentLoaded", function () {
   const API = "../../../backend/controladores/potreroController.php";
 
   // ===== Helpers =====
-  function flash(tipo, mensaje) {
+function flash(tipo, mensaje) {
     let alertBox = document.querySelector(".form .alert");
     if (!alertBox) {
       alertBox = document.createElement("div");
       alertBox.className = "alert";
       const h2 = document.getElementById("form-title");
-      h2.insertAdjacentElement("afterend", alertBox);
+      h2.insertAdjacentElement("afterend", alertBox); 
     }
+    
+    // 1. Configura la alerta y la hace completamente visible (opacity: 1)
     alertBox.className =
       "alert " + (tipo === "success" ? "alert-success" : "alert-danger");
     alertBox.textContent = mensaje;
+    alertBox.style.display = "block"; // Asegura que esté en el flujo
+    alertBox.style.opacity = "1"; // Establece opacidad a 1 para empezar visible
+    
+    // 2. Espera 3 segundos y luego INICIA la atenuación (fade out)
+    setTimeout(() => {
+      alertBox.style.opacity = "0"; // Esto activa la transición CSS
+      
+      // 3. Oculta COMPLETAMENTE el elemento después de que la transición CSS termine (0.5s)
+      setTimeout(() => {
+        alertBox.style.display = "none";
+      }, 500); // 500ms es el tiempo de la transición definida en campo.css
+      
+    }, 3000); // Muestra por 3 segundos antes de empezar a desvanecerse
   }
 
   function buildLovMap(selectEl) {
@@ -273,7 +288,6 @@ document.addEventListener("DOMContentLoaded", function () {
     nombre.value = data.nombre || "";
     pasturaId.value = data.pasturaId || "";
     categoriaId.value = data.categoriaId || "";
-    cantidadCategoria.value = data.cantidadCategoria || "";
     campoId.value = data.campoId || "";
 
     nombre.focus({ preventScroll: true });
@@ -331,7 +345,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const _nombre = p.nombre ?? "";
         const _pasturaId = String(p.pasturaId ?? "");
         const _categoriaId = String(p.categoriaId ?? "");
-        const _cantidad = p.cantidadCategoria ?? "";
+        const hasCategoria =
+          p.categoriaId !== null && parseInt(p.categoriaId) > 0;
+        const _cantidad = hasCategoria ? p.categoriaCantidad ?? "" : "";
         const _campoId = String(p.campoId ?? "");
 
         const pasturaNombre = p.pasturaNombre || LOVS.pastura[_pasturaId] || "";
@@ -433,29 +449,33 @@ document.addEventListener("DOMContentLoaded", function () {
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    const categoriaIdValue = categoriaId.value
-      ? parseInt(categoriaId.value)
-      : null;
-    const cantidadCategoriaValue = cantidadCategoria.value
-      ? parseInt(cantidadCategoria.value)
-      : null;
+    // 🔹 Validaciones específicas
+    let ok = true;
 
-    if (categoriaIdValue && !cantidadCategoriaValue) {
-      flash("error", "Si ingresas una categoría, debes ingresar la cantidad.");
-      return;
-    }
-    if (!categoriaIdValue && cantidadCategoriaValue) {
-      flash(
-        "error",
-        "Si ingresas una cantidad, debes seleccionar una categoría."
-      );
-      return;
-    }
-    if (cantidadCategoriaValue && cantidadCategoriaValue <= 0) {
-      flash("error", "La cantidad debe ser mayor a 0.");
-      return;
-    }
+    // nombre
+    const nombreError = document.getElementById("error-nombre");
+    if (!nombre.value.trim()) {
+      nombreError.style.display = "block";
+      ok = false;
+    } else nombreError.style.display = "none";
 
+    // pastura
+    const pasturaError = document.getElementById("error-pasturaId");
+    if (!pasturaId.value.trim()) {
+      pasturaError.style.display = "block";
+      ok = false;
+    } else pasturaError.style.display = "none";
+
+    // campo
+    const campoError = document.getElementById("error-campoId");
+    if (!campoId.value.trim()) {
+      campoError.style.display = "block";
+      ok = false;
+    } else campoError.style.display = "none";
+    
+    if (!ok) return; 
+
+    // 🔹 Si todo está bien, procede con el envío
     const fd = new FormData(form);
     try {
       const data = await fetchJSON(API, {

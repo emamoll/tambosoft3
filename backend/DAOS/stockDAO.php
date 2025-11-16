@@ -21,17 +21,22 @@ class StockDAO
   public function registrarStock(Stock $stock): bool
   {
     $almacenId = trim($stock->getAlmacenId());
+    $tipoAlimentoId = $stock->getTipoAlimentoId();
     $alimentoId = $stock->getAlimentoId();
     $cantidad = $stock->getCantidad() ?: null;
     $produccionInterna = $stock->getProduccionInterna() ?: null;
-    $proveedorId = $stock->getProveedorId();
-    $precio = $stock->getPrecio();
+    $proveedorId = $stock->getProveedorId() ?: null; // Aseguramos que sea null si está vacío
+    $precio = $stock->getPrecio() ?: null;           // Aseguramos que sea null si está vacío
     $fechaIngreso = $stock->getFechaIngreso();
 
-    $sql = "INSERT INTO stocks (almacenId, alimentoId, cantidad, produccionInterna, proveedorId, precio, fechaIngreso)
-            VALUES (?, ?, ?, ?, ?, ?, ?)";
+    // ✅ CORRECCIÓN 1: El SQL debe tener 8 placeholders.
+    $sql = "INSERT INTO stocks (almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, proveedorId, precio, fechaIngreso)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("iiiiiis", $almacenId, $alimentoId, $cantidad, $produccionInterna, $proveedorId, $precio, $fechaIngreso);
+
+    // ✅ CORRECCIÓN 2: Tipos de bind_param. Usamos 's' para los campos que pueden ser NULL (proveedorId, precio) y fechaIngreso.
+    // Tipos: i, i, i, i, i, s (proveedorId), s (precio), s (fechaIngreso)
+    $stmt->bind_param("iiiiisss", $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna, $proveedorId, $precio, $fechaIngreso);
 
     $ok = $stmt->execute();
     $stmt->close();
@@ -43,18 +48,20 @@ class StockDAO
   {
     $id = $stock->getId();
     $almacenId = trim($stock->getAlmacenId());
+    $tipoAlimentoId = $stock->getTipoAlimentoId();
     $alimentoId = $stock->getAlimentoId();
     $cantidad = $stock->getCantidad() ?: null;
     $produccionInterna = $stock->getProduccionInterna() ?: null;
-    $proveedorId = $stock->getProveedorId();
-    $precio = $stock->getPrecio();
+    $proveedorId = $stock->getProveedorId() ?: null; // Aseguramos que sea null
+    $precio = $stock->getPrecio() ?: null;           // Aseguramos que sea null
     $fechaIngreso = $stock->getFechaIngreso();
 
     $sql = "UPDATE stocks
-            SET almacenId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, precio = ?, fechaIngreso = ?
+            SET almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, precio = ?, fechaIngreso = ?
             WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("iiiiiisi", $almacenId, $alimentoId, $cantidad, $produccionInterna, $proveedorId, $precio, $fechaIngreso, $id);
+
+    $stmt->bind_param("iiiiisssi", $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna, $proveedorId, $precio, $fechaIngreso, $id);
 
     $ok = $stmt->execute();
     $stmt->close();
@@ -66,9 +73,11 @@ class StockDAO
   {
     $sql = "SELECT s.*, 
                    alm.nombre AS almacenNombre, 
+                   tip.nombre AS tipoAlimentoNombre,
                    ali.nombre AS alimentoNombre, 
                    po.denominacion AS proveedorNombre
             FROM stocks s
+            LEFT JOIN tiposalimentos tip ON s.tipoAlimentoId = tip.id
             LEFT JOIN almacenes alm ON s.almacenId = alm.id
             LEFT JOIN alimentos ali ON s.alimentoId = ali.id
             LEFT JOIN proveedores po ON s.proveedorId = po.id
@@ -91,8 +100,8 @@ class StockDAO
       }
       return false;
     };
-    // ------------------------------------
 
+    $addInClause($sql, $params, $types, 'tipoAlimentoId', 's.tipoAlimentoId');
     $addInClause($sql, $params, $types, 'almacenId', 's.almacenId');
     $addInClause($sql, $params, $types, 'alimentoId', 's.alimentoId');
     $addInClause($sql, $params, $types, 'proveedorId', 's.proveedorId');
@@ -101,7 +110,12 @@ class StockDAO
 
     $stmt = $this->conn->prepare($sql);
 
-    // CORRECCIÓN: Usar bind_param solo si hay parámetros, y desempacando el array
+    // Por si el prepare falla, evitamos el Fatal
+    if ($stmt === false) {
+      error_log("Error en prepare (listar): " . $this->conn->error);
+      return [];
+    }
+
     if (!empty($params)) {
       $stmt->bind_param($types, ...$params);
     }
@@ -134,6 +148,7 @@ class StockDAO
       $stocks[] = new Stock(
         $row['id'],
         $row['almacenId'],
+        $row['tipoAlimentoId'],
         $row['alimentoId'],
         $row['cantidad'],
         $row['produccionInterna'],
@@ -156,7 +171,7 @@ class StockDAO
     $stmt->close();
 
     return $res
-      ? new Stock($res['id'], $res['almacenId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
+      ? new Stock($res['id'], $res['almacenId'], $res['tipoAlimentoId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
       : null;
   }
 
@@ -170,9 +185,24 @@ class StockDAO
     $res = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     return $res
-      ? new Stock($res['id'], $res['almacenId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
+      ? new Stock($res['id'], $res['almacenId'], $res['tipoAlimentoId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
       : null;
   }
+
+  // Obtener stock por tipo alimento
+  public function getStockByTipoAlimentoId($tipoAlimentoId): ?Stock
+  {
+    $sql = "SELECT * FROM stocks WHERE tipoAlimentoId = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $tipoAlimentoId);
+    $stmt->execute();
+    $res = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $res
+      ? new Stock($res['id'], $res['almacenId'], $res['tipoAlimentoId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
+      : null;
+  }
+
 
   // Obtener stock por alimento
   public function getStockByAlimentoId($alimentoId): ?Stock
@@ -184,7 +214,7 @@ class StockDAO
     $res = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     return $res
-      ? new Stock($res['id'], $res['almacenId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
+      ? new Stock($res['id'], $res['almacenId'], $res['tipoAlimentoId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
       : null;
   }
 
@@ -198,7 +228,7 @@ class StockDAO
     $res = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     return $res
-      ? new Stock($res['id'], $res['almacenId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
+      ? new Stock($res['id'], $res['almacenId'], $res['tipoAlimentoId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
       : null;
   }
 
@@ -214,54 +244,58 @@ class StockDAO
   }
 
   // Obtener Stock por almacen, alimento y produccion interna 
-  public function getStockByAlmacenIdAndAlimentoIdAndProduccionInterna($almacenId, $alimentoId, $produccionInterna): ?Stock
+  public function getStockByAlmacenIdAndTipoAlimentoAndAlimentoIdAndProduccionInterna($almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna): ?Stock
   {
-    $sql = "SELECT * FROM stocks WHERE almacenId = ? AND alimentoId = ? AND produccionInterna = ?";
+    $sql = "SELECT * FROM stocks WHERE almacenId = ? AND tipoAlimentoId = ? AND alimentoId = ? AND produccionInterna = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("iii", $almacenId, $alimentoId, $produccionInterna);
+    $stmt->bind_param("iiii", $almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna);
     $stmt->execute();
     $res = $stmt->get_result();
     $stmt->close();
-    return $res
-      ? new Stock($res['id'], $res['almacenId'], $res['alimentoId'], $res['cantidad'], $res['produccionInterna'], $res['proveedorId'], $res['precio'], $res['fechaIngreso'])
+
+    // ⚠️ ATENCIÓN: Esta función devuelve solo un Stock si el resultado tiene filas, 
+    // pero usa el objeto $res que es mysqli_result. Debería usar fetch_assoc().
+    $row = $res->fetch_assoc();
+    return $row
+      ? new Stock($row['id'], $row['almacenId'], $row['tipoAlimentoId'], $row['alimentoId'], $row['cantidad'], $row['produccionInterna'], $row['proveedorId'], $row['precio'], $row['fechaIngreso'])
       : null;
   }
 
   // Actualiza el stock de un alimento en un almacén o lo registra si no existe.
-  public function actualizarStock($almacenId, $alimentoId, $produccionInterna, $cantidad): ?Stock
+  public function actualizarStock($almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna, $cantidad): ?Stock
   {
-    $stockActual = $this->getStockByAlmacenIdAndAlimentoIdAndProduccionInterna($almacenId, $alimentoId, $produccionInterna);
+    $stockActual = $this->getStockByAlmacenIdAndTipoAlimentoAndAlimentoIdAndProduccionInterna($almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna);
 
     if ($stockActual) {
       // Si el registro de stock ya existe, actualiza la cantidad.
       $nuevoStock = $stockActual->getCantidad() + $cantidad;
-      $sql = "UPDATE stocks SET cantidad = ? WHERE almacenIdd = ? AND alimentoIdd = ? AND produccionInterna = ?";
+      $sql = "UPDATE stocks SET cantidad = ? WHERE almacenId = ? AND tipoAlimentoId = ? AND alimentoId = ? AND produccionInterna = ?";
       $stmt = $this->conn->prepare($sql);
-      $stmt->bind_param("iiii", $nuevoStock, $almacenId, $alimentoId, $produccionInterna);
+      $stmt->bind_param("iiiii", $nuevoStock, $almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna);
       return $stmt->execute();
     } else {
       // Si no existe, inserta un nuevo registro de stock.
-      $sql = "INSERT INTO stocks(almacenId, alimentoId, cantidad, produccionInterna) VALUES (?, ?, ?, ?)";
+      $sql = "INSERT INTO stocks(almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna) VALUES (?, ?, ?, ?, ?)";
       $stmt = $this->conn->prepare($sql);
 
-      $stmt->bind_param("iiii", $almacenId, $alimentoId, $cantidad, $produccionInterna);
+      $stmt->bind_param("iiiii", $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna);
       return $stmt->execute();
     }
   }
 
   // Reducir el stock
-  public function reducirStock($almacenId, $alimentoId, $cantidad, $produccionInterna)
+  public function reducirStock($almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna)
   {
-    $stockActual = $this->getStockByAlmacenIdAndAlimentoIdAndProduccionInterna($almacenId, $alimentoId, $produccionInterna);
+    $stockActual = $this->getStockByAlmacenIdAndTipoAlimentoAndAlimentoIdAndProduccionInterna($almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna);
 
     if ($stockActual) {
       $nuevoStock = $stockActual->getCantidad() - $cantidad;
       if ($nuevoStock < 0) {
         return false; // No hay suficiente stock para la reducción.
       }
-      $sql = "UPDATE stocks SET cantidad = ? WHERE almacenIdd = ? AND alimentoIdd = ? AND produccionInterna = ?";
+      $sql = "UPDATE stocks SET cantidad = ? WHERE almacenId = ? AND tipoAlimentoId = ? AND alimentoId = ? AND produccionInterna = ?";
       $stmt = $this->conn->prepare($sql);
-      $stmt->bind_param("iiii", $nuevoStock, $almacenId, $alimentoId, $produccionInterna);
+      $stmt->bind_param("iiiii", $nuevoStock, $almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna);
       return $stmt->execute();
     }
     return false; // El registro de stock no fue encontrado.
@@ -270,10 +304,11 @@ class StockDAO
   // Obtiene una lista de alimentos con stock positivo en un almacén.
   public function getAlimentosConStockByAlmacenId($almacenId)
   {
-    $sql = "SELECT s.alimentoId, a.nombre as alimentoNombre, s.cantidad 
+    $sql = "SELECT s.tipoAlimentoId, t.tipo as tipoAlimento, s.alimentoId, a.nombre as alimentoNombre, s.cantidad 
             FROM stocks s 
+            JOIN tiposalimentos t ON s.tipoAlimentoId = t.id
             JOIN alimentos a ON s.alimentoId = a.id 
-            WHERE s.almacenId = ? AND s.stock > 0";
+            WHERE s.almacenId = ? AND s.cantidad > 0";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $almacenId);
     $stmt->execute();
@@ -283,6 +318,7 @@ class StockDAO
     while ($row = $result->fetch_assoc()) {
       $alimentosConStock[] = [
         'id' => $row['alimentoId'],
+        'tipo' => $row['tipoAlimento'],
         'nombre' => $row['alimentoNombre'],
         'cantidad' => $row['cantidad']
       ];
@@ -291,7 +327,7 @@ class StockDAO
   }
 
   // Filtro de Stock
-  public function getStocksFiltradas(array $almacenId, array $alimentoId, array $produccionInterna)
+  public function getStocksFiltradas(array $almacenId, array $tipoAlimentoId, array $alimentoId, array $produccionInterna)
   {
     // Construye la consulta SQL dinámicamente.
     $sql = "SELECT * FROM stocks WHERE 1=1";
@@ -303,6 +339,13 @@ class StockDAO
       $sql .= " AND almacenId IN ($placeholders)";
       $params = array_merge($params, $almacenId);
       $tipos .= str_repeat('i', count($almacenId));
+    }
+
+    if (!empty($tipoAlimentoId)) {
+      $placeholders = implode(',', array_fill(0, count($tipoAlimentoId), '?'));
+      $sql .= " AND tipoAlimentoId IN ($placeholders)";
+      $params = array_merge($params, $tipoAlimentoId);
+      $tipos .= str_repeat('i', count($tipoAlimentoId));
     }
 
     if (!empty($alimentoId)) {
@@ -350,6 +393,7 @@ class StockDAO
       $stock = new Stock(
         $row['id'],
         $row['almacenId'],
+        $row['tipoAlimentoId'],
         $row['alimentoId'],
         $row['cantidad'],
         $row['produccionInterna'],
@@ -361,6 +405,18 @@ class StockDAO
     }
     $stmt->close();
     return $stocks;
+  }
+
+  // Obtener el total del stock por el tipo de alimento
+  public function getTotalStockByTipoAlimentoId($tipoAlimentoId)
+  {
+    $sql = "SELECT SUM(cantidad) AS totalStock FROM stocks WHERE tipoAlimentoId = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $tipoAlimentoId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    return $row['totalStock'] ?? 0;
   }
 
   // Obtener el total del stock por el alimento
@@ -378,7 +434,7 @@ class StockDAO
   // Obtener el total del stock por el almacen
   public function getTotalStockByAlmacenId($almacenId)
   {
-    $sql = "SELECT SUM(cantidad) AS totalStock FROM stocks WHERE almacen$almacenId = ?";
+    $sql = "SELECT SUM(cantidad) AS totalStock FROM stocks WHERE almacenId = ?";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $almacenId);
     $stmt->execute();
@@ -390,7 +446,7 @@ class StockDAO
   // Obtener el total del stock por la produccion
   public function getTotalStockByProduccionInterna($produccionInterna)
   {
-    $sql = "SELECT SUM(cantidad) AS totalStock FROM stocks WHERE almacen$produccionInterna = ?";
+    $sql = "SELECT SUM(cantidad) AS totalStock FROM stocks WHERE produccionInterna = ?";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $produccionInterna);
     $stmt->execute();

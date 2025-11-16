@@ -199,6 +199,8 @@
   border-radius: 6px !important;
   margin-bottom: 15px !important;
   font-size: 0.95rem !important;
+  opacity: 1; /* Valor inicial de opacidad */
+  transition: opacity 1.0s ease-out; /* Transición de 0.5 segundos para la opacidad */
 }
 .alert-success {
   background-color: #44f26d !important;
@@ -219,7 +221,12 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(
+    0,
+    0,
+    0,
+    0.55
+  ); /* El mismo fondo que en el modal de potrero */
   justify-content: center;
   align-items: center;
   z-index: 9999;
@@ -238,13 +245,8 @@
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
 }
 
-.modal-content h3 {
-  margin-bottom: 1rem;
-  color: var(--color-secundario);
-  text-align: center;
-}
-
-/* ===== MODAL ELIMINAR POTRERO ===== */
+/* Modal eliminar */
+/* ===== MODAL ELIMINAR ALIMENTO ===== */
 #confirmModal .modal-content {
   max-width: 420px;
   text-align: center;
@@ -279,16 +281,24 @@
   margin-top: 20px;
 }
 
-.btn {
-  border: none;
-  border-radius: 8px;
-  padding: 10px 22px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.95rem;
-  transition: all 0.2s ease-in-out;
-  min-width: 130px; /* 💡 Todos los botones del mismo ancho */
-  text-align: center;
+.btn-danger {
+  background: #c0392b;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #a93226;
+}
+
+.btn-cancel {
+  background: #e0e6ee;
+  color: #333;
+  border: 1px solid #cfd8e3;
+}
+
+.btn-cancel:hover {
+  background: #c9d3dc;
+  color: #222;
 }
 
 /* 🔵 Botón principal / aplicar / mover */

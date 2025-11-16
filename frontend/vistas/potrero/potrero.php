@@ -61,13 +61,13 @@ function esc($s)
       <input type="hidden" id="accion" name="accion" value="registrar" />
 
       <div class="form-group">
-        <label for="nombre">Nombre</label>
+        <label for="nombre">Nombre *</label>
         <input type="text" id="nombre" name="nombre" />
-        <div id="error-nombre" class="error-message">Ingresá el nombre</div>
+        <div id="error-nombre" class="error-message">El nombre es obligatorio</div>
       </div>
 
       <div class="form-group">
-        <label for="campoId">Campo</label>
+        <label for="campoId">Campo *</label>
         <select id="campoId" name="campoId" class="campo-input">
           <option value="">-- Seleccioná un campo --</option>
           <?php if (is_array($campos)): ?>
@@ -76,11 +76,11 @@ function esc($s)
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-        <div id="error-campoId" class="error-message">Seleccioná el campo.</div>
+        <div id="error-campoId" class="error-message">El campo es obligatorio</div>
       </div>
 
       <div class="form-group">
-        <label for="pasturaId">Pastura</label>
+        <label for="pasturaId">Pastura *</label>
         <select id="pasturaId" name="pasturaId" class="campo-input">
           <option value="">-- Seleccioná una pastura --</option>
           <?php if (is_array($pasturas)): ?>
@@ -89,7 +89,7 @@ function esc($s)
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-        <div id="error-pasturaId" class="error-message">Seleccioná la pastura</div>
+        <div id="error-pasturaId" class="error-message">La pastura es obligatorio</div>
       </div>
 
       <div class="form-group">
@@ -102,7 +102,6 @@ function esc($s)
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-        <div id="error-categoriaId" class="error-message">Seleccioná la categoría</div>
       </div>
 
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">

@@ -42,13 +42,13 @@ $categorias = $controller->obtenerCategorias();
       <input type="hidden" id="accion" name="accion" value="registrar">
 
       <div class="form-group">
-        <label for="nombre">Nombre de la Categoría</label>
+        <label for="nombre">Nombre *</label>
         <input type="text" id="nombre" name="nombre" required>
         <span class="error-message" id="error-nombre">El nombre es obligatorio</span>
       </div>
 
       <div class="form-group">
-        <label for="cantidad">Cantidad</label>
+        <label for="cantidad">Cantidad *</label>
         <input type="text" id="cantidad" name="cantidad" required>
         <span class="error-message" id="error-cantidad">La cantidad es obligatoria</span>
       </div>
