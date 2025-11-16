@@ -56,6 +56,7 @@ class StockController
         'almacenId' => $getArrayOfInts('almacenId'),
         'tipoAlimentoId' => $getArrayOfInts('tipoAlimentoId'),
         'alimentoId' => $getArrayOfInts('alimentoId'),
+        'proveedorId' => $getArrayOfInts('proveedorId'), // ✅ CORRECCIÓN: Se añade el filtro de Proveedor
         'produccionInterna' => $getArrayOfInts('produccionInterna')
       ];
 

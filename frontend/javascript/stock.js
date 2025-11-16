@@ -129,8 +129,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Escuchar el cambio en el checkbox
   produccionInternaCheck.addEventListener("change", toggleProveedorYPrecio);
 
-  // ===== Filtros (Resto de funciones de filtro se mantienen iguales) =====
-  // ...
+  // ===== Filtros =====
   const abrirFiltrosBtn = document.getElementById("abrirFiltros");
   const filtroModal = document.getElementById("filtroModal");
   const aplicarFiltrosBtn = document.getElementById("aplicarFiltros");
@@ -143,7 +142,8 @@ document.addEventListener("DOMContentLoaded", function () {
     tiposAlimentosIds: [],
     alimentosIds: [],
     proveedoresIds: [],
-    produccionesInternas: false,
+    // CORRECCIÓN: Inicializar como array para almacenar los valores de filtro de origen
+    produccionesInternas: [],
   };
 
   function createCheck(name, value, label, checked = false) {
@@ -184,6 +184,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
   }
 
+  // CORRECCIÓN: Función para rellenar checks del modal con el estado de FILTROS
   function prepararChecksModal() {
     const campoGroup = document.getElementById("filtroAlmacenGroup");
     const tipoAlimentoGroup = document.getElementById(
@@ -191,12 +192,17 @@ document.addEventListener("DOMContentLoaded", function () {
     );
     const alimentoGroup = document.getElementById("filtroAlimentoGroup");
     const proveedorGroup = document.getElementById("filtroProveedorGroup");
+    // Se obtiene el grupo para Origen
+    const produccionInternaGroup = document.getElementById(
+      "filtroProduccionInternaGroup"
+    );
 
     if (
       !campoGroup ||
       !tipoAlimentoGroup ||
       !alimentoGroup ||
-      !proveedorGroup
+      !proveedorGroup ||
+      !produccionInternaGroup // Incluir el check group de Origen
     ) {
       console.error("Faltan contenedores de filtros");
       return;
@@ -206,6 +212,8 @@ document.addEventListener("DOMContentLoaded", function () {
     tipoAlimentoGroup.innerHTML = "";
     alimentoGroup.innerHTML = "";
     proveedorGroup.innerHTML = "";
+    // No limpiamos produccionInternaGroup si ya está pre-poblado en stock.php,
+    // solo nos aseguramos de que sus checks reflejen el estado de FILTROS
 
     buildCheckGroupFromSelect(
       almacenId,
@@ -231,6 +239,13 @@ document.addEventListener("DOMContentLoaded", function () {
       "filtro_proveedor",
       FILTROS.proveedoresIds
     );
+
+    // CORRECCIÓN: Actualizar el estado de los checks de Origen que ya están en el HTML
+    produccionInternaGroup
+      .querySelectorAll('input[name="filtro_produccionInterna"]')
+      .forEach((input) => {
+        input.checked = FILTROS.produccionesInternas.includes(input.value);
+      });
   }
 
   function abrirModalFiltros() {
@@ -278,6 +293,13 @@ document.addEventListener("DOMContentLoaded", function () {
       );
       partes.push(`Proveedor: ${nombres.join(", ")}`);
     }
+    // CORRECCIÓN: Mostrar resumen de Producción Interna
+    if (FILTROS.produccionesInternas.length) {
+      const nombres = FILTROS.produccionesInternas.map((id) =>
+        id === "1" ? "Propia" : "Comprada"
+      );
+      partes.push(`Origen: ${nombres.join(", ")}`);
+    }
 
     resumenFiltros.textContent = partes.length
       ? `Filtros → ${partes.join(" · ")}`
@@ -289,6 +311,8 @@ document.addEventListener("DOMContentLoaded", function () {
     FILTROS.tiposAlimentosIds = [];
     FILTROS.alimentosIds = [];
     FILTROS.proveedoresIds = [];
+    // CORRECCIÓN: Limpiar el filtro de Origen
+    FILTROS.produccionesInternas = [];
     prepararChecksModal();
     pintarResumenFiltros();
     await refrescarTabla();
@@ -299,6 +323,8 @@ document.addEventListener("DOMContentLoaded", function () {
     FILTROS.tiposAlimentosIds = getCheckedValues("filtro_tipoAlimento");
     FILTROS.alimentosIds = getCheckedValues("filtro_alimento");
     FILTROS.proveedoresIds = getCheckedValues("filtro_proveedor");
+    // CORRECCIÓN: Guardar los valores de Producción Interna
+    FILTROS.produccionesInternas = getCheckedValues("filtro_produccionInterna");
     cerrarModalFiltros();
     pintarResumenFiltros();
     await refrescarTabla();
@@ -353,23 +379,50 @@ document.addEventListener("DOMContentLoaded", function () {
   function extractDataFromRow(tr) {
     return {
       id: tr.dataset.id,
-      tipoAlimentoId: tr.dataset.tipoAlimentoId,
       almacenId: tr.dataset.almacenId,
+      almacenNombre: tr.dataset.almacenNombre, // 👈 CORRECCIÓN
+
+      tipoAlimentoId: tr.dataset.tipoAlimentoId,
+      tipoAlimentoNombre: tr.dataset.tipoAlimentoNombre, // 👈 CORRECCIÓN
+
       alimentoId: tr.dataset.alimentoId,
+      alimentoNombre: tr.dataset.alimentoNombre, // 👈 CORRECCIÓN
+
       cantidad: tr.dataset.cantidad,
       produccionInterna: tr.dataset.produccionInterna,
+
       proveedorId: tr.dataset.proveedorId,
+      proveedorNombre: tr.dataset.proveedorNombre, // 👈 CORRECCIÓN
+
       precio: tr.dataset.precio,
       fechaIngreso: tr.dataset.fechaIngreso,
     };
   }
 
-  // ===== Tabla (Manteniendo la funcionalidad de refrescar) =====
+  // ===== Tabla (Función corregida para aplicar filtros) =====
   async function refrescarTabla() {
     try {
-      // ... (Código para refrescar tabla, mantenido igual)
-      const stocks = await fetchJSON(`${API}?action=list`, {
-        // Cambiado a 'list' para ser coherente con el controlador
+      const urlParams = new URLSearchParams();
+      urlParams.append("action", "list");
+
+      const filterMap = {
+        campoIds: "almacenId",
+        tiposAlimentosIds: "tipoAlimentoId",
+        alimentosIds: "alimentoId",
+        proveedoresIds: "proveedorId",
+        produccionesInternas: "produccionInterna",
+      };
+
+      for (const jsKey in filterMap) {
+        const values = FILTROS[jsKey];
+        const phpKey = filterMap[jsKey];
+
+        if (values && Array.isArray(values) && values.length > 0) {
+          values.forEach((id) => urlParams.append(`${phpKey}[]`, id));
+        }
+      }
+
+      const stocks = await fetchJSON(`${API}?${urlParams.toString()}`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
@@ -383,33 +436,51 @@ document.addEventListener("DOMContentLoaded", function () {
       for (const stock of stocks) {
         const tr = document.createElement("tr");
 
+        // ===============================
+        // 🔥 DATASET COMPLETO (CORRECCIÓN)
+        // ===============================
         tr.dataset.id = stock.id ?? "";
+
         tr.dataset.almacenId = stock.almacenId ?? "";
+        tr.dataset.almacenNombre = stock.almacenNombre ?? "";
+
         tr.dataset.tipoAlimentoId = stock.tipoAlimentoId ?? "";
+        tr.dataset.tipoAlimentoNombre = stock.tipoAlimentoNombre ?? "";
+
         tr.dataset.alimentoId = stock.alimentoId ?? "";
+        tr.dataset.alimentoNombre = stock.alimentoNombre ?? "";
+
         tr.dataset.cantidad = stock.cantidad ?? "";
+
         tr.dataset.produccionInterna = stock.produccionInterna ?? "";
+
         tr.dataset.proveedorId = stock.proveedorId ?? "";
+        tr.dataset.proveedorNombre = stock.proveedorNombre ?? "";
+
         tr.dataset.precio = stock.precio ?? "";
         tr.dataset.fechaIngreso = stock.fechaIngreso ?? "";
 
+        // ===============================
+        // 🔥 HTML DE LA FILA
+        // ===============================
         tr.innerHTML = `
-          <td>${stock.id}</td>
-          <td>${stock.almacenNombre}</td>
-          <td>${stock.tipoAlimentoNombre}</td>
-          <td>${stock.alimentoNombre}</td>
-          <td>${stock.cantidad}</td>
-          <td>${stock.produccionInterna == 1 ? "Propia" : "Proveedor"}</td>
-          <td>${stock.proveedorNombre || "N/A"}</td>
-          <td>${stock.precio}</td>
-          <td>${stock.fechaIngreso}</td>
-          <td>
-            <div class="table-actions">
-              <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
-              <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
-            </div>
-          </td>
-        `;
+        <td>${stock.id}</td>
+        <td>${stock.almacenNombre}</td>
+        <td>${stock.tipoAlimentoNombre}</td>
+        <td>${stock.alimentoNombre}</td>
+        <td>${stock.cantidad}</td>
+        <td>${stock.produccionInterna == 1 ? "Propia" : "Proveedor"}</td>
+        <td>${stock.proveedorNombre || "N/A"}</td>
+        <td>${stock.precio}</td>
+        <td>${stock.fechaIngreso}</td>
+        <td>
+          <div class="table-actions">
+            <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
+            <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
+          </div>
+        </td>
+      `;
+
         tableBody.appendChild(tr);
       }
     } catch (err) {
@@ -417,6 +488,7 @@ document.addEventListener("DOMContentLoaded", function () {
       tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#a00;">Error cargando tabla.</td></tr>`;
     }
   }
+
   // ... (Editar / Eliminar se mantienen iguales)
 
   tableBody.addEventListener("click", (e) => {
@@ -573,8 +645,6 @@ document.addEventListener("DOMContentLoaded", function () {
       });
 
       // Si el servidor retorna un error, se muestra.
-      // Ya no necesitamos la lógica para detectar el error de "Completá los campos obligatorios"
-      // porque ahora JS atrapa todos los casos de campos vacíos.
       flash(data.tipo, data.mensaje);
       if (data.tipo === "success") {
         await refrescarTabla();

@@ -209,16 +209,15 @@ function getPropertyValue($obj, $prop)
       </div>
 
       <div class="filtro-grupo">
-        <h4>Alimento</h4>
-        <div id="filtroTipoAlimentoGroup" class="radio-group">
-        </div>
+        <h4>Tipo de Alimento</h4>
+        <div id="filtroTipoAlimentoGroup" class="radio-group"></div>
       </div>
 
       <div class="filtro-grupo">
         <h4>Alimento</h4>
-        <div id="filtroAlimentoGroup" class="radio-group">
-        </div>
+        <div id="filtroAlimentoGroup" class="radio-group"></div>
       </div>
+
 
       <div class="filtro-grupo">
         <h4>Origen</h4>
