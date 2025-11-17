@@ -41,6 +41,19 @@ function getPropertyValue($obj, $prop)
   }
   return '';
 }
+
+$alimentos_para_js = [];
+if (is_array($alimentos)) {
+  foreach ($alimentos as $alimento) {
+    $alimentos_para_js[] = [
+      'id' => getPropertyValue($alimento, 'id'),
+      'nombre' => getPropertyValue($alimento, 'nombre'),
+      // CRUCIAL: Necesitamos el tipoAlimentoId para el filtrado en JS
+      'tipoAlimentoId' => getPropertyValue($alimento, 'tipoAlimentoId')
+    ];
+  }
+}
+$alimentos_json = json_encode($alimentos_para_js);
 ?>
 
 <!DOCTYPE html>
@@ -157,8 +170,8 @@ function getPropertyValue($obj, $prop)
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
 
-        <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
-        <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
+        <!-- <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
+        <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div> -->
 
         <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#888;">
           Cancelar edición
@@ -170,18 +183,15 @@ function getPropertyValue($obj, $prop)
   <div class="form-container table">
     <h2>Stock Registrado</h2>
     <div class="table-wrapper">
-      <table class="table-modern" aria-label="Listado de Stock">
+      <table id="tablaStockPrincipal" class="table-modern" aria-label="Listado de Stock">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Campo</th>
             <th>Tipo de Alimento</th>
             <th>Alimento</th>
             <th>Cantidad</th>
             <th>Origen</th>
             <th>Proveedor</th>
-            <th>Precio</th>
-            <th>F. Ingreso</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -190,7 +200,7 @@ function getPropertyValue($obj, $prop)
     </div>
   </div>
 
-  <div id="filtroModal" class="modal">
+  <!-- <div id="filtroModal" class="modal">
     <div class="modal-content">
       <h3>Filtrar Stock</h3>
 
@@ -245,6 +255,35 @@ function getPropertyValue($obj, $prop)
         <button id="cerrarFiltros" class="btn btn-cancel" style="background:#777; color:white">Cerrar</button>
       </div>
     </div>
+  </div> -->
+
+  <!-- MODAL DETALLE -->
+  <div id="detalleModal" class="modal">
+    <div class="modal-content">
+      <h3>Detalle del Stock</h3>
+
+      <table class="table-modern" style="margin-top: 15px;">
+        <thead>
+          <tr>
+            <th>Registro</th>
+            <th>Campo</th>
+            <th>Tipo</th>
+            <th>Alimento</th>
+            <th>Cantidad</th>
+            <th>Origen</th>
+            <th class="th-proveedor">Proveedor</th>
+            <th class="th-precio">Precio</th>
+            <th>Fecha</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="detalleBody"></tbody>
+      </table>
+
+      <div style="text-align:center; margin-top: 20px;">
+        <button id="detalleCerrar" class="btn btn-secondary">Cerrar</button>
+      </div>
+    </div>
   </div>
 
   <div id="confirmModal" class="modal">
@@ -257,6 +296,10 @@ function getPropertyValue($obj, $prop)
       </div>
     </div>
   </div>
+
+  <script>
+    const ALL_ALIMENTOS = <?= $alimentos_json ?>;
+  </script>
 
   <script src="../../javascript/stock.js"></script>
 </body>

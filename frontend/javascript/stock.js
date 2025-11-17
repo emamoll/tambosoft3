@@ -1,642 +1,443 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("stock.js cargado correctamente");
+
+  // Asumimos que la variable ALL_ALIMENTOS está definida en stock.php
+  // con la lista completa de {id, nombre, tipoAlimentoId} de todos los alimentos.
+  // const ALL_ALIMENTOS = [ ... ];
+
+  const API = "../../../backend/controladores/stockController.php";
+
+  // --- FORM ---
   const form = document.getElementById("stockForm");
   const idInput = document.getElementById("id");
   const accionInput = document.getElementById("accion");
   const submitBtn = document.getElementById("submitBtn");
   const cancelarEdicion = document.getElementById("cancelarEdicion");
-  const formTitle = document.getElementById("form-title");
 
   const almacenId = document.getElementById("almacenId");
   const tipoAlimentoId = document.getElementById("tipoAlimentoId");
   const alimentoId = document.getElementById("alimentoId");
   const cantidad = document.getElementById("cantidad");
+
   const produccionInternaCheck = document.getElementById(
     "produccionInternaCheck"
   );
   const produccionInternaValor = document.getElementById(
     "produccionInternaValor"
   );
+
   const proveedorId = document.getElementById("proveedorId");
   const precio = document.getElementById("precio");
   const fechaIngreso = document.getElementById("fechaIngreso");
 
+  // --- TABLA AGRUPADA ---
   const tableBody = document.querySelector(".table-modern tbody");
 
-  // Modal eliminar
+  // --- MODAL DETALLE ---
+  const modalDetalle = document.getElementById("detalleModal");
+  const detalleBody = document.getElementById("detalleBody");
+  const detalleCerrar = document.getElementById("detalleCerrar");
+
+  // --- MODAL ELIMINAR (AGRUPADO) ---
   const modal = document.getElementById("confirmModal");
-  const confirmText = document.getElementById("confirmText");
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
+  const confirmText = document.getElementById("confirmText");
 
-  const API = "../../../backend/controladores/stockController.php";
-
-  // ===== Helpers =====
-  function flash(tipo, mensaje) {
-    let alertBox = document.querySelector(".form .alert");
-    if (!alertBox) {
-      alertBox = document.createElement("div");
-      alertBox.className = "alert";
-      const h2 = document.getElementById("form-title");
-      h2.insertAdjacentElement("afterend", alertBox);
-    }
-
-    // 1. Configura la alerta y la hace completamente visible (opacity: 1)
-    alertBox.className =
-      "alert " + (tipo === "success" ? "alert-success" : "alert-danger");
-    alertBox.textContent = mensaje;
-    alertBox.style.display = "block"; // Asegura que esté en el flujo
-    alertBox.style.opacity = "1"; // Establece opacidad a 1 para empezar visible
-
-    // 2. Espera 3 segundos y luego INICIA la atenuación (fade out)
-    setTimeout(() => {
-      alertBox.style.opacity = "0"; // Esto activa la transición CSS
-
-      // 3. Oculta COMPLETAMENTE el elemento después de que la transición CSS termine (0.5s)
-      setTimeout(() => {
-        alertBox.style.display = "none";
-      }, 500); // 500ms es el tiempo de la transición definida en campo.css
-    }, 3000); // Muestra por 3 segundos antes de empezar a desvanecerse
-  }
-
-  function buildLovMap(selectEl) {
-    const map = {};
-    if (!selectEl) return map;
-    Array.from(selectEl.options).forEach((opt) => {
-      if (opt.value) map[opt.value] = opt.textContent.trim();
-    });
-    return map;
-  }
-
+  // ----------------------------------------------------
+  // HELPER PARA LLAMAR AL BACKEND Y ASEGURAR JSON
+  // ----------------------------------------------------
   async function fetchJSON(url, options = {}) {
     const resp = await fetch(url, options);
     const ct = resp.headers.get("content-type") || "";
-    const text = await resp.text();
+    const raw = await resp.text();
 
     if (!ct.includes("application/json")) {
-      console.error("[Backend NON-JSON]", {
-        url,
-        status: resp.status,
-        contentType: ct,
-        preview: text.slice(0, 400),
+      console.error("[Backend NON-JSON]", raw);
+      throw new Error("El backend no devolvió JSON");
+    }
+
+    return JSON.parse(raw);
+  }
+
+  // ----------------------------------------------------
+  // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS
+  // ----------------------------------------------------
+  function cargarAlimentosPorTipo() {
+    // Valor del Tipo de Alimento seleccionado
+    const tipoSeleccionado = tipoAlimentoId.value;
+    // Guardamos la selección actual para mantenerla en caso de edición
+    const alimentoSeleccionadoActual = alimentoId.value;
+
+    // Limpiar el select de alimentos, manteniendo la opción por defecto
+    alimentoId.innerHTML =
+      '<option value="">-- Seleccioná un Alimento --</option>';
+
+    if (tipoSeleccionado && typeof ALL_ALIMENTOS !== "undefined") {
+      // Filtrar los alimentos que coinciden con el tipo seleccionado
+      const alimentosFiltrados = ALL_ALIMENTOS.filter(
+        (a) => String(a.tipoAlimentoId) === tipoSeleccionado
+      );
+
+      alimentosFiltrados.forEach((alimento) => {
+        const option = document.createElement("option");
+        option.value = alimento.id;
+        option.textContent = alimento.nombre;
+
+        // Si el ID del alimento coincide con el que estaba seleccionado (en edición), lo marcamos
+        if (String(alimento.id) === alimentoSeleccionadoActual) {
+          option.selected = true;
+        }
+
+        alimentoId.appendChild(option);
       });
-      throw new Error("Respuesta no JSON del backend.");
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      console.error("[JSON Parse Error]", text.slice(0, 400));
-      throw e;
     }
   }
 
-  // ===== LOV maps (Única y correcta inicialización) =====
-  const LOVS = {
-    almacen: buildLovMap(almacenId),
-    tipoAlimento: buildLovMap(tipoAlimentoId),
-    alimento: buildLovMap(alimentoId),
-    proveedor: buildLovMap(proveedorId),
-  };
-  // ==============================================
-
-  // ===== Función para habilitar/deshabilitar campos según Producción Propia =====
-  function toggleProveedorYPrecio() {
-    const isChecked = produccionInternaCheck.checked;
-    proveedorId.disabled = isChecked;
-    precio.disabled = isChecked;
-
-    if (isChecked) {
-      proveedorId.classList.add("disabled");
-      precio.classList.add("disabled");
-      // Si se deshabilitan, limpia los errores visuales
-      const errorProveedor = document.getElementById("error-proveedorId");
-      if (errorProveedor) {
-        errorProveedor.style.display = "none";
-      }
-      const errorPrecio = document.getElementById("error-precio");
-      if (errorPrecio) {
-        errorPrecio.style.display = "none";
-      }
-    } else {
-      proveedorId.classList.remove("disabled");
-      precio.classList.remove("disabled");
-    }
-  }
-
-  // Ejecutar al cargar la página para revisar si el checkbox está marcado
-  toggleProveedorYPrecio();
-
-  // Escuchar el cambio en el checkbox
-  produccionInternaCheck.addEventListener("change", toggleProveedorYPrecio);
-
-  // ===== Filtros =====
-  const abrirFiltrosBtn = document.getElementById("abrirFiltros");
-  const filtroModal = document.getElementById("filtroModal");
-  const aplicarFiltrosBtn = document.getElementById("aplicarFiltros");
-  const limpiarFiltrosBtn = document.getElementById("limpiarFiltros");
-  const cerrarFiltrosBtn = document.getElementById("cerrarFiltros");
-  const resumenFiltros = document.getElementById("resumenFiltros");
-
-  const FILTROS = {
-    campoIds: [],
-    tiposAlimentosIds: [],
-    alimentosIds: [],
-    proveedoresIds: [],
-    // CORRECCIÓN: Inicializar como array para almacenar los valores de filtro de origen
-    produccionesInternas: [],
-  };
-
-  function createCheck(name, value, label, checked = false) {
-    const wrap = document.createElement("label");
-    wrap.className = "radio-card";
-
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.name = name;
-    input.value = value;
-    input.checked = !!checked;
-
-    const span = document.createElement("span");
-    span.className = "radio-label";
-    span.textContent = label;
-
-    wrap.appendChild(input);
-    wrap.appendChild(span);
-    return wrap;
-  }
-
-  function buildCheckGroupFromSelect(
-    selectEl,
-    containerEl,
-    name,
-    selectedValues = []
-  ) {
-    if (!selectEl || !containerEl) return;
-    const selectedSet = new Set((selectedValues || []).map(String));
-    // NO agregamos "Cualquiera"
-    Array.from(selectEl.options)
-      .filter((o) => o.value)
-      .forEach((o) => {
-        const checked = selectedSet.has(String(o.value));
-        containerEl.appendChild(
-          createCheck(name, String(o.value), o.textContent.trim(), checked)
-        );
-      });
-  }
-
-  // CORRECCIÓN: Función para rellenar checks del modal con el estado de FILTROS
-  function prepararChecksModal() {
-    const campoGroup = document.getElementById("filtroAlmacenGroup");
-    const tipoAlimentoGroup = document.getElementById(
-      "filtroTipoAlimentoGroup"
-    );
-    const alimentoGroup = document.getElementById("filtroAlimentoGroup");
-    const proveedorGroup = document.getElementById("filtroProveedorGroup");
-    // Se obtiene el grupo para Origen
-    const produccionInternaGroup = document.getElementById(
-      "filtroProduccionInternaGroup"
-    );
-
-    if (
-      !campoGroup ||
-      !tipoAlimentoGroup ||
-      !alimentoGroup ||
-      !proveedorGroup ||
-      !produccionInternaGroup // Incluir el check group de Origen
-    ) {
-      console.error("Faltan contenedores de filtros");
-      return;
-    }
-
-    campoGroup.innerHTML = "";
-    tipoAlimentoGroup.innerHTML = "";
-    alimentoGroup.innerHTML = "";
-    proveedorGroup.innerHTML = "";
-    // No limpiamos produccionInternaGroup si ya está pre-poblado en stock.php,
-    // solo nos aseguramos de que sus checks reflejen el estado de FILTROS
-
-    buildCheckGroupFromSelect(
-      almacenId,
-      campoGroup,
-      "filtro_almacen",
-      FILTROS.campoIds
-    );
-    buildCheckGroupFromSelect(
-      tipoAlimentoId,
-      tipoAlimentoGroup,
-      "filtro_tipoAlimento",
-      FILTROS.tiposAlimentosIds
-    );
-    buildCheckGroupFromSelect(
-      alimentoId,
-      alimentoGroup,
-      "filtro_alimento",
-      FILTROS.alimentosIds
-    );
-    buildCheckGroupFromSelect(
-      proveedorId,
-      proveedorGroup,
-      "filtro_proveedor",
-      FILTROS.proveedoresIds
-    );
-
-    // CORRECCIÓN: Actualizar el estado de los checks de Origen que ya están en el HTML
-    produccionInternaGroup
-      .querySelectorAll('input[name="filtro_produccionInterna"]')
-      .forEach((input) => {
-        input.checked = FILTROS.produccionesInternas.includes(input.value);
-      });
-  }
-
-  function abrirModalFiltros() {
-    prepararChecksModal();
-    filtroModal.style.display = "flex";
-  }
-
-  function cerrarModalFiltros() {
-    filtroModal.style.display = "none";
-  }
-
-  abrirFiltrosBtn?.addEventListener("click", abrirModalFiltros);
-  cerrarFiltrosBtn?.addEventListener("click", cerrarModalFiltros);
-  filtroModal?.addEventListener("click", (e) => {
-    if (e.target === filtroModal) cerrarModalFiltros();
+  // ----------------------------------------------------
+  // EVENT LISTENER PARA TIPO DE ALIMENTO
+  // ----------------------------------------------------
+  tipoAlimentoId.addEventListener("change", () => {
+    // Si cambia el tipo, limpiamos la selección actual del alimento y cargamos la lista
+    alimentoId.value = "";
+    cargarAlimentosPorTipo();
   });
 
-  function getCheckedValues(name) {
-    return Array.from(
-      document.querySelectorAll(`input[name="${name}"]:checked`)
-    ).map((i) => i.value);
-  }
-
-  function pintarResumenFiltros() {
-    const partes = [];
-
-    // Suponiendo que LOVS.campo se refiere a los almacenes
-    if (FILTROS.campoIds.length) {
-      const nombres = FILTROS.campoIds.map((id) => LOVS.almacen[id] || id);
-      partes.push(`Campo: ${nombres.join(", ")}`);
-    }
-    if (FILTROS.tiposAlimentosIds.length) {
-      const nombres = FILTROS.tiposAlimentosIds.map(
-        (id) => LOVS.tipoAlimento[id] || id
-      );
-      partes.push(`Tipo alimento: ${nombres.join(", ")}`);
-    }
-    if (FILTROS.alimentosIds.length) {
-      const nombres = FILTROS.alimentosIds.map((id) => LOVS.alimento[id] || id);
-      partes.push(`Alimento: ${nombres.join(", ")}`);
-    }
-    if (FILTROS.proveedoresIds.length) {
-      const nombres = FILTROS.proveedoresIds.map(
-        (id) => LOVS.proveedor[id] || id
-      );
-      partes.push(`Proveedor: ${nombres.join(", ")}`);
-    }
-    // CORRECCIÓN: Mostrar resumen de Producción Interna
-    if (FILTROS.produccionesInternas.length) {
-      const nombres = FILTROS.produccionesInternas.map((id) =>
-        id === "1" ? "Propia" : "Comprada"
-      );
-      partes.push(`Origen: ${nombres.join(", ")}`);
-    }
-
-    resumenFiltros.textContent = partes.length
-      ? `Filtros → ${partes.join(" · ")}`
-      : "";
-  }
-
-  limpiarFiltrosBtn?.addEventListener("click", async () => {
-    FILTROS.campoIds = [];
-    FILTROS.tiposAlimentosIds = [];
-    FILTROS.alimentosIds = [];
-    FILTROS.proveedoresIds = [];
-    // CORRECCIÓN: Limpiar el filtro de Origen
-    FILTROS.produccionesInternas = [];
-    prepararChecksModal();
-    pintarResumenFiltros();
-    await refrescarTabla();
-  });
-
-  aplicarFiltrosBtn?.addEventListener("click", async () => {
-    FILTROS.campoIds = getCheckedValues("filtro_almacen"); // Usar el nombre correcto del filtro de almacén
-    FILTROS.tiposAlimentosIds = getCheckedValues("filtro_tipoAlimento");
-    FILTROS.alimentosIds = getCheckedValues("filtro_alimento");
-    FILTROS.proveedoresIds = getCheckedValues("filtro_proveedor");
-    // CORRECCIÓN: Guardar los valores de Producción Interna
-    FILTROS.produccionesInternas = getCheckedValues("filtro_produccionInterna");
-    cerrarModalFiltros();
-    pintarResumenFiltros();
-    await refrescarTabla();
-  });
-
-  // ===== Modo form =====
+  // ------------------------------
+  // MODO REGISTRAR
+  // ------------------------------
   function setRegistrarMode() {
     accionInput.value = "registrar";
     submitBtn.textContent = "Registrar";
-    formTitle.textContent = "Registrar Stock";
     cancelarEdicion.style.display = "none";
+
     idInput.value = "";
     form.reset();
-    toggleProveedorYPrecio(); // Restaurar el estado inicial (Proveedor/Precio activado por defecto)
-    // Inicializar el valor oculto a '0' (Comprado) al registrar
-    if (produccionInternaValor) produccionInternaValor.value = "0";
+    produccionInternaValor.value = "0"; // Comprado por defecto
+    produccionInternaCheck.checked = false;
 
-    // Ocultar mensajes de error al registrar
-    document
-      .querySelectorAll(".error-message")
-      .forEach((el) => (el.style.display = "none"));
+    // Al resetear el formulario, aseguramos que la lista de Alimentos esté filtrada
+    cargarAlimentosPorTipo();
   }
 
-  function setEditarMode(data) {
+  // ------------------------------
+  // MODO EDITAR (desde detalle)
+  // ------------------------------
+  async function setEditarMode(data) {
     accionInput.value = "modificar";
     submitBtn.textContent = "Modificar";
-    formTitle.textContent = "Modificar Stock";
     cancelarEdicion.style.display = "inline-block";
 
     idInput.value = data.id;
-    almacenId.value = data.almacenId || "";
-    tipoAlimentoId.value = data.tipoAlimentoId || "";
-    alimentoId.value = data.alimentoId || "";
-    cantidad.value = data.cantidad || "";
-    produccionInternaCheck.checked = data.produccionInterna == 1;
-    proveedorId.value = data.proveedorId || "";
-    precio.value = data.precio || "";
-    fechaIngreso.value = data.fechaIngreso || "";
 
-    toggleProveedorYPrecio(); // Re-aplicar la lógica de deshabilitar/activar campos
+    almacenId.value = data.almacenId;
+    tipoAlimentoId.value = data.tipoAlimentoId;
 
-    // Sincronizar el valor oculto con el estado del checkbox al entrar en edición
-    if (produccionInternaValor)
-      produccionInternaValor.value = data.produccionInterna == 1 ? "1" : "0";
+    // 1. Cargamos la lista filtrada de alimentos antes de seleccionar el valor
+    await cargarAlimentosPorTipo();
 
-    cantidad.focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // 2. Ahora seleccionamos el alimentoId (la función cargarAlimentosPorTipo()
+    // ya intenta mantener el valor, pero lo forzamos aquí por si acaso)
+    alimentoId.value = data.alimentoId;
+
+    cantidad.value = data.cantidad;
+
+    produccionInternaCheck.checked = String(data.produccionInterna) === "1";
+    produccionInternaValor.value = data.produccionInterna;
+
+    proveedorId.value = data.proveedorId ?? "";
+    precio.value = data.precio ?? "";
+    fechaIngreso.value = data.fechaIngreso ?? "";
   }
 
-  cancelarEdicion.addEventListener("click", setRegistrarMode);
-
-  function extractDataFromRow(tr) {
-    return {
-      id: tr.dataset.id,
-      almacenId: tr.dataset.almacenId,
-      almacenNombre: tr.dataset.almacenNombre, // 👈 CORRECCIÓN
-
-      tipoAlimentoId: tr.dataset.tipoAlimentoId,
-      tipoAlimentoNombre: tr.dataset.tipoAlimentoNombre, // 👈 CORRECCIÓN
-
-      alimentoId: tr.dataset.alimentoId,
-      alimentoNombre: tr.dataset.alimentoNombre, // 👈 CORRECCIÓN
-
-      cantidad: tr.dataset.cantidad,
-      produccionInterna: tr.dataset.produccionInterna,
-
-      proveedorId: tr.dataset.proveedorId,
-      proveedorNombre: tr.dataset.proveedorNombre, // 👈 CORRECCIÓN
-
-      precio: tr.dataset.precio,
-      fechaIngreso: tr.dataset.fechaIngreso,
-    };
-  }
-
-  // ===== Tabla (Función corregida para aplicar filtros) =====
+  // ------------------------------
+  // LISTAR STOCK (AGRUPADO)
+  // ------------------------------
   async function refrescarTabla() {
+    console.log("Listando stock...");
+
     try {
-      const urlParams = new URLSearchParams();
-      urlParams.append("action", "list");
-
-      const filterMap = {
-        campoIds: "almacenId",
-        tiposAlimentosIds: "tipoAlimentoId",
-        alimentosIds: "alimentoId",
-        proveedoresIds: "proveedorId",
-        produccionesInternas: "produccionInterna",
-      };
-
-      for (const jsKey in filterMap) {
-        const values = FILTROS[jsKey];
-        const phpKey = filterMap[jsKey];
-
-        if (values && Array.isArray(values) && values.length > 0) {
-          values.forEach((id) => urlParams.append(`${phpKey}[]`, id));
-        }
-      }
-
-      const stocks = await fetchJSON(`${API}?${urlParams.toString()}`, {
+      const resp = await fetch(`${API}?action=list`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
-      tableBody.innerHTML = "";
+      const raw = await resp.text();
+      console.log("RAW RESPONSE DEL BACKEND →", raw);
 
-      if (!Array.isArray(stocks) || stocks.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#666;">No hay stock registrado.</td></tr>`;
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (e) {
+        console.error("❌ ERROR PARSEANDO JSON", e);
         return;
       }
 
-      for (const stock of stocks) {
+      tableBody.innerHTML = "";
+
+      if (!Array.isArray(data) || data.length === 0) {
+        // Colspan de 7 (ID oculto + 6 visibles)
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No hay stock registrado.</td></tr>`;
+        return;
+      }
+
+      data.forEach((s) => {
         const tr = document.createElement("tr");
 
-        // ===============================
-        // 🔥 DATASET COMPLETO (CORRECCIÓN)
-        // ===============================
-        tr.dataset.id = stock.id ?? "";
+        // clave del grupo: Campo + Tipo + Alimento + Origen + Proveedor
+        const idAgrupado = [
+          s.almacenId,
+          s.tipoAlimentoId,
+          s.alimentoId,
+          s.produccionInterna,
+          s.proveedorId ?? "0",
+        ].join("-");
 
-        tr.dataset.almacenId = stock.almacenId ?? "";
-        tr.dataset.almacenNombre = stock.almacenNombre ?? "";
+        tr.dataset.idAgrupado = idAgrupado;
 
-        tr.dataset.tipoAlimentoId = stock.tipoAlimentoId ?? "";
-        tr.dataset.tipoAlimentoNombre = stock.tipoAlimentoNombre ?? "";
+        tr.dataset.almacenId = s.almacenId;
+        tr.dataset.tipoAlimentoId = s.tipoAlimentoId;
+        tr.dataset.alimentoId = s.alimentoId;
+        tr.dataset.produccionInterna = s.produccionInterna;
+        tr.dataset.proveedorId = s.proveedorId ?? "";
 
-        tr.dataset.alimentoId = stock.alimentoId ?? "";
-        tr.dataset.alimentoNombre = stock.alimentoNombre ?? "";
-
-        tr.dataset.cantidad = stock.cantidad ?? "";
-
-        tr.dataset.produccionInterna = stock.produccionInterna ?? "";
-
-        tr.dataset.proveedorId = stock.proveedorId ?? "";
-        tr.dataset.proveedorNombre = stock.proveedorNombre ?? "";
-
-        tr.dataset.precio = stock.precio ?? "";
-        tr.dataset.fechaIngreso = stock.fechaIngreso ?? "";
-
-        // ===============================
-        // 🔥 HTML DE LA FILA
-        // ===============================
+        // CORRECCIÓN: Agregar una columna para un ID (aunque esté oculto por CSS)
+        // para que la columna 'Campo' se muestre.
         tr.innerHTML = `
-        <td>${stock.id}</td>
-        <td>${stock.almacenNombre}</td>
-        <td>${stock.tipoAlimentoNombre}</td>
-        <td>${stock.alimentoNombre}</td>
-        <td>${stock.cantidad}</td>
-        <td>${stock.produccionInterna == 1 ? "Propia" : "Proveedor"}</td>
-        <td>${stock.proveedorNombre || "N/A"}</td>
-        <td>${stock.precio}</td>
-        <td>${stock.fechaIngreso}</td>
-        <td>
-          <div class="table-actions">
-            <button type="button" class="btn-icon edit js-edit" title="Modificar">✏️</button>
-            <button type="button" class="btn-icon delete js-delete" title="Eliminar">🗑️</button>
-          </div>
-        </td>
-      `;
+          <td>${s.almacenId}</td>        <td>${s.almacenNombre}</td>    <td>${
+          s.tipoAlimentoNombre
+        }</td>  <td>${s.alimentoNombre}</td>      <td>${
+          s.cantidad
+        }</td>            <td>${
+          s.produccionInterna == 1 ? "Prod. Interna" : "Comprado"
+        }</td> <td>${
+          s.produccionInterna == 1 ? "-" : s.proveedorNombre
+        }</td> <td>
+            <div class="table-actions">
+                <button type="button" class="btn-icon js-verDetalle" title="Ver detalle">📋</button>
+            <div>
+          </td>
+        `;
 
         tableBody.appendChild(tr);
-      }
-    } catch (err) {
-      console.error(err);
-      tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#a00;">Error cargando tabla.</td></tr>`;
+      });
+    } catch (e) {
+      console.error("Error listando:", e);
     }
   }
 
-  // ... (Editar / Eliminar se mantienen iguales)
+  // ------------------------------
+  // CARGAR DETALLE EN MODAL
+  // (todas las filas reales del grupo)
+  // ------------------------------
+  async function cargarDetalleGrupo(
+    almacenId,
+    tipoAlimentoId,
+    alimentoId,
+    produccionInterna,
+    proveedorId
+  ) {
+    // armamos query para action=detalleGrupo (nuevo endpoint en el controller)
+    const params = new URLSearchParams({
+      action: "detalleGrupo",
+      almacenId: almacenId,
+      tipoAlimentoId: tipoAlimentoId,
+      alimentoId: alimentoId,
+      produccionInterna: produccionInterna,
+    });
 
+    if (proveedorId && proveedorId !== "0" && proveedorId !== "null") {
+      params.append("proveedorId", proveedorId);
+    }
+
+    const data = await fetchJSON(`${API}?${params.toString()}`, {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+
+    detalleBody.innerHTML = "";
+
+    if (!Array.isArray(data) || data.length === 0) {
+      detalleBody.innerHTML = `<tr><td colspan="10" style="text-align:center;">No hay filas para este grupo.</td></tr>`;
+    } else {
+      data.forEach((r) => {
+        const esPropia = String(r.produccionInterna) === "1";
+        const proveedorTexto = !esPropia ? r.proveedorNombre || "—" : "—";
+        const precioTexto = !esPropia ? r.precio ?? "—" : "—";
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+        <td>${r.id}</td> <td>${r.almacenNombre}</td> <td>${
+          r.tipoAlimentoNombre
+        }</td> <td>${r.alimentoNombre}</td> <td>${r.cantidad}</td> <td>${
+          esPropia ? "Prod. Interna" : "Comprado"
+        }</td> <td>${proveedorTexto}</td> <td>${precioTexto}</td> <td>${
+          r.fechaIngreso
+        }</td> <td>
+            <div class="table-actions">
+                <button type="button" class="btn-icon edit detalle-edit" data-id="${
+                  r.id
+                }" title="Modificar">✏️</button>
+                <button type="button" class="btn-icon delete detalle-delete" data-id="${
+                  r.id
+                }" title="Eliminar">🗑️</button>
+            <div>
+          </td>
+      `;
+        detalleBody.appendChild(tr);
+      });
+    }
+
+    // guardo claves del grupo en el modal para recargar luego de eliminar
+    modalDetalle.dataset.almacenId = almacenId;
+    modalDetalle.dataset.tipoAlimentoId = tipoAlimentoId;
+    modalDetalle.dataset.alimentoId = alimentoId;
+    modalDetalle.dataset.produccionInterna = produccionInterna;
+    modalDetalle.dataset.proveedorId = proveedorId || "";
+
+    modalDetalle.style.display = "flex";
+  }
+
+  // ------------------------------
+  // CLICK EN TABLA AGRUPADA → ABRIR DETALLE
+  // ------------------------------
   tableBody.addEventListener("click", (e) => {
-    const editBtn = e.target.closest(".js-edit");
-    const delBtn = e.target.closest(".js-delete");
+    if (!e.target.classList.contains("js-verDetalle")) return;
 
-    if (editBtn) {
-      const tr = editBtn.closest("tr");
-      setEditarMode(extractDataFromRow(tr));
+    const tr = e.target.closest("tr");
+
+    cargarDetalleGrupo(
+      tr.dataset.almacenId,
+      tr.dataset.tipoAlimentoId,
+      tr.dataset.alimentoId,
+      tr.dataset.produccionInterna,
+      tr.dataset.proveedorId
+    );
+  });
+
+  // ------------------------------
+  // ACCIONES EN DETALLE (editar / eliminar)
+  // ------------------------------
+  detalleBody.addEventListener("click", async (e) => {
+    const btn = e.target;
+
+    // EDITAR DESDE MODAL
+    if (btn.classList.contains("detalle-edit")) {
+      const id = btn.dataset.id;
+
+      // nuevo endpoint en el controller: action=get&id=...
+      const data = await fetchJSON(`${API}?action=get&id=${id}`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+
+      // Asegurarse de que setEditarMode es async si se usa await dentro
+      await setEditarMode(data);
+      modalDetalle.style.display = "none";
       return;
     }
 
-    if (delBtn) {
-      const tr = delBtn.closest("tr");
-      const data = extractDataFromRow(tr);
-      confirmText.textContent = `¿Seguro que deseas eliminar el stock de "${data.alimentoNombre}"?`;
-      modal.dataset.id = data.id;
+    // ELIMINAR DESDE MODAL
+    if (btn.classList.contains("detalle-delete")) {
+      const id = btn.dataset.id;
+
+      confirmText.textContent = `¿Eliminar el registro #${id}?`;
+      confirmYes.dataset.deleteId = id;
+      confirmYes.dataset.deleteTipo = "individual";
+
       modal.style.display = "flex";
       return;
     }
   });
 
-  confirmYes?.addEventListener("click", async () => {
-    const id = modal.dataset.id;
-    modal.style.display = "none";
-    delete modal.dataset.id;
-    if (!id) return;
+  // ------------------------------
+  // CONFIRMAR ELIMINAR INDIVIDUAL
+  // ------------------------------
+  confirmYes.addEventListener("click", async () => {
+    const id = confirmYes.dataset.deleteId;
+    const tipo = confirmYes.dataset.deleteTipo;
 
     const fd = new FormData();
-    fd.append("accion", "eliminar");
+    fd.append("accion", tipo === "individual" ? "eliminar" : "eliminarGrupo");
     fd.append("id", id);
-    try {
-      const data = await fetchJSON(API, { method: "POST", body: fd });
-      flash(data.tipo, data.mensaje);
-      if (data.tipo === "success") {
-        await refrescarTabla();
-        setRegistrarMode();
-      }
-    } catch (err) {
-      console.error(err);
-      flash("error", "Error al eliminar el stock.");
-    }
-  });
 
-  confirmNo?.addEventListener("click", () => {
-    modal.style.display = "none";
-    delete modal.dataset.id;
-  });
-
-  // ==== Submit Form (Lógica de validación principal) ====
-  form.addEventListener("submit", async function (e) {
-    e.preventDefault();
-
-    // 🎯 Sincronizar el checkbox con el input hidden antes de la validación y el envío
-    if (produccionInternaValor) {
-      produccionInternaValor.value = produccionInternaCheck.checked ? "1" : "0";
-    }
-    const isProduccionInterna = produccionInternaValor.value === "1";
-
-    // 🔹 Validaciones específicas del formulario
-    let ok = true;
-    let hasUniversalError = false;
-
-    // --- 1. Validaciones universales (Almacén, Tipo Alimento, Alimento, Cantidad, Fecha) ---
-
-    const universalFields = [
-      { el: almacenId, errId: "error-almacenId" },
-      { el: tipoAlimentoId, errId: "error-tipoAlimentoId" },
-      { el: alimentoId, errId: "error-alimentoId" },
-      { el: fechaIngreso, errId: "error-fecha" },
-    ];
-
-    // Validación de selects/inputs de texto/fecha
-    universalFields.forEach(({ el, errId }) => {
-      const errorEl = document.getElementById(errId);
-      if (!el.value.trim()) {
-        errorEl.style.display = "block";
-        hasUniversalError = true;
-      } else {
-        errorEl.style.display = "none";
-      }
+    const res = await fetchJSON(API, {
+      method: "POST",
+      body: fd,
+      headers: { "X-Requested-With": "XMLHttpRequest" },
     });
 
-    // Validación de Cantidad (debe ser número entero > 0)
-    const cantNum = Number(cantidad.value);
-    const cantValida = Number.isInteger(cantNum) && cantNum > 0;
-    const cantidadError = document.getElementById("error-cantidad");
-    if (!cantidad.value.trim() || !cantValida) {
-      cantidadError.style.display = "block";
-      hasUniversalError = true;
+    if (res.tipo === "success") {
+      // recargar el detalle del grupo
+      await cargarDetalleGrupo(
+        modalDetalle.dataset.almacenId,
+        modalDetalle.dataset.tipoAlimentoId,
+        modalDetalle.dataset.alimentoId,
+        modalDetalle.dataset.produccionInterna,
+        modalDetalle.dataset.proveedorId
+      );
+      // y la tabla principal agrupada
+      await refrescarTabla();
     } else {
-      cantidadError.style.display = "none";
+      alert(res.mensaje);
     }
 
-    // Actualizar el estado general de ok
-    if (hasUniversalError) ok = false;
+    modal.style.display = "none";
+  });
 
-    // --- 2. Validaciones condicionales (Proveedor y Precio) ---
+  confirmNo.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
 
-    const proveedorError = document.getElementById("error-proveedorId");
-    const precioError = document.getElementById("error-precio");
-    let hasConditionalError = false;
+  // ------------------------------
+  // CERRAR MODAL DETALLE
+  // ------------------------------
+  if (detalleCerrar) {
+    detalleCerrar.addEventListener("click", () => {
+      modalDetalle.style.display = "none";
+    });
+  }
 
-    if (!isProduccionInterna) {
-      // Validación de Proveedor
-      if (!proveedorId.value.trim()) {
-        proveedorError.style.display = "block";
-        hasConditionalError = true;
-      } else {
-        proveedorError.style.display = "none";
-      }
+  // ------------------------------
+  // SUBMIT FORM → registrar / modificar
+  // ------------------------------
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-      // Validación de Precio (debe ser un número >= 0)
-      const precioValido =
-        precio.value.trim() &&
-        !isNaN(Number(precio.value)) &&
-        Number(precio.value) >= 0;
-      if (!precioValido) {
-        precioError.style.display = "block";
-        hasConditionalError = true;
-      } else {
-        precioError.style.display = "none";
-      }
+    produccionInternaValor.value = produccionInternaCheck.checked ? "1" : "0";
+    const esPropia = produccionInternaValor.value === "1";
 
-      if (hasConditionalError) ok = false;
-    } else {
-      // Si es producción interna, ocultamos errores de proveedor/precio
-      proveedorError.style.display = "none";
-      precioError.style.display = "none";
+    let ok = true;
+    document
+      .querySelectorAll(".error-message")
+      .forEach((el) => (el.style.display = "none"));
+
+    const mostrarError = (id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "block";
+      ok = false;
+    };
+
+    if (!almacenId.value.trim()) mostrarError("error-almacenId");
+    if (!tipoAlimentoId.value.trim()) mostrarError("error-tipoAlimentoId");
+    if (!alimentoId.value.trim()) mostrarError("error-alimentoId");
+
+    const cant = Number(cantidad.value);
+    if (!cantidad.value.trim() || !Number.isInteger(cant) || cant <= 0)
+      mostrarError("error-cantidad");
+
+    if (!fechaIngreso.value.trim()) mostrarError("error-fecha");
+
+    if (!esPropia) {
+      if (!proveedorId.value.trim()) mostrarError("error-proveedorId");
+
+      const prec = Number(precio.value);
+      if (!precio.value.trim() || isNaN(prec) || prec < 0)
+        mostrarError("error-precio");
     }
 
-    // --- 3. Finalización de validación y envío ---
+    if (!ok) return;
 
-    if (!ok) {
-      // Mostrar un mensaje de error general si falló alguna validación
-      if (hasUniversalError) {
-        flash("error", "Revisá los campos obligatorios marcados (*).");
-      } else if (hasConditionalError) {
-        flash(
-          "error",
-          "Para producción comprada, Proveedor y Precio son obligatorios."
-        );
-      }
-      return;
-    }
-
-    // Si todo está bien, procede con el envío
     const fd = new FormData(form);
+
     try {
       const data = await fetchJSON(API, {
         method: "POST",
@@ -644,19 +445,23 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
-      // Si el servidor retorna un error, se muestra.
-      flash(data.tipo, data.mensaje);
       if (data.tipo === "success") {
         await refrescarTabla();
         setRegistrarMode();
+      } else {
+        alert(data.mensaje);
       }
     } catch (err) {
       console.error(err);
-      flash("error", "Error al procesar la solicitud.");
+      alert("Error al procesar la solicitud.");
     }
   });
 
-  // ===== Inicializar =====
+  cancelarEdicion.addEventListener("click", setRegistrarMode);
+
+  // ------------------------------
+  // INICIAR
+  // ------------------------------
   setRegistrarMode();
   refrescarTabla();
 });

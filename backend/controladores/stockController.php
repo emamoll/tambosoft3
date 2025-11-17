@@ -22,8 +22,9 @@ class StockController
   {
     // Manejo de error de conexión
     if ($this->connError !== null) {
-      if (ob_get_level())
+      if (ob_get_level()) {
         ob_clean();
+      }
       header('Content-Type: application/json; charset=utf-8');
       echo json_encode([
         'tipo' => 'error',
@@ -34,53 +35,188 @@ class StockController
 
     $accion = $_GET['action'] ?? null;
 
-    // LISTAR STOCKS (con filtros)
-
+    // ===============================
+    // LISTAR STOCKS (GET, con filtros)
+    // ===============================
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'list') {
 
       // Función auxiliar: convierte parámetros GET en arrays de enteros
       $getArrayOfInts = function ($key) {
-        if (!isset($_GET[$key]))
+        if (!isset($_GET[$key])) {
           return null;
+        }
         $val = $_GET[$key];
-        // Asegura que siempre sea un array para procesar los [] de JS
-        if (!is_array($val))
+        if (!is_array($val)) {
           $val = [$val];
-        // Convierte a int y elimina valores vacíos (como el string vacío de un checkbox no marcado)
+        }
         $ints = array_map('intval', array_filter($val, fn($v) => $v !== ''));
         return count($ints) > 0 ? $ints : null;
       };
 
-      // Filtros admitidos (ahora esperan arrays de IDs o null)
+      // Filtros admitidos (arrays de IDs o null)
       $filtros = [
         'almacenId' => $getArrayOfInts('almacenId'),
         'tipoAlimentoId' => $getArrayOfInts('tipoAlimentoId'),
         'alimentoId' => $getArrayOfInts('alimentoId'),
-        'proveedorId' => $getArrayOfInts('proveedorId'), // ✅ CORRECCIÓN: Se añade el filtro de Proveedor
+        'proveedorId' => $getArrayOfInts('proveedorId'),
         'produccionInterna' => $getArrayOfInts('produccionInterna')
       ];
 
-      $stocks = $this->stockDAO->listar($filtros);
-      $out = [];
+      try {
+        $stocks = $this->stockDAO->listar($filtros);
+        $out = [];
 
-      foreach ($stocks as $stock) {
-        $out[] = [
-          'id' => $stock['id'],
-          'almacenId' => $stock['almacenId'],
-          'tipoAlimentoId' => $stock['tipoAlimentoId'],
-          'alimentoId' => $stock['alimentoId'],
-          'cantidad' => $stock['cantidad'],
-          'produccionInterna' => $stock['produccionInterna'],
-          'proveedorId' => $stock['proveedorId'],
-          'precio' => $stock['precio'],
-          'fechaIngreso' => $stock['fechaIngreso'],
-          // Es útil devolver estos nombres para la tabla sin tener que hacer otra consulta o mapeo en JS
-          'almacenNombre' => $stock['almacenNombre'] ?? '',
-          'tipoAlimentoNombre' => $stock['tipoAlimentoNombre'] ?? '',
-          'alimentoNombre' => $stock['alimentoNombre'] ?? '',
-          'proveedorNombre' => $stock['proveedorNombre'] ?? '',
-        ];
+        foreach ($stocks as $stock) {
+          $out[] = [
+            'id' => (int) $stock['id'],
+            'almacenId' => (int) $stock['almacenId'],
+            'tipoAlimentoId' => (int) $stock['tipoAlimentoId'],
+            'alimentoId' => (int) $stock['alimentoId'],
+            'cantidad' => (int) $stock['cantidad'],
+            'produccionInterna' => (int) $stock['produccionInterna'],
+            'proveedorId' => $stock['proveedorId'] !== null ? (int) $stock['proveedorId'] : null,
+            'precio' => $stock['precio'] !== null ? (float) $stock['precio'] : null,
+            'fechaIngreso' => $stock['fechaIngreso'] ?? null,
+            'almacenNombre' => $stock['almacenNombre'] ?? '',
+            'tipoAlimentoNombre' => $stock['tipoAlimentoNombre'] ?? '',
+            'alimentoNombre' => $stock['alimentoNombre'] ?? '',
+            'proveedorNombre' => $stock['proveedorNombre'] ?? '',
+          ];
+        }
+
+        if (ob_get_level()) {
+          ob_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($out);
+        exit;
+
+      } catch (Throwable $e) {
+        if (ob_get_level()) {
+          ob_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+          'tipo' => 'error',
+          'mensaje' => 'Error interno del servidor al listar stock: ' . $e->getMessage(),
+          'file' => $e->getFile(),
+          'line' => $e->getLine()
+        ]);
+        exit;
       }
+    }
+
+    // ===============================
+    // OBTENER UNA FILA POR ID (GET)
+    // ===============================
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'get') {
+
+      $id = intval($_GET['id'] ?? 0);
+
+      if (!$id) {
+        if (ob_get_level())
+          ob_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+          'tipo' => 'error',
+          'mensaje' => 'ID inválido.'
+        ]);
+        exit;
+      }
+
+      try {
+        $stock = $this->stockDAO->getStockById($id);
+
+        if (!$stock) {
+          if (ob_get_level())
+            ob_clean();
+          header('Content-Type: application/json; charset=utf-8');
+          echo json_encode([
+            'tipo' => 'error',
+            'mensaje' => 'No se encontró el registro.'
+          ]);
+          exit;
+        }
+
+        $out = [
+          'id' => (int) $stock->getId(),
+          'almacenId' => (int) $stock->getAlmacenId(),
+          'tipoAlimentoId' => (int) $stock->getTipoAlimentoId(),
+          'alimentoId' => (int) $stock->getAlimentoId(),
+          'cantidad' => (int) $stock->getCantidad(),
+          'produccionInterna' => (int) $stock->getProduccionInterna(),
+          'proveedorId' => $stock->getProveedorId() !== null ? (int) $stock->getProveedorId() : null,
+          'precio' => $stock->getPrecio() !== null ? (float) $stock->getPrecio() : null,
+          'fechaIngreso' => $stock->getFechaIngreso()
+        ];
+
+        if (ob_get_level())
+          ob_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($out);
+        exit;
+
+      } catch (Throwable $e) {
+        if (ob_get_level())
+          ob_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+          'tipo' => 'error',
+          'mensaje' => 'Error al obtener el registro: ' . $e->getMessage()
+        ]);
+        exit;
+      }
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'detalleGrupo') {
+      $almacenId = intval($_GET['almacenId'] ?? 0);
+      $tipoAlimentoId = intval($_GET['tipoAlimentoId'] ?? 0);
+      $alimentoId = intval($_GET['alimentoId'] ?? 0);
+      $produccionInterna = intval($_GET['produccionInterna'] ?? 0);
+      $proveedorId = $_GET['proveedorId'] ?? null;
+      if ($proveedorId !== null && $proveedorId !== '') {
+        $proveedorId = intval($proveedorId);
+      } else {
+        $proveedorId = null;
+      }
+
+      $detalles = $this->stockDAO->listarDetalleGrupo(
+        $almacenId,
+        $tipoAlimentoId,
+        $alimentoId,
+        $produccionInterna,
+        $proveedorId
+      );
+
+      if (ob_get_level())
+        ob_clean();
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode($detalles);
+      exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'get') {
+      $id = intval($_GET['id'] ?? 0);
+      $stock = $this->stockDAO->getStockById($id);
+      if (!$stock) {
+        if (ob_get_level())
+          ob_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'No existe el stock solicitado']);
+        exit;
+      }
+
+      $out = [
+        'id' => $stock->getId(),
+        'almacenId' => $stock->getAlmacenId(),
+        'tipoAlimentoId' => $stock->getTipoAlimentoId(),
+        'alimentoId' => $stock->getAlimentoId(),
+        'cantidad' => $stock->getCantidad(),
+        'produccionInterna' => $stock->getProduccionInterna(),
+        'proveedorId' => $stock->getProveedorId(),
+        'precio' => $stock->getPrecio(),
+        'fechaIngreso' => $stock->getFechaIngreso(),
+      ];
 
       if (ob_get_level())
         ob_clean();
@@ -89,8 +225,35 @@ class StockController
       exit;
     }
 
-    // ABM STOCK
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'detalle') {
 
+      $almacenId = intval($_GET['almacenId']);
+      $tipoAlimentoId = intval($_GET['tipoAlimentoId']);
+      $alimentoId = intval($_GET['alimentoId']);
+      $produccionInterna = intval($_GET['produccionInterna']);
+      $proveedorId = $_GET['proveedorId'];
+      if ($proveedorId === "" || $proveedorId === "0") {
+        $proveedorId = null;
+      }
+
+      $detalle = $this->stockDAO->getDetalleGrupo(
+        $almacenId,
+        $tipoAlimentoId,
+        $alimentoId,
+        $produccionInterna,
+        $proveedorId
+      );
+
+      if (ob_get_level())
+        ob_clean();
+      header('Content-Type: application/json');
+      echo json_encode($detalle);
+      exit;
+    }
+
+    // ===============================
+    // ABM STOCK (POST)
+    // ===============================
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $data = $_POST;
       if (empty($data)) {
@@ -113,53 +276,63 @@ class StockController
 
       switch ($accion) {
 
-        // ------------------------------
-        // REGISTRAR STOCK
-        // ------------------------------
         case 'registrar':
-          // Convertimos produccionInterna a int (0 o 1)
           $produccionInternaInt = intval($produccionInterna);
 
-          // 1. Validamos campos obligatorios universales (Campo, Tipo Alimento, Alimento, Cantidad, Fecha Ingreso)
-          if (empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || empty($cantidad) || empty($fechaIngreso)) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Campo, Tipo Alimento, Alimento, Cantidad y Fecha de Ingreso.'];
+          if (
+            empty($almacenId) ||
+            empty($tipoAlimentoId) ||
+            empty($alimentoId) ||
+            empty($cantidad) ||
+            empty($fechaIngreso)
+          ) {
+            $res = [
+              'tipo' => 'error',
+              'mensaje' => 'Debés completar Campo, Tipo Alimento, Alimento, Cantidad y Fecha de Ingreso.'
+            ];
             break;
           }
 
-          // 2. Lógica condicional de Proveedor y Precio
-          if ($produccionInternaInt === 1) {
-            // Si es Producción Propia, Proveedor y Precio deben ser NULL.
-            $proveedorId = null;
-            $precio = null;
-          } else {
-            // Si es Comprado (0), Proveedor y Precio son obligatorios.
-            if (empty($proveedorId) || empty($precio)) {
-              $res = ['tipo' => 'error', 'mensaje' => 'Error: Para producción comprada, Proveedor y Precio son obligatorios.'];
-              break;
-            }
-            // Asegurar el tipo de dato para el DAO
-            $proveedorId = intval($proveedorId);
-            $precio = floatval($precio);
-          }
-
-          // Asegurar tipos de datos de los campos universales
           $almacenId = intval($almacenId);
           $tipoAlimentoId = intval($tipoAlimentoId);
           $alimentoId = intval($alimentoId);
           $cantidad = intval($cantidad);
 
+          if ($produccionInternaInt === 1) {
+            $proveedorId = null;
+            $precio = null;
+          } else {
+            if (empty($proveedorId) || empty($precio)) {
+              $res = [
+                'tipo' => 'error',
+                'mensaje' => 'Para producción comprada, Proveedor y Precio son obligatorios.'
+              ];
+              break;
+            }
+            $proveedorId = intval($proveedorId);
+            $precio = floatval($precio);
+          }
+
           $ok = $this->stockDAO->registrarStock(
-            new Stock(null, $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInternaInt, $proveedorId, $precio, $fechaIngreso)
+            new Stock(
+              null,
+              $almacenId,
+              $tipoAlimentoId,
+              $alimentoId,
+              $cantidad,
+              $produccionInternaInt,
+              $proveedorId,
+              $precio,
+              $fechaIngreso
+            )
           );
+
           $res = $ok
             ? ['tipo' => 'success', 'mensaje' => 'Stock registrado correctamente.']
             : ['tipo' => 'error', 'mensaje' => 'Error al registrar el stock.'];
 
           break;
 
-        // ------------------------------
-        // MODIFICAR STOCK
-        // ------------------------------
         case 'modificar':
           $produccionInternaInt = intval($produccionInterna);
 
@@ -168,13 +341,11 @@ class StockController
             break;
           }
 
-          // 1. Validamos campos obligatorios universales
           if (empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || empty($cantidad) || empty($fechaIngreso)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Campo, Tipo Alimento, Alimento, Cantidad y Fecha de Ingreso.'];
             break;
           }
 
-          // 2. Lógica condicional de Proveedor y Precio para MODIFICAR
           if ($produccionInternaInt === 1) {
             $proveedorId = null;
             $precio = null;
@@ -187,24 +358,31 @@ class StockController
             $precio = floatval($precio);
           }
 
-          // Asegurar tipos de datos
           $almacenId = intval($almacenId);
           $tipoAlimentoId = intval($tipoAlimentoId);
           $alimentoId = intval($alimentoId);
           $cantidad = intval($cantidad);
 
           $ok = $this->stockDAO->modificarStock(
-            new Stock($id, $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInternaInt, $proveedorId, $precio, $fechaIngreso)
+            new Stock(
+              $id,
+              $almacenId,
+              $tipoAlimentoId,
+              $alimentoId,
+              $cantidad,
+              $produccionInternaInt,
+              $proveedorId,
+              $precio,
+              $fechaIngreso
+            )
           );
+
           $res = $ok
-            ? ['tipo' => 'success', 'mensaje' => 'stock modificado correctamente.']
+            ? ['tipo' => 'success', 'mensaje' => 'Stock modificado correctamente.']
             : ['tipo' => 'error', 'mensaje' => 'Error al modificar el stock.'];
 
           break;
 
-        // ------------------------------
-        // ELIMINAR STOCK
-        // ------------------------------
         case 'eliminar':
           if (!$id) {
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido para eliminar.'];
@@ -225,78 +403,84 @@ class StockController
           break;
       }
 
-      if (ob_get_level())
+      if (ob_get_level()) {
         ob_clean();
+      }
       header('Content-Type: application/json; charset=utf-8');
       echo json_encode($res);
       exit;
     }
   }
 
+  // ================
   // MÉTODOS DE APOYO
+  // ================
   public function obtenerStock()
   {
-    if ($this->connError !== null)
+    if ($this->connError !== null) {
       return [];
+    }
     return $this->stockDAO->getAllStocks();
   }
 
   public function getStockById($id)
   {
-    if ($this->connError !== null)
+    if ($this->connError !== null) {
       return null;
+    }
     return $this->stockDAO->getStockById($id);
   }
 
   public function getStockByAlmacenId($almacenId)
   {
-    if ($this->connError !== null)
+    if ($this->connError !== null) {
       return null;
+    }
     return $this->stockDAO->getStockByAlmacenId($almacenId);
   }
 
   public function getStockByTipoAlimentoId($tipoAlimentoId)
   {
-    if ($this->connError !== null)
+    if ($this->connError !== null) {
       return null;
+    }
     return $this->stockDAO->getStockByTipoAlimentoId($tipoAlimentoId);
   }
 
   public function getStockByAlimentoId($alimentoId)
   {
-    if ($this->connError !== null)
+    if ($this->connError !== null) {
       return null;
+    }
     return $this->stockDAO->getStockByAlimentoId($alimentoId);
   }
 
   public function getStockByProduccion($produccionInterna)
   {
-    if ($this->connError !== null)
+    if ($this->connError !== null) {
       return null;
+    }
     return $this->stockDAO->getStockByProduccion($produccionInterna);
   }
 }
 
-// PUNTO DE ENTRADA PRINCIPAL (CORREGIDO Y SEGURO)
+// PUNTO DE ENTRADA PRINCIPAL
 if (php_sapi_name() !== 'cli') {
   $isAjax = (
     (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])
       && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
     ||
-    ($_SERVER['REQUEST_METHOD'] === 'POST')  // 👈 AGREGADO QUE LO ARREGLA
+    ($_SERVER['REQUEST_METHOD'] === 'POST')
   );
 
-  $ctrl = new StockController(); // Instanciamos el controlador una sola vez
+  $ctrl = new StockController();
 
   if ($isAjax) {
-    // Para todas las peticiones AJAX (GET para listar, POST para ABM)
-    // El método procesarFormularios() se encarga de enviar la respuesta JSON y llamar a exit.
     ob_start();
     $ctrl->procesarFormularios();
-    exit; // Asegura que el script termine aquí.
+    exit;
   }
 
-  // Este bloque maneja los POSTs tradicionales (si existen)
   if (isset($_POST['accion'])) {
     $ctrl->procesarFormularios();
     exit;
