@@ -1,9 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   console.log("stock.js cargado correctamente");
 
-  // Asumimos que la variable ALL_ALIMENTOS está definida en stock.php
-  // con la lista completa de {id, nombre, tipoAlimentoId} de todos los alimentos.
-  // const ALL_ALIMENTOS = [ ... ];
+  // NOTA: Se asume que la variable global ALL_ALIMENTOS está definida en stock.php
+  // y contiene un array de objetos {id, nombre, tipoAlimentoId} de todos los alimentos.
 
   const API = "../../../backend/controladores/stockController.php";
 
@@ -64,9 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS
   // ----------------------------------------------------
   function cargarAlimentosPorTipo() {
-    // Valor del Tipo de Alimento seleccionado
     const tipoSeleccionado = tipoAlimentoId.value;
-    // Guardamos la selección actual para mantenerla en caso de edición
     const alimentoSeleccionadoActual = alimentoId.value;
 
     // Limpiar el select de alimentos, manteniendo la opción por defecto
@@ -74,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
       '<option value="">-- Seleccioná un Alimento --</option>';
 
     if (tipoSeleccionado && typeof ALL_ALIMENTOS !== "undefined") {
-      // Filtrar los alimentos que coinciden con el tipo seleccionado
+      // Filtra los alimentos según el tipo de alimento seleccionado
       const alimentosFiltrados = ALL_ALIMENTOS.filter(
         (a) => String(a.tipoAlimentoId) === tipoSeleccionado
       );
@@ -84,7 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
         option.value = alimento.id;
         option.textContent = alimento.nombre;
 
-        // Si el ID del alimento coincide con el que estaba seleccionado (en edición), lo marcamos
+        // Mantener la selección actual si estamos en modo edición
         if (String(alimento.id) === alimentoSeleccionadoActual) {
           option.selected = true;
         }
@@ -98,8 +95,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // EVENT LISTENER PARA TIPO DE ALIMENTO
   // ----------------------------------------------------
   tipoAlimentoId.addEventListener("change", () => {
-    // Si cambia el tipo, limpiamos la selección actual del alimento y cargamos la lista
+    // 1. Resetear el valor de Alimento
     alimentoId.value = "";
+    // 2. Cargar las opciones filtradas
     cargarAlimentosPorTipo();
   });
 
@@ -116,7 +114,8 @@ document.addEventListener("DOMContentLoaded", () => {
     produccionInternaValor.value = "0"; // Comprado por defecto
     produccionInternaCheck.checked = false;
 
-    // Al resetear el formulario, aseguramos que la lista de Alimentos esté filtrada
+    // Al resetear el formulario, aseguramos que la lista de Alimentos esté filtrada (o vacía)
+    // El Tipo de Alimento estará en "" (Seleccioná un Tipo), por lo que cargará solo la opción por defecto.
     cargarAlimentosPorTipo();
   }
 
@@ -133,11 +132,10 @@ document.addEventListener("DOMContentLoaded", () => {
     almacenId.value = data.almacenId;
     tipoAlimentoId.value = data.tipoAlimentoId;
 
-    // 1. Cargamos la lista filtrada de alimentos antes de seleccionar el valor
+    // 1. CRUCIAL: Cargar la lista de alimentos filtrada por el tipo del registro
     await cargarAlimentosPorTipo();
 
-    // 2. Ahora seleccionamos el alimentoId (la función cargarAlimentosPorTipo()
-    // ya intenta mantener el valor, pero lo forzamos aquí por si acaso)
+    // 2. Ahora seleccionamos el alimentoId
     alimentoId.value = data.alimentoId;
 
     cantidad.value = data.cantidad;
@@ -153,17 +151,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // ------------------------------
   // LISTAR STOCK (AGRUPADO)
   // ------------------------------
-  async function refrescarTabla() {
-    console.log("Listando stock...");
+  // ----------------------------------------------------
+  // FUNCIÓN: REFRESCAR TABLA CON FILTROS
+  // ----------------------------------------------------
+  async function refrescarTabla(filtros = {}) {
+    console.log("Listando stock con filtros...");
 
     try {
-      const resp = await fetch(`${API}?action=list`, {
+      // Usar URLSearchParams para agregar los filtros a la URL de la solicitud
+      const params = new URLSearchParams(filtros);
+
+      const resp = await fetch(`${API}?action=list&${params.toString()}`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
       const raw = await resp.text();
-      console.log("RAW RESPONSE DEL BACKEND →", raw);
-
       let data;
       try {
         data = JSON.parse(raw);
@@ -175,7 +177,6 @@ document.addEventListener("DOMContentLoaded", () => {
       tableBody.innerHTML = "";
 
       if (!Array.isArray(data) || data.length === 0) {
-        // Colspan de 7 (ID oculto + 6 visibles)
         tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No hay stock registrado.</td></tr>`;
         return;
       }
@@ -200,23 +201,17 @@ document.addEventListener("DOMContentLoaded", () => {
         tr.dataset.produccionInterna = s.produccionInterna;
         tr.dataset.proveedorId = s.proveedorId ?? "";
 
-        // CORRECCIÓN: Agregar una columna para un ID (aunque esté oculto por CSS)
-        // para que la columna 'Campo' se muestre.
         tr.innerHTML = `
-          <td>${s.almacenId}</td>        <td>${s.almacenNombre}</td>    <td>${
-          s.tipoAlimentoNombre
-        }</td>  <td>${s.alimentoNombre}</td>      <td>${
-          s.cantidad
-        }</td>            <td>${
-          s.produccionInterna == 1 ? "Prod. Interna" : "Comprado"
-        }</td> <td>${
-          s.produccionInterna == 1 ? "-" : s.proveedorNombre
-        }</td> <td>
-            <div class="table-actions">
-                <button type="button" class="btn-icon js-verDetalle" title="Ver detalle">📋</button>
-            <div>
-          </td>
-        `;
+        <td>${s.almacenNombre}</td>    <td>${s.tipoAlimentoNombre}</td>  
+        <td>${s.alimentoNombre}</td> <td>${s.cantidad}</td> 
+        <td>${s.produccionInterna == 1 ? "Prod. Interna" : "Proveedor"}</td> 
+        <td>${s.produccionInterna == 1 ? "-" : s.proveedorNombre}</td> 
+        <td>
+          <div class="table-actions">
+            <button type="button" class="btn-icon js-verDetalle" title="Ver detalle">📋</button>
+          </div>
+        </td>
+      `;
 
         tableBody.appendChild(tr);
       });
@@ -227,7 +222,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ------------------------------
   // CARGAR DETALLE EN MODAL
-  // (todas las filas reales del grupo)
   // ------------------------------
   async function cargarDetalleGrupo(
     almacenId,
@@ -269,7 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${r.id}</td> <td>${r.almacenNombre}</td> <td>${
           r.tipoAlimentoNombre
         }</td> <td>${r.alimentoNombre}</td> <td>${r.cantidad}</td> <td>${
-          esPropia ? "Prod. Interna" : "Comprado"
+          esPropia ? "Prod. Interna" : "Proveedor"
         }</td> <td>${proveedorTexto}</td> <td>${precioTexto}</td> <td>${
           r.fechaIngreso
         }</td> <td>
@@ -329,7 +323,6 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
-      // Asegurarse de que setEditarMode es async si se usa await dentro
       await setEditarMode(data);
       modalDetalle.style.display = "none";
       return;
@@ -396,6 +389,86 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ----------------------------------------------------
+  // FUNCIÓN: LLENAR LOS FILTROS DE ALIMENTOS Y PROVEEDORES
+  // ----------------------------------------------------
+  function llenarFiltros() {
+    const filtroAlimentoGroup = document.getElementById("filtroAlimentoGroup");
+    const filtroProveedorGroup = document.getElementById(
+      "filtroProveedorGroup"
+    );
+
+    // Limpiar los filtros actuales
+    filtroAlimentoGroup.innerHTML = "";
+    filtroProveedorGroup.innerHTML = "";
+
+    // Llenar los alimentos disponibles
+    ALL_ALIMENTOS.forEach((alimento) => {
+      const option = document.createElement("label");
+      option.classList.add("radio-card");
+      option.innerHTML = `
+      <input type="checkbox" name="filtro_alimentoId" value="${alimento.id}" />
+      <span class="radio-label">${alimento.nombre}</span>
+    `;
+      filtroAlimentoGroup.appendChild(option);
+    });
+
+    // Llenar los proveedores disponibles
+    proveedores.forEach((proveedor) => {
+      const option = document.createElement("label");
+      option.classList.add("radio-card");
+      option.innerHTML = `
+      <input type="checkbox" name="filtro_proveedorId" value="${proveedor.id}" />
+      <span class="radio-label">${proveedor.denominacion}</span>
+    `;
+      filtroProveedorGroup.appendChild(option);
+    });
+  }
+
+  // ----------------------------------------------------
+  // FUNCIÓN: APLICAR FILTROS Y REFRESCAR LA TABLA
+  // ----------------------------------------------------
+  document.getElementById("aplicarFiltros").addEventListener("click", () => {
+    const filtros = {
+      almacenIds: Array.from(
+        document.querySelectorAll('input[name="filtro_almacenId"]:checked')
+      ).map((input) => input.value),
+      tipoAlimentoIds: Array.from(
+        document.querySelectorAll('input[name="filtro_tipoAlimentoId"]:checked')
+      ).map((input) => input.value),
+      alimentoIds: Array.from(
+        document.querySelectorAll('input[name="filtro_alimentoId"]:checked')
+      ).map((input) => input.value),
+      produccionInterna: Array.from(
+        document.querySelectorAll(
+          'input[name="filtro_produccionInterna"]:checked'
+        )
+      ).map((input) => input.value),
+      proveedorIds: Array.from(
+        document.querySelectorAll('input[name="filtro_proveedorId"]:checked')
+      ).map((input) => input.value),
+      fechaMin: document.getElementById("filtroFechaMin").value,
+      fechaMax: document.getElementById("filtroFechaMax").value,
+    };
+
+    // Llamar la función para refrescar la tabla con los filtros aplicados
+    refrescarTabla(filtros);
+    document.getElementById("filtroModal").style.display = "none";
+  });
+
+  // ----------------------------------------------------
+  // FUNCIÓN: LIMPIAR LOS FILTROS
+  // ----------------------------------------------------
+  document.getElementById("limpiarFiltros").addEventListener("click", () => {
+    // Limpiar los filtros de checkbox
+    document
+      .querySelectorAll("input[type=checkbox]")
+      .forEach((checkbox) => (checkbox.checked = false));
+
+    // Limpiar los campos de fecha
+    document.getElementById("filtroFechaMin").value = "";
+    document.getElementById("filtroFechaMax").value = "";
+  });
   // ------------------------------
   // SUBMIT FORM → registrar / modificar
   // ------------------------------
@@ -458,6 +531,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   cancelarEdicion.addEventListener("click", setRegistrarMode);
+
+  // Llamada al abrir el modal de filtros para llenar los campos dinámicamente
+  document.getElementById("abrirFiltros").addEventListener("click", () => {
+    llenarFiltros();
+    document.getElementById("filtroModal").style.display = "flex";
+  });
 
   // ------------------------------
   // INICIAR

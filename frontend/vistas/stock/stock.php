@@ -43,17 +43,29 @@ function getPropertyValue($obj, $prop)
 }
 
 $alimentos_para_js = [];
+$proveedores_para_js = [];
+
 if (is_array($alimentos)) {
   foreach ($alimentos as $alimento) {
     $alimentos_para_js[] = [
       'id' => getPropertyValue($alimento, 'id'),
       'nombre' => getPropertyValue($alimento, 'nombre'),
-      // CRUCIAL: Necesitamos el tipoAlimentoId para el filtrado en JS
       'tipoAlimentoId' => getPropertyValue($alimento, 'tipoAlimentoId')
     ];
   }
 }
+
+if (is_array($proveedores)) {
+  foreach ($proveedores as $proveedor) {
+    $proveedores_para_js[] = [
+      'id' => getPropertyValue($proveedor, 'id'),
+      'denominacion' => getPropertyValue($proveedor, 'denominacion')
+    ];
+  }
+}
+
 $alimentos_json = json_encode($alimentos_para_js);
+$proveedores_json = json_encode($proveedores_para_js);
 ?>
 
 <!DOCTYPE html>
@@ -170,8 +182,8 @@ $alimentos_json = json_encode($alimentos_para_js);
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
 
-        <!-- <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
-        <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div> -->
+        <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
+        <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
 
         <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#888;">
           Cancelar edición
@@ -200,10 +212,11 @@ $alimentos_json = json_encode($alimentos_para_js);
     </div>
   </div>
 
-  <!-- <div id="filtroModal" class="modal">
+  <div id="filtroModal" class="modal">
     <div class="modal-content">
       <h3>Filtrar Stock</h3>
 
+      <!-- Filtro de Campo (Almacén) -->
       <div class="filtro-grupo">
         <h4>Campo</h4>
         <div id="filtroAlmacenGroup" class="radio-group">
@@ -218,17 +231,30 @@ $alimentos_json = json_encode($alimentos_para_js);
         </div>
       </div>
 
+      <!-- Filtro de Tipo de Alimento -->
       <div class="filtro-grupo">
         <h4>Tipo de Alimento</h4>
-        <div id="filtroTipoAlimentoGroup" class="radio-group"></div>
+        <div id="filtroTipoAlimentoGroup" class="radio-group">
+          <label class="radio-card">
+            <input type="checkbox" name="filtro_tipoAlimentoId" value="1" />
+            <span class="radio-label">Fardo</span>
+          </label>
+          <label class="radio-card">
+            <input type="checkbox" name="filtro_tipoAlimentoId" value="2" />
+            <span class="radio-label">Silopack</span>
+          </label>
+        </div>
       </div>
 
+      <!-- Filtro de Alimento -->
       <div class="filtro-grupo">
         <h4>Alimento</h4>
-        <div id="filtroAlimentoGroup" class="radio-group"></div>
+        <div id="filtroAlimentoGroup" class="radio-group">
+          <!-- Opciones de alimentos se llenan dinámicamente -->
+        </div>
       </div>
 
-
+      <!-- Filtro de Origen -->
       <div class="filtro-grupo">
         <h4>Origen</h4>
         <div id="filtroProduccionInternaGroup" class="radio-group">
@@ -243,19 +269,33 @@ $alimentos_json = json_encode($alimentos_para_js);
         </div>
       </div>
 
+      <!-- Filtro de Proveedor -->
       <div class="filtro-grupo">
         <h4>Proveedor</h4>
         <div id="filtroProveedorGroup" class="radio-group">
+          <!-- Opciones de proveedores se llenan dinámicamente -->
         </div>
       </div>
 
+      <!-- Filtro de Fecha -->
+      <div class="filtro-grupo">
+        <h4>Fecha de Ingreso</h4>
+        <div id="filtroFechaGroup">
+          <label for="filtroFechaMin">Mínima:</label>
+          <input type="date" id="filtroFechaMin" name="filtroFechaMin" />
+          <label for="filtroFechaMax">Máxima:</label>
+          <input type="date" id="filtroFechaMax" name="filtroFechaMax" />
+        </div>
+      </div>
+
+      <!-- Acciones del modal -->
       <div class="modal-actions" style="display:flex; gap:10px;">
         <button id="aplicarFiltros" class="btn-usuario">Aplicar</button>
         <button id="limpiarFiltros" class="btn btn-secondary">Limpiar</button>
         <button id="cerrarFiltros" class="btn btn-cancel" style="background:#777; color:white">Cerrar</button>
       </div>
     </div>
-  </div> -->
+  </div>
 
   <!-- MODAL DETALLE -->
   <div id="detalleModal" class="modal">
@@ -299,6 +339,7 @@ $alimentos_json = json_encode($alimentos_para_js);
 
   <script>
     const ALL_ALIMENTOS = <?= $alimentos_json ?>;
+    const proveedores = <?= $proveedores_json ?>;
   </script>
 
   <script src="../../javascript/stock.js"></script>
