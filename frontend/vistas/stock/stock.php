@@ -75,7 +75,7 @@ $proveedores_json = json_encode($proveedores_para_js);
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tambosoft: Stock</title>
-  <link rel="icon" href="../../../img/logo2.png" type="image/png" />
+  <link rel="icon" href=".../../../../img/logo2.png" type="image/png">
   <link rel="stylesheet" href="../../css/estilos.css" />
   <link rel="stylesheet" href="../../css/stock.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -144,12 +144,20 @@ $proveedores_json = json_encode($proveedores_para_js);
         <div id="error-cantidad" class="error-message">La cantidad es obligatoria</div>
       </div>
 
-      <div class="form-group check-group">
-        <label class="label-check">
-          <input type="checkbox" id="produccionInternaCheck" value="1" />
+      <div class="form-group check-group" style="display:flex; align-items:center; gap:10px;">
+
+        <label for="produccionInternaCheck" class="label-check"
+          style="display:flex; align-items:center; gap:8px; cursor:pointer;">
           Producción Propia
+          <input type="checkbox" id="produccionInternaCheck" name="produccionInternaCheck" value="1"
+            style="width:18px; height:18px; cursor:pointer;" />
         </label>
-        <div id="error-produccionInterna" class="error-message">Debes indicar el origen (propio o proveedor)</div>
+
+        <input type="hidden" id="produccionInternaValor" name="produccionInternaValor" value="0">
+      </div>
+
+      <div id="error-produccionInterna" class="error-message">
+        Debes indicar el origen (propio o proveedor)
       </div>
 
       <div class="form-group" id="proveedorGroup">
@@ -167,7 +175,7 @@ $proveedores_json = json_encode($proveedores_para_js);
         <div id="error-proveedorId" class="error-message">El proveedor es obligatorio.</div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="precioGroup">
         <label for="precio">Precio $</label>
         <input type="number" step="0.01" id="precio" name="precio" />
         <div id="error-precio" class="error-message">El precio es obligatorio y debe ser un número.</div>
@@ -211,6 +219,10 @@ $proveedores_json = json_encode($proveedores_para_js);
       </table>
     </div>
   </div>
+
+  <button type="button" id="btnExportPdf" class="btn-accion btn-pdf">
+    📄 Exportar PDF
+  </button>
 
   <div id="filtroModal" class="modal">
     <div class="modal-content">

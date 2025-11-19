@@ -18,7 +18,7 @@ $alimentos = $controller->obtenerAlimentos();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tambosoft: alimentos</title>
-  <link rel="icon" href=".../../../../img/logo2.png" type="image/png">
+  <link rel="icon" href="../../../../img/logo2.png" type="image/png">
   <link rel="stylesheet" href="../../css/estilos.css">
   <link rel="stylesheet" href="../../css/alimento.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

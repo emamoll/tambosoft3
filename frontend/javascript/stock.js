@@ -1,8 +1,11 @@
+let currentFiltros = {}; // Variable global para almacenar el estado actual de los filtros
+
 document.addEventListener("DOMContentLoaded", () => {
   console.log("stock.js cargado correctamente");
 
   // NOTA: Se asume que la variable global ALL_ALIMENTOS está definida en stock.php
   // y contiene un array de objetos {id, nombre, tipoAlimentoId} de todos los alimentos.
+  // También se asume un array global `proveedores` con {id, denominacion}.
 
   const API = "../../../backend/controladores/stockController.php";
 
@@ -25,6 +28,9 @@ document.addEventListener("DOMContentLoaded", () => {
     "produccionInternaValor"
   );
 
+  const proveedorGroup = document.getElementById("proveedorGroup");
+  const precioGroup = document.getElementById("precioGroup");
+
   const proveedorId = document.getElementById("proveedorId");
   const precio = document.getElementById("precio");
   const fechaIngreso = document.getElementById("fechaIngreso");
@@ -37,11 +43,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const detalleBody = document.getElementById("detalleBody");
   const detalleCerrar = document.getElementById("detalleCerrar");
 
-  // --- MODAL ELIMINAR (AGRUPADO) ---
+  // --- MODAL ELIMINAR (AGRUPADO / INDIVIDUAL) ---
   const modal = document.getElementById("confirmModal");
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
   const confirmText = document.getElementById("confirmText");
+
+  // --- MODAL FILTRO ---
+  const filtroModal = document.getElementById("filtroModal");
+  const cerrarFiltrosBtn = document.getElementById("cerrarFiltros");
+
+  // --- RESUMEN FILTROS ---
+  const resumenFiltros = document.getElementById("resumenFiltros");
 
   // ----------------------------------------------------
   // HELPER PARA LLAMAR AL BACKEND Y ASEGURAR JSON
@@ -52,12 +65,159 @@ document.addEventListener("DOMContentLoaded", () => {
     const raw = await resp.text();
 
     if (!ct.includes("application/json")) {
-      console.error("[Backend NON-JSON]", raw);
+      console.error("[Backend NON-JSON]", {
+        url,
+        status: resp.status,
+        contentType: ct,
+        preview: raw.slice(0, 400),
+      });
       throw new Error("El backend no devolvió JSON");
     }
 
-    return JSON.parse(raw);
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error("[JSON Parse Error]", raw.slice(0, 400));
+      throw e;
+    }
   }
+
+  // ----------------------------------------------------
+  // HELPERS PARA LOVs (mapas id → texto)
+  // ----------------------------------------------------
+  function buildLovMap(selectEl) {
+    const map = {};
+    if (!selectEl) return map;
+    Array.from(selectEl.options).forEach((opt) => {
+      if (opt.value) map[String(opt.value)] = opt.textContent.trim();
+    });
+    return map;
+  }
+
+  function buildAlimentoMap() {
+    const map = {};
+    if (typeof ALL_ALIMENTOS !== "undefined" && Array.isArray(ALL_ALIMENTOS)) {
+      ALL_ALIMENTOS.forEach((a) => {
+        map[String(a.id)] = a.nombre;
+      });
+    }
+    return map;
+  }
+
+  function buildProveedorMap() {
+    const map = {};
+    if (typeof proveedores !== "undefined" && Array.isArray(proveedores)) {
+      proveedores.forEach((p) => {
+        map[String(p.id)] = p.denominacion;
+      });
+    }
+    return map;
+  }
+
+  const LOVS = {
+    almacen: buildLovMap(almacenId),
+    tipo: buildLovMap(tipoAlimentoId),
+    alimento: buildAlimentoMap(),
+    proveedor: buildProveedorMap(),
+  };
+
+  // ----------------------------------------------------
+  // FUNCIÓN: PINTAR RESUMEN DE FILTROS (como potrero)
+  // ----------------------------------------------------
+  function pintarResumenFiltros() {
+    if (!resumenFiltros) return;
+
+    const partes = [];
+    const cf = currentFiltros || {};
+
+    // Campo / Almacén
+    if (Array.isArray(cf.almacenId) && cf.almacenId.length) {
+      const nombres = cf.almacenId.map((id) => LOVS.almacen[String(id)] || id);
+      partes.push(`Campo: ${nombres.join(", ")}`);
+    }
+
+    // Tipo de alimento
+    if (Array.isArray(cf.tipoAlimentoId) && cf.tipoAlimentoId.length) {
+      const nombres = cf.tipoAlimentoId.map(
+        (id) => LOVS.tipo[String(id)] || id
+      );
+      partes.push(`Tipo: ${nombres.join(", ")}`);
+    }
+
+    // Alimento
+    if (Array.isArray(cf.alimentoId) && cf.alimentoId.length) {
+      const nombres = cf.alimentoId.map(
+        (id) => LOVS.alimento[String(id)] || id
+      );
+      partes.push(`Alimento: ${nombres.join(", ")}`);
+    }
+
+    // Producción interna (origen)
+    if (Array.isArray(cf.produccionInterna) && cf.produccionInterna.length) {
+      const labels = cf.produccionInterna.map((v) =>
+        String(v) === "1" ? "Producción interna" : "Proveedor"
+      );
+      // Eliminar duplicados
+      const uniq = Array.from(new Set(labels));
+      partes.push(`Origen: ${uniq.join(" y ")}`);
+    }
+
+    // Proveedor
+    if (Array.isArray(cf.proveedorId) && cf.proveedorId.length) {
+      const nombres = cf.proveedorId.map(
+        (id) => LOVS.proveedor[String(id)] || id
+      );
+      partes.push(`Proveedor: ${nombres.join(", ")}`);
+    }
+
+    // Fechas
+    if (cf.fechaMin || cf.fechaMax) {
+      if (cf.fechaMin && cf.fechaMax) {
+        partes.push(`Fecha: ${cf.fechaMin} a ${cf.fechaMax}`);
+      } else if (cf.fechaMin) {
+        partes.push(`Fecha desde: ${cf.fechaMin}`);
+      } else if (cf.fechaMax) {
+        partes.push(`Fecha hasta: ${cf.fechaMax}`);
+      }
+    }
+
+    resumenFiltros.textContent = partes.length
+      ? `Filtros → ${partes.join(" · ")}`
+      : "";
+  }
+
+  // ----------------------------------------------------
+  // FUNCIÓN: TOGGLE CAMPOS PROVEEDOR Y PRECIO
+  // ----------------------------------------------------
+  function toggleProveedorPrecioFields() {
+    const isPropia = produccionInternaCheck.checked;
+
+    if (isPropia) {
+      // Ocultar y limpiar campos de proveedor/precio
+      if (proveedorGroup) proveedorGroup.style.display = "none";
+      if (precioGroup) precioGroup.style.display = "none";
+
+      proveedorId.value = "";
+      precio.value = "";
+    } else {
+      // Mostrar campos
+      if (proveedorGroup) proveedorGroup.style.display = "block";
+      if (precioGroup) precioGroup.style.display = "block";
+    }
+
+    const provErr = document.getElementById("error-proveedorId");
+    const precErr = document.getElementById("error-precio");
+    if (provErr) provErr.style.display = "none";
+    if (precErr) precErr.style.display = "none";
+  }
+
+  // ----------------------------------------------------
+  // EVENT LISTENER PARA PRODUCCION INTERNA
+  // ----------------------------------------------------
+  produccionInternaCheck.addEventListener(
+    "change",
+    toggleProveedorPrecioFields
+  );
 
   // ----------------------------------------------------
   // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS
@@ -71,7 +231,6 @@ document.addEventListener("DOMContentLoaded", () => {
       '<option value="">-- Seleccioná un Alimento --</option>';
 
     if (tipoSeleccionado && typeof ALL_ALIMENTOS !== "undefined") {
-      // Filtra los alimentos según el tipo de alimento seleccionado
       const alimentosFiltrados = ALL_ALIMENTOS.filter(
         (a) => String(a.tipoAlimentoId) === tipoSeleccionado
       );
@@ -81,7 +240,6 @@ document.addEventListener("DOMContentLoaded", () => {
         option.value = alimento.id;
         option.textContent = alimento.nombre;
 
-        // Mantener la selección actual si estamos en modo edición
         if (String(alimento.id) === alimentoSeleccionadoActual) {
           option.selected = true;
         }
@@ -95,9 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // EVENT LISTENER PARA TIPO DE ALIMENTO
   // ----------------------------------------------------
   tipoAlimentoId.addEventListener("change", () => {
-    // 1. Resetear el valor de Alimento
     alimentoId.value = "";
-    // 2. Cargar las opciones filtradas
     cargarAlimentosPorTipo();
   });
 
@@ -114,8 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
     produccionInternaValor.value = "0"; // Comprado por defecto
     produccionInternaCheck.checked = false;
 
-    // Al resetear el formulario, aseguramos que la lista de Alimentos esté filtrada (o vacía)
-    // El Tipo de Alimento estará en "" (Seleccioná un Tipo), por lo que cargará solo la opción por defecto.
+    toggleProveedorPrecioFields();
     cargarAlimentosPorTipo();
   }
 
@@ -132,10 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
     almacenId.value = data.almacenId;
     tipoAlimentoId.value = data.tipoAlimentoId;
 
-    // 1. CRUCIAL: Cargar la lista de alimentos filtrada por el tipo del registro
     await cargarAlimentosPorTipo();
-
-    // 2. Ahora seleccionamos el alimentoId
     alimentoId.value = data.alimentoId;
 
     cantidad.value = data.cantidad;
@@ -146,22 +298,37 @@ document.addEventListener("DOMContentLoaded", () => {
     proveedorId.value = data.proveedorId ?? "";
     precio.value = data.precio ?? "";
     fechaIngreso.value = data.fechaIngreso ?? "";
+
+    toggleProveedorPrecioFields();
   }
 
-  // ------------------------------
-  // LISTAR STOCK (AGRUPADO)
-  // ------------------------------
   // ----------------------------------------------------
   // FUNCIÓN: REFRESCAR TABLA CON FILTROS
   // ----------------------------------------------------
   async function refrescarTabla(filtros = {}) {
-    console.log("Listando stock con filtros...");
+    console.log("Listando stock con filtros...", filtros);
 
     try {
-      // Usar URLSearchParams para agregar los filtros a la URL de la solicitud
-      const params = new URLSearchParams(filtros);
+      const params = new URLSearchParams();
 
-      const resp = await fetch(`${API}?action=list&${params.toString()}`, {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          value.forEach((v) => {
+            if (v !== null && v !== undefined && v !== "") {
+              params.append(key + "[]", v);
+            }
+          });
+        } else if (value !== null && value !== undefined && value !== "") {
+          params.append(key, value);
+        }
+      });
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `${API}?action=list&${queryString}`
+        : `${API}?action=list`;
+
+      const resp = await fetch(url, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
@@ -170,7 +337,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         data = JSON.parse(raw);
       } catch (e) {
-        console.error("❌ ERROR PARSEANDO JSON", e);
+        console.error("❌ ERROR PARSEANDO JSON", e, raw);
         return;
       }
 
@@ -202,10 +369,12 @@ document.addEventListener("DOMContentLoaded", () => {
         tr.dataset.proveedorId = s.proveedorId ?? "";
 
         tr.innerHTML = `
-        <td>${s.almacenNombre}</td>    <td>${s.tipoAlimentoNombre}</td>  
-        <td>${s.alimentoNombre}</td> <td>${s.cantidad}</td> 
-        <td>${s.produccionInterna == 1 ? "Prod. Interna" : "Proveedor"}</td> 
-        <td>${s.produccionInterna == 1 ? "-" : s.proveedorNombre}</td> 
+        <td>${s.almacenNombre}</td>
+        <td>${s.tipoAlimentoNombre}</td>
+        <td>${s.alimentoNombre}</td>
+        <td>${s.cantidad}</td>
+        <td>${s.produccionInterna == 1 ? "Prod. Interna" : "Proveedor"}</td>
+        <td>${s.produccionInterna == 1 ? "-" : s.proveedorNombre}</td>
         <td>
           <div class="table-actions">
             <button type="button" class="btn-icon js-verDetalle" title="Ver detalle">📋</button>
@@ -228,17 +397,21 @@ document.addEventListener("DOMContentLoaded", () => {
     tipoAlimentoId,
     alimentoId,
     produccionInterna,
-    proveedorId
+    proveedorId,
+    fechaMin = "",
+    fechaMax = ""
   ) {
-    // armamos query para action=detalleGrupo (nuevo endpoint en el controller)
     const params = new URLSearchParams({
       action: "detalleGrupo",
-      almacenId: almacenId,
-      tipoAlimentoId: tipoAlimentoId,
-      alimentoId: alimentoId,
-      produccionInterna: produccionInterna,
+      almacenId,
+      tipoAlimentoId,
+      alimentoId,
+      produccionInterna,
+      fechaMin,
+      fechaMax,
     });
 
+    // FIX: proveedorId correcto
     if (proveedorId && proveedorId !== "0" && proveedorId !== "null") {
       params.append("proveedorId", proveedorId);
     }
@@ -260,28 +433,31 @@ document.addEventListener("DOMContentLoaded", () => {
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-        <td>${r.id}</td> <td>${r.almacenNombre}</td> <td>${
-          r.tipoAlimentoNombre
-        }</td> <td>${r.alimentoNombre}</td> <td>${r.cantidad}</td> <td>${
-          esPropia ? "Prod. Interna" : "Proveedor"
-        }</td> <td>${proveedorTexto}</td> <td>${precioTexto}</td> <td>${
-          r.fechaIngreso
-        }</td> <td>
-            <div class="table-actions">
-                <button type="button" class="btn-icon edit detalle-edit" data-id="${
-                  r.id
-                }" title="Modificar">✏️</button>
-                <button type="button" class="btn-icon delete detalle-delete" data-id="${
-                  r.id
-                }" title="Eliminar">🗑️</button>
-            <div>
-          </td>
+        <td>${r.id}</td>
+        <td>${r.almacenNombre}</td>
+        <td>${r.tipoAlimentoNombre}</td>
+        <td>${r.alimentoNombre}</td>
+        <td>${r.cantidad}</td>
+        <td>${esPropia ? "Prod. Interna" : "Proveedor"}</td>
+        <td>${proveedorTexto}</td>
+        <td>${precioTexto}</td>
+        <td>${r.fechaIngreso}</td>
+        <td>
+          <div class="table-actions">
+            <button type="button" class="btn-icon edit detalle-edit" data-id="${
+              r.id
+            }" title="Modificar">✏️</button>
+            <button type="button" class="btn-icon delete detalle-delete" data-id="${
+              r.id
+            }" title="Eliminar">🗑️</button>
+          </div>
+        </td>
       `;
         detalleBody.appendChild(tr);
       });
     }
 
-    // guardo claves del grupo en el modal para recargar luego de eliminar
+    // FIX: Guardar correctamente datos del grupo
     modalDetalle.dataset.almacenId = almacenId;
     modalDetalle.dataset.tipoAlimentoId = tipoAlimentoId;
     modalDetalle.dataset.alimentoId = alimentoId;
@@ -304,7 +480,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tr.dataset.tipoAlimentoId,
       tr.dataset.alimentoId,
       tr.dataset.produccionInterna,
-      tr.dataset.proveedorId
+      tr.dataset.proveedorId,
+      currentFiltros.fechaMin || "",
+      currentFiltros.fechaMax || ""
     );
   });
 
@@ -318,7 +496,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btn.classList.contains("detalle-edit")) {
       const id = btn.dataset.id;
 
-      // nuevo endpoint en el controller: action=get&id=...
       const data = await fetchJSON(`${API}?action=get&id=${id}`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
@@ -342,7 +519,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ------------------------------
-  // CONFIRMAR ELIMINAR INDIVIDUAL
+  // CONFIRMAR ELIMINAR (INDIVIDUAL / GRUPO)
   // ------------------------------
   confirmYes.addEventListener("click", async () => {
     const id = confirmYes.dataset.deleteId;
@@ -368,7 +545,7 @@ document.addEventListener("DOMContentLoaded", () => {
         modalDetalle.dataset.proveedorId
       );
       // y la tabla principal agrupada
-      await refrescarTabla();
+      await refrescarTabla(currentFiltros);
     } else {
       alert(res.mensaje);
     }
@@ -390,53 +567,154 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
+  // EVENT LISTENER PARA CERRAR FILTROS
+  // ----------------------------------------------------
+  if (cerrarFiltrosBtn) {
+    cerrarFiltrosBtn.addEventListener("click", () => {
+      filtroModal.style.display = "none";
+    });
+  }
+
+  // ----------------------------------------------------
   // FUNCIÓN: LLENAR LOS FILTROS DE ALIMENTOS Y PROVEEDORES
+  // ----------------------------------------------------
+  // ----------------------------------------------------
+  // FUNCIÓN: LLENAR LOS FILTROS (ALIMENTOS Y PROVEEDORES)
+  // ----------------------------------------------------
+  // ----------------------------------------------------
+  // FUNCIÓN: LLENAR FILTROS (CON FIX DE NO MARCAR TIPOS)
   // ----------------------------------------------------
   function llenarFiltros() {
     const filtroAlimentoGroup = document.getElementById("filtroAlimentoGroup");
     const filtroProveedorGroup = document.getElementById(
       "filtroProveedorGroup"
     );
+    const filtroTipoGroup = document.getElementById("filtroTipoGroup");
+    const filtroAlmacenGroup = document.getElementById("filtroAlmacenGroup");
 
-    // Limpiar los filtros actuales
+    // Limpia SOLO los grupos que se generan por JS
     filtroAlimentoGroup.innerHTML = "";
     filtroProveedorGroup.innerHTML = "";
+    if (filtroTipoGroup) filtroTipoGroup.innerHTML = "";
+    // ⚠ NO limpiar filtroAlmacenGroup: lo llena PHP
 
-    // Llenar los alimentos disponibles
-    ALL_ALIMENTOS.forEach((alimento) => {
-      const option = document.createElement("label");
-      option.classList.add("radio-card");
-      option.innerHTML = `
-      <input type="checkbox" name="filtro_alimentoId" value="${alimento.id}" />
-      <span class="radio-label">${alimento.nombre}</span>
-    `;
-      filtroAlimentoGroup.appendChild(option);
+    // ------------------------------------------
+    // 1) LLENAR ALIMENTOS (SIN DUPLICADOS)
+    // ------------------------------------------
+    const alimentosUsados = new Set();
+
+    if (typeof ALL_ALIMENTOS !== "undefined") {
+      ALL_ALIMENTOS.forEach((a) => {
+        const nombre = a.nombre.trim();
+        if (alimentosUsados.has(nombre)) return;
+        alimentosUsados.add(nombre);
+
+        const option = document.createElement("label");
+        option.classList.add("radio-card");
+        option.innerHTML = `
+        <input type="checkbox" name="filtro_alimentoId" value="${a.id}">
+        <span class="radio-label">${nombre}</span>
+      `;
+        filtroAlimentoGroup.appendChild(option);
+      });
+    }
+
+    // ------------------------------------------
+    // 2) LLENAR TIPOS DE ALIMENTO (SI HAY)
+    // ------------------------------------------
+    if (typeof tipos !== "undefined" && filtroTipoGroup) {
+      tipos.forEach((t) => {
+        const option = document.createElement("label");
+        option.classList.add("radio-card");
+        option.innerHTML = `
+        <input type="checkbox" name="filtro_tipoAlimentoId" value="${t.id}">
+        <span class="radio-label">${t.tipoAlimento}</span>
+      `;
+        filtroTipoGroup.appendChild(option);
+      });
+    }
+
+    // ------------------------------------------
+    // 3) LLENAR PROVEEDORES (SIN DUPLICADOS)
+    // ------------------------------------------
+    const proveedoresUsados = new Set();
+
+    if (typeof proveedores !== "undefined") {
+      proveedores.forEach((p) => {
+        const nombre = p.denominacion.trim();
+        if (proveedoresUsados.has(nombre)) return;
+        proveedoresUsados.add(nombre);
+
+        const option = document.createElement("label");
+        option.classList.add("radio-card");
+        option.innerHTML = `
+        <input type="checkbox" name="filtro_proveedorId" value="${p.id}">
+        <span class="radio-label">${nombre}</span>
+      `;
+        filtroProveedorGroup.appendChild(option);
+      });
+    }
+
+    // ⚠ 4) NO tocamos filtroAlmacenGroup:
+    //    Los checkboxes de Campo ya vienen generados por PHP.
+
+    // ======================================================
+    // 5) REMARCAR FILTROS ANTERIORES (CON FIX DE TIPO)
+    // ======================================================
+    const grupos = {
+      almacenId: "filtro_almacenId",
+      tipoAlimentoId: "filtro_tipoAlimentoId",
+      alimentoId: "filtro_alimentoId",
+      produccionInterna: "filtro_produccionInterna",
+      proveedorId: "filtro_proveedorId",
+    };
+
+    Object.keys(grupos).forEach((key) => {
+      const name = grupos[key];
+      const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+
+      checkboxes.forEach((checkbox) => {
+        // Si hay filtro de alimento, no remarcar tipo automáticamente
+        if (
+          key === "tipoAlimentoId" &&
+          currentFiltros["alimentoId"] &&
+          currentFiltros["alimentoId"].length > 0
+        ) {
+          return;
+        }
+
+        if (
+          currentFiltros[key] &&
+          Array.isArray(currentFiltros[key]) &&
+          currentFiltros[key].includes(checkbox.value)
+        ) {
+          checkbox.checked = true;
+        }
+      });
     });
 
-    // Llenar los proveedores disponibles
-    proveedores.forEach((proveedor) => {
-      const option = document.createElement("label");
-      option.classList.add("radio-card");
-      option.innerHTML = `
-      <input type="checkbox" name="filtro_proveedorId" value="${proveedor.id}" />
-      <span class="radio-label">${proveedor.denominacion}</span>
-    `;
-      filtroProveedorGroup.appendChild(option);
-    });
+    // ------------------------------------------
+    // 6) REMARCAR FECHAS
+    // ------------------------------------------
+    const fMin = document.getElementById("filtroFechaMin");
+    const fMax = document.getElementById("filtroFechaMax");
+
+    if (fMin) fMin.value = currentFiltros.fechaMin || "";
+    if (fMax) fMax.value = currentFiltros.fechaMax || "";
   }
 
   // ----------------------------------------------------
   // FUNCIÓN: APLICAR FILTROS Y REFRESCAR LA TABLA
   // ----------------------------------------------------
   document.getElementById("aplicarFiltros").addEventListener("click", () => {
-    const filtros = {
-      almacenIds: Array.from(
+    const filtrosSeleccionados = {
+      almacenId: Array.from(
         document.querySelectorAll('input[name="filtro_almacenId"]:checked')
       ).map((input) => input.value),
-      tipoAlimentoIds: Array.from(
+      tipoAlimentoId: Array.from(
         document.querySelectorAll('input[name="filtro_tipoAlimentoId"]:checked')
       ).map((input) => input.value),
-      alimentoIds: Array.from(
+      alimentoId: Array.from(
         document.querySelectorAll('input[name="filtro_alimentoId"]:checked')
       ).map((input) => input.value),
       produccionInterna: Array.from(
@@ -444,31 +722,51 @@ document.addEventListener("DOMContentLoaded", () => {
           'input[name="filtro_produccionInterna"]:checked'
         )
       ).map((input) => input.value),
-      proveedorIds: Array.from(
+      proveedorId: Array.from(
         document.querySelectorAll('input[name="filtro_proveedorId"]:checked')
       ).map((input) => input.value),
       fechaMin: document.getElementById("filtroFechaMin").value,
       fechaMax: document.getElementById("filtroFechaMax").value,
     };
 
-    // Llamar la función para refrescar la tabla con los filtros aplicados
-    refrescarTabla(filtros);
-    document.getElementById("filtroModal").style.display = "none";
+    const filtrosParaEnvio = {};
+    currentFiltros = {}; // Reinicia el estado guardado
+
+    for (const key in filtrosSeleccionados) {
+      if (Array.isArray(filtrosSeleccionados[key])) {
+        if (filtrosSeleccionados[key].length > 0) {
+          filtrosParaEnvio[key] = filtrosSeleccionados[key];
+          currentFiltros[key] = filtrosSeleccionados[key];
+        }
+      } else if (filtrosSeleccionados[key]) {
+        filtrosParaEnvio[key] = filtrosSeleccionados[key];
+        currentFiltros[key] = filtrosSeleccionados[key];
+      }
+    }
+
+    refrescarTabla(filtrosParaEnvio);
+    pintarResumenFiltros();
+    filtroModal.style.display = "none";
   });
 
   // ----------------------------------------------------
   // FUNCIÓN: LIMPIAR LOS FILTROS
   // ----------------------------------------------------
   document.getElementById("limpiarFiltros").addEventListener("click", () => {
-    // Limpiar los filtros de checkbox
     document
       .querySelectorAll("input[type=checkbox]")
       .forEach((checkbox) => (checkbox.checked = false));
 
-    // Limpiar los campos de fecha
-    document.getElementById("filtroFechaMin").value = "";
-    document.getElementById("filtroFechaMax").value = "";
+    const fechaMinInput = document.getElementById("filtroFechaMin");
+    const fechaMaxInput = document.getElementById("filtroFechaMax");
+    if (fechaMinInput) fechaMinInput.value = "";
+    if (fechaMaxInput) fechaMaxInput.value = "";
+
+    currentFiltros = {};
+    refrescarTabla({});
+    pintarResumenFiltros();
   });
+
   // ------------------------------
   // SUBMIT FORM → registrar / modificar
   // ------------------------------
@@ -519,7 +817,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (data.tipo === "success") {
-        await refrescarTabla();
+        await refrescarTabla(currentFiltros);
         setRegistrarMode();
       } else {
         alert(data.mensaje);
@@ -535,12 +833,64 @@ document.addEventListener("DOMContentLoaded", () => {
   // Llamada al abrir el modal de filtros para llenar los campos dinámicamente
   document.getElementById("abrirFiltros").addEventListener("click", () => {
     llenarFiltros();
-    document.getElementById("filtroModal").style.display = "flex";
+    filtroModal.style.display = "flex";
   });
+
+  async function exportarPDF() {
+    try {
+      const params = new URLSearchParams();
+
+      // Enviamos los mismos filtros que se usan para listar
+      Object.entries(currentFiltros || {}).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          value.forEach((v) => {
+            if (v !== null && v !== undefined && v !== "") {
+              params.append(key + "[]", v);
+            }
+          });
+        } else if (value !== null && value !== undefined && value !== "") {
+          params.append(key, value);
+        }
+      });
+
+      const resp = await fetch(`${API}?action=exportPdf`, {
+        method: "POST",
+        body: params,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+
+      if (!resp.ok) {
+        throw new Error("Error HTTP " + resp.status);
+      }
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reporte_stock_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error al exportar PDF:", err);
+      alert("Ocurrió un error al generar el PDF.");
+    }
+  }
+
+  const btnExportPdf = document.getElementById("btnExportPdf");
+  if (btnExportPdf) {
+    btnExportPdf.addEventListener("click", exportarPDF);
+  }
 
   // ------------------------------
   // INICIAR
   // ------------------------------
   setRegistrarMode();
+  pintarResumenFiltros();
   refrescarTabla();
 });

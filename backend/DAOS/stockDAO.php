@@ -33,8 +33,8 @@ class StockDAO
     $fechaIngreso = $stock->getFechaIngreso();
 
     $sql = "INSERT INTO stocks 
-            (almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, proveedorId, precio, fechaIngreso)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+             (almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, proveedorId, precio, fechaIngreso)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param(
@@ -79,8 +79,8 @@ class StockDAO
     $fechaIngreso = $stock->getFechaIngreso();
 
     $sql = "UPDATE stocks
-            SET almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, precio = ?, fechaIngreso = ?
-            WHERE id = ?";
+             SET almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, precio = ?, fechaIngreso = ?
+             WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param(
@@ -102,9 +102,8 @@ class StockDAO
   }
 
   // =============================================================
-  // LISTAR AGRUPADO (CORREGIDO)
+  // LISTAR AGRUPADO (FIX DEFINITIVO DE ENLACE DE PARÁMETROS)
   // =============================================================
-  // Listar Stocks (Agrupados)
   public function listar(array $filtros = []): array
   {
     $sql = "
@@ -117,7 +116,7 @@ class StockDAO
       ali.nombre AS alimentoNombre,
       s.produccionInterna,
       s.proveedorId,
-      po.denominacion AS proveedorNombre,  -- Aquí obtenemos el nombre del proveedor
+      po.denominacion AS proveedorNombre,
       SUM(s.cantidad) AS cantidadTotal,
       MAX(s.precio) AS precio,
       MAX(s.fechaIngreso) AS ultimaFecha
@@ -127,17 +126,19 @@ class StockDAO
     LEFT JOIN alimentos ali ON s.alimentoId = ali.id
     LEFT JOIN proveedores po ON s.proveedorId = po.id
     WHERE 1=1
-  ";
+    ";
 
     $params = [];
     $types = "";
 
-    // Añadir filtros
+    // Lógica para añadir filtros IN (múltiples selecciones)
     $addInClause = function (&$sql, &$params, &$types, $key, $column) use ($filtros) {
       if (!empty($filtros[$key]) && is_array($filtros[$key])) {
+        // Creamos los placeholders '?' para cada ID
         $placeholders = implode(',', array_fill(0, count($filtros[$key]), '?'));
         $sql .= " AND {$column} IN ({$placeholders})";
 
+        // Agregamos cada ID a la lista de parámetros y su tipo 'i' (integer)
         foreach ($filtros[$key] as $id) {
           $params[] = $id;
           $types .= "i";
@@ -145,11 +146,26 @@ class StockDAO
       }
     };
 
+    // Aplicar filtros IN
     $addInClause($sql, $params, $types, 'tipoAlimentoId', 's.tipoAlimentoId');
     $addInClause($sql, $params, $types, 'almacenId', 's.almacenId');
     $addInClause($sql, $params, $types, 'alimentoId', 's.alimentoId');
     $addInClause($sql, $params, $types, 'proveedorId', 's.proveedorId');
     $addInClause($sql, $params, $types, 'produccionInterna', 's.produccionInterna');
+
+    // Añadir filtros de RANGO (Fechas)
+    if (!empty($filtros['fechaMin'])) {
+      $sql .= " AND s.fechaIngreso >= ?";
+      $params[] = $filtros['fechaMin'];
+      $types .= "s"; // s for string (date)
+    }
+
+    if (!empty($filtros['fechaMax'])) {
+      $sql .= " AND s.fechaIngreso <= ?";
+      $params[] = $filtros['fechaMax'];
+      $types .= "s"; // s for string (date)
+    }
+
 
     $sql .= "
     GROUP BY 
@@ -161,13 +177,20 @@ class StockDAO
     ORDER BY 
       s.almacenId, s.tipoAlimentoId, s.alimentoId, 
       s.produccionInterna, s.proveedorId
-  ";
+    ";
 
     // Preparar la consulta y devolver los resultados
     $stmt = $this->conn->prepare($sql);
 
+    // FIX CRÍTICO: Enlace de parámetros dinámicos con referencias
     if (!empty($params)) {
-      $stmt->bind_param($types, ...$params);
+      $bind_names = [$types];
+      // Es CRUCIAL pasar los parámetros por referencia (&) para bind_param
+      for ($i = 0; $i < count($params); $i++) {
+        $bind_names[] = &$params[$i];
+      }
+      // Esta llamada garantiza que todos los parámetros se enlacen correctamente.
+      call_user_func_array([$stmt, 'bind_param'], $bind_names);
     }
 
     $stmt->execute();
@@ -184,7 +207,7 @@ class StockDAO
         'alimentoNombre' => $r['alimentoNombre'],
         'produccionInterna' => $r['produccionInterna'],
         'proveedorId' => $r['proveedorId'],
-        'proveedorNombre' => $r['proveedorNombre'] ?? '-',  // Mostrar '-' si es producción interna
+        'proveedorNombre' => $r['proveedorNombre'] ?? '-',
         'cantidad' => (int) $r['cantidadTotal'],
         'precio' => $r['precio'],
         'fechaIngreso' => $r['ultimaFecha'],
@@ -195,8 +218,16 @@ class StockDAO
   }
 
 
-  public function listarDetalleGrupo($almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna, $proveedorId = null): array
-  {
+  public function listarDetalleGrupo(
+    $almacenId,
+    $tipoAlimentoId,
+    $alimentoId,
+    $produccionInterna,
+    $proveedorId = null,
+    $fechaMin = null,
+    $fechaMax = null
+  ): array {
+
     $sql = "SELECT
         s.id,
         s.almacenId,
@@ -211,15 +242,15 @@ class StockDAO
         s.cantidad,
         s.precio,
         s.fechaIngreso
-      FROM stocks s
-      LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
-      LEFT JOIN almacenes alm ON s.almacenId = alm.id
-      LEFT JOIN alimentos ali ON s.alimentoId = ali.id
-      LEFT JOIN proveedores po ON s.proveedorId = po.id
-      WHERE s.almacenId = ?
-        AND s.tipoAlimentoId = ?
-        AND s.alimentoId = ?
-        AND s.produccionInterna = ?";
+        FROM stocks s
+        LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
+        LEFT JOIN almacenes alm ON s.almacenId = alm.id
+        LEFT JOIN alimentos ali ON s.alimentoId = ali.id
+        LEFT JOIN proveedores po ON s.proveedorId = po.id
+        WHERE s.almacenId = ?
+          AND s.tipoAlimentoId = ?
+          AND s.alimentoId = ?
+          AND s.produccionInterna = ?";
 
     $params = [$almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna];
     $types = "iiii";
@@ -232,6 +263,19 @@ class StockDAO
       $sql .= " AND s.proveedorId IS NULL";
     }
 
+    // ★★ NUEVO: FILTROS DE FECHA ★★
+    if ($fechaMin) {
+      $sql .= " AND s.fechaIngreso >= ?";
+      $params[] = $fechaMin;
+      $types .= "s";
+    }
+
+    if ($fechaMax) {
+      $sql .= " AND s.fechaIngreso <= ?";
+      $params[] = $fechaMax;
+      $types .= "s";
+    }
+
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
@@ -241,7 +285,7 @@ class StockDAO
     while ($r = $res->fetch_assoc()) {
       $rows[] = $r;
     }
-    $stmt->close();
+
     return $rows;
   }
 
@@ -252,9 +296,9 @@ class StockDAO
     // Si el proveedor es NULL (producción interna)
     if ($proveedorId === null || $proveedorId === "" || $proveedorId === "0") {
       $sql = "SELECT s.*, 
-                       alm.nombre AS almacenNombre,
-                       tip.tipoAlimento AS tipoAlimentoNombre,
-                       ali.nombre AS alimentoNombre
+                    alm.nombre AS almacenNombre,
+                    tip.tipoAlimento AS tipoAlimentoNombre,
+                    ali.nombre AS alimentoNombre
                 FROM stocks s
                 LEFT JOIN almacenes alm ON s.almacenId = alm.id
                 LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
@@ -271,10 +315,10 @@ class StockDAO
     } else {
 
       $sql = "SELECT s.*, 
-                       alm.nombre AS almacenNombre,
-                       tip.tipoAlimento AS tipoAlimentoNombre,
-                       ali.nombre AS alimentoNombre,
-                       p.denominacion AS proveedorNombre
+                    alm.nombre AS almacenNombre,
+                    tip.tipoAlimento AS tipoAlimentoNombre,
+                    ali.nombre AS alimentoNombre,
+                    p.denominacion AS proveedorNombre
                 FROM stocks s
                 LEFT JOIN almacenes alm ON s.almacenId = alm.id
                 LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
@@ -302,7 +346,7 @@ class StockDAO
   }
 
   // =============================================================
-  // RESTO DE TUS MÉTODOS - COMPLETOS, SIN CAMBIOS
+  // RESTO DE TUS MÉTODOS - SIN CAMBIOS
   // =============================================================
 
   public function getAllStocks(): array
@@ -569,10 +613,10 @@ class StockDAO
   public function getAlimentosConStockByAlmacenId($almacenId)
   {
     $sql = "SELECT s.tipoAlimentoId, t.tipo as tipoAlimento, s.alimentoId, a.nombre as alimentoNombre, s.cantidad 
-            FROM stocks s 
-            JOIN tiposalimentos t ON s.tipoAlimentoId = t.id
-            JOIN alimentos a ON s.alimentoId = a.id 
-            WHERE s.almacenId = ? AND s.cantidad > 0";
+             FROM stocks s 
+             JOIN tiposalimentos t ON s.tipoAlimentoId = t.id
+             JOIN alimentos a ON s.alimentoId = a.id 
+             WHERE s.almacenId = ? AND s.cantidad > 0";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $almacenId);
@@ -710,8 +754,8 @@ class StockDAO
   public function getTotalEconomicValue()
   {
     $sql = "SELECT SUM(s.cantidad * s.precio) AS totalValor 
-            FROM stocks s 
-            JOIN alimentos a ON s.alimentoId = a.id";
+             FROM stocks s 
+             JOIN alimentos a ON s.alimentoId = a.id";
 
     $result = $this->conn->query($sql);
     $row = $result->fetch_assoc();
@@ -721,11 +765,11 @@ class StockDAO
   public function getStockComprado($almacenId, $tipoAlimentoId, $alimentoId, $proveedorId)
   {
     $sql = "SELECT * FROM stocks 
-            WHERE almacenId = ?
-              AND tipoAlimentoId = ?
-              AND alimentoId = ?
-              AND produccionInterna = 0
-              AND proveedorId = ?";
+             WHERE almacenId = ?
+               AND tipoAlimentoId = ?
+               AND alimentoId = ?
+               AND produccionInterna = 0
+               AND proveedorId = ?";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("iiii", $almacenId, $tipoAlimentoId, $alimentoId, $proveedorId);

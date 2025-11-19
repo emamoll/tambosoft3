@@ -141,6 +141,36 @@
   width: 160px;
 }
 
+#filtroFechaGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+#filtroFechaGroup label {
+  font-size: 0.9rem;
+  color: var(--color-secundario);
+  font-weight: 600;
+}
+
+#filtroFechaGroup input[type="date"] {
+  padding: 6px 10px;
+  border: 1px solid #ccd6e0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #fff;
+  min-width: 150px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#filtroFechaGroup input[type="date"]:focus {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 4px rgba(84, 157, 219, 0.6);
+  outline: none;
+}
+
 /* ===== BOTONES DE ACCIÓN ===== */
 .table-actions {
   display: flex;
