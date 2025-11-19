@@ -53,13 +53,15 @@ class StockController
         return count($ints) > 0 ? $ints : null;
       };
 
-      // Filtros admitidos (arrays de IDs o null)
+      // Filtros admitidos (arrays de IDs, fechas o null)
       $filtros = [
         'almacenId' => $getArrayOfInts('almacenId'),
         'tipoAlimentoId' => $getArrayOfInts('tipoAlimentoId'),
         'alimentoId' => $getArrayOfInts('alimentoId'),
         'proveedorId' => $getArrayOfInts('proveedorId'),
-        'produccionInterna' => $getArrayOfInts('produccionInterna')
+        'produccionInterna' => $getArrayOfInts('produccionInterna'),
+        'fechaMin' => $_GET['fechaMin'] ?? null,
+        'fechaMax' => $_GET['fechaMax'] ?? null
       ];
 
       try {
@@ -180,12 +182,16 @@ class StockController
         $proveedorId = null;
       }
 
+      $fechaMin = $_GET['fechaMin'] ?? null;
+      $fechaMax = $_GET['fechaMax'] ?? null;
       $detalles = $this->stockDAO->listarDetalleGrupo(
         $almacenId,
         $tipoAlimentoId,
         $alimentoId,
         $produccionInterna,
-        $proveedorId
+        $proveedorId,
+        $fechaMin,
+        $fechaMax
       );
 
       if (ob_get_level())
@@ -213,7 +219,7 @@ class StockController
         'alimentoId' => $stock->getAlimentoId(),
         'cantidad' => $stock->getCantidad(),
         'produccionInterna' => $stock->getProduccionInterna(),
-        'proveedorId' => $stock->getProveedorId(),
+        $stock->getProveedorId(),
         'precio' => $stock->getPrecio(),
         'fechaIngreso' => $stock->getFechaIngreso(),
       ];
@@ -401,6 +407,26 @@ class StockController
             }
           }
           break;
+
+        case 'exportPdf':
+
+          require_once __DIR__ . '../reportes/reporteStockPDF.php';
+
+          // Leer filtros que vengan desde JS
+          $filtros = $_POST;
+
+          // Obtener datos desde el DAO (tu mismo método del listado)
+          $datos = $this->stockDAO->listar($filtros);
+
+          $logoPath = __DIR__ . '/../../public/img/logo.png'; // AJUSTÁ
+
+          $pdf = ReporteStockPDF::generar($datos, $logoPath);
+
+          header("Content-Type: application/pdf");
+          header("Content-Disposition: attachment; filename=reporte_stock.pdf");
+
+          echo $pdf;
+          exit;
       }
 
       if (ob_get_level()) {
