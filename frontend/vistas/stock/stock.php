@@ -120,7 +120,7 @@ $proveedores_json = json_encode($proveedores_para_js);
           <option value="1">Fardo</option>
           <option value="2">Silopack</option>
         </select>
-        <div id="error-tipoAlimentoId" class="error-message">El alimento es obligatorio</div>
+        <div id="error-tipoAlimentoId" class="error-message">El tipo de alimento es obligatorio</div>
       </div>
 
       <div class="form-group">

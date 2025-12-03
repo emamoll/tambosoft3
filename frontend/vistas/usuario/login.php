@@ -36,7 +36,7 @@ require_once __DIR__ . '../../../../backend/controladores/campoController.php';
 require_once __DIR__ . '../../../../backend/controladores/categoriaController.php';
 require_once __DIR__ . '../../../../backend/controladores/potreroController.php';
 require_once __DIR__ . '../../../../backend/controladores/pasturaController.php';
-//require_once __DIR__ . '../../../../backend/controladores/stockController.php';
+require_once __DIR__ . '../../../../backend/controladores/stockController.php';
 require_once __DIR__ . '../../../../backend/servicios/databaseFactory.php'; // Necesario para DatabaseFactory::createDatabaseConnection
 
 try {
@@ -49,7 +49,7 @@ try {
   new CategoriaController();
   new PotreroController();
   new PasturaController();
-  // new StockController();
+   new StockController();
 
   $db = DatabaseFactory::createDatabaseConnection('mysql');
   // ... cualquier otra lógica de configuración de tablas

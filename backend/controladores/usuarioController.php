@@ -35,7 +35,7 @@ class UsuarioController
 
     // Si no existen, procede con el registro.
     $this->usuarioDAO->verificarRoles();
-    $usuario = new Usuario(null, $username, $email, $hash, $rolId,  $imagen,$token);
+    $usuario = new Usuario(null, $username, $email, $hash, $rolId, $imagen, $token);
     $resultado = $this->usuarioDAO->registrarUsuario($usuario);
 
     // Devuelve el resultado del registro.
@@ -46,7 +46,7 @@ class UsuarioController
     }
   }
 
-// Inicia sesión de un usuario.
+  // Inicia sesión de un usuario.
   public function loginUsuario($username, $password)
   {
     // Obtiene el usuario por nombre.
@@ -67,19 +67,26 @@ class UsuarioController
     return null;
   }
 
-// Obtiene un usuario por su nombre de usuario.
+  // Obtener todos los usuarios
+
+  public function obtenerUsuarios()
+  {
+    return $this->usuarioDAO->getAllUsuarios();
+  }
+
+  // Obtiene un usuario por su nombre de usuario.
   public function getUsuarioByUsername($username)
   {
     return $this->usuarioDAO->getUsuarioByUsername($username);
   }
 
-// Obtiene un usuario por su dirección de correo electrónico.
+  // Obtiene un usuario por su dirección de correo electrónico.
   public function getUsuarioByEmail($email)
   {
     return $this->usuarioDAO->getUsuarioByEmail($email);
   }
 
-// Obtiene un usuario por su token de sesión.
+  // Obtiene un usuario por su token de sesión.
   public function getUsuarioByToken($token)
   {
     return $this->usuarioDAO->getUsuarioByToken($token);

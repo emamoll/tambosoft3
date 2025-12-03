@@ -1,0 +1,473 @@
+:root {
+  --color-primario: #549ddb;
+  --color-secundario: #084a83;
+  --background-principal: linear-gradient(-135deg, #084a83, #549ddb);
+  --fondo-background: #f0f2f5;
+}
+
+/* ===== FORMULARIO ===== */
+.form-container {
+  background: #fff;
+  padding: 2rem 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 800px;
+  margin: 35px auto;
+}
+
+.form-container h2 {
+  text-align: center;
+  margin-bottom: 1.2rem;
+  font-size: 1.8rem;
+  color: var(--color-secundario);
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  display: block;
+}
+
+/* Inputs y Selects */
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background-color: #fff;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 6px rgba(84, 157, 219, 0.5);
+  outline: none;
+}
+
+.error-message {
+  color: red;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  display: none;
+}
+
+/* ===== BOTONES ===== */
+.btn-usuario {
+  width: 100%;
+  padding: 0.8rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-secundario);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-usuario:hover {
+  background: var(--color-primario);
+}
+
+/* ===== TABLA ===== */
+.form-container.table {
+  max-width: 70%;
+  margin: 40px auto;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.table-modern {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 25px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-size: 0.95rem;
+}
+
+.table-modern thead {
+  background: var(--color-secundario);
+  color: #fff;
+}
+
+.table-modern th,
+.table-modern td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.table-modern thead th {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.table-modern tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+.table-modern tbody tr:nth-child(even) {
+  background: #eef2f6;
+}
+.table-modern tbody tr:hover {
+  background: #dceeff;
+}
+
+.table-modern tbody td {
+  vertical-align: middle;
+}
+
+/* #tablaStockPrincipal th:first-child,
+#tablaStockPrincipal td:first-child {
+  display: none;
+} */
+
+.table-modern th:last-child,
+.table-modern td:last-child {
+  text-align: left;
+  width: 160px;
+}
+
+#filtroFechaGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+#filtroFechaGroup label {
+  font-size: 0.9rem;
+  color: var(--color-secundario);
+  font-weight: 600;
+}
+
+#filtroFechaGroup input[type="date"] {
+  padding: 6px 10px;
+  border: 1px solid #ccd6e0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #fff;
+  min-width: 150px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#filtroFechaGroup input[type="date"]:focus {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 4px rgba(84, 157, 219, 0.6);
+  outline: none;
+}
+
+/* ===== BOTONES DE ACCIÓN ===== */
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  height: 100%;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: transform 0.15s ease, color 0.15s ease,
+    background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.btn-icon:hover {
+  transform: scale(1.15);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Iconos individuales */
+.btn-icon.edit {
+  color: var(--color-primario);
+}
+.btn-icon.edit:hover {
+  color: #2a73c2;
+}
+
+.btn-icon.delete {
+  color: #c0392b;
+}
+.btn-icon.delete:hover {
+  color: #e74c3c;
+}
+
+.btn-icon.move {
+  color: #8b4513;
+}
+.btn-icon.move:hover {
+  color: #27ae60;
+}
+
+/* ===== ALERTAS (UNIFICADO con categoria.css) ===== */
+.alert {
+  padding: 10px 15px !important;
+  border-radius: 6px !important;
+  margin-bottom: 15px !important;
+  font-size: 0.95rem !important;
+  opacity: 1; /* Valor inicial de opacidad */
+  transition: opacity 1s ease-out; /* Transición de 0.5 segundos para la opacidad */
+}
+.alert-success {
+  background-color: #44f26d !important;
+  color: #000000 !important;
+  border: 1px solid #00ff3c !important;
+}
+.alert-danger {
+  background-color: #ff4958 !important;
+  color: #000000 !important;
+  border: 1px solid #fe0019 !important;
+}
+
+/* ===== MODALES ===== */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 30px 35px;
+  border-radius: 14px;
+  max-width: 900px; /* Aumentamos el tamaño de la modal */
+  width: 90%;
+  text-align: left;
+  animation: fadeIn 0.25s ease;
+  overflow-y: auto;
+  max-height: 80vh; /* Aumentamos la altura */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+.modal-content h3 {
+  margin-bottom: 1rem;
+  color: var(--color-secundario);
+  text-align: center;
+}
+
+/* ===== MODAL ELIMINAR POTRERO ===== */
+#confirmModal .modal-content {
+  max-width: 420px;
+  text-align: center;
+  padding: 25px 35px;
+}
+
+#confirmModal h3 {
+  font-size: 1.3rem;
+  color: var(--color-secundario);
+  margin-bottom: 1rem;
+}
+
+#confirmModal p {
+  font-size: 1rem;
+  color: #333;
+  margin-bottom: 1.5rem;
+  line-height: 1.4;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+/* ===== BOTONES MODALES ===== */
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.2s ease-in-out;
+  min-width: 130px; /* 💡 Todos los botones del mismo ancho */
+  text-align: center;
+}
+
+/* 🔵 Botón principal / aplicar / mover */
+.btn-primary {
+  background: var(--color-primario);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #2a73c2;
+}
+
+/* 🔴 Botón eliminar */
+.btn-danger {
+  background: #c0392b;
+  color: #fff;
+}
+.btn-danger:hover {
+  background: #a93226;
+}
+
+/* ⚪ Botón cancelar / limpiar */
+.btn-cancel {
+  background: #e0e6ee;
+  color: #333;
+  border: 1px solid #cfd8e3;
+}
+.btn-cancel:hover {
+  background: #c9d3dc;
+  color: #222;
+}
+
+/* 💡 Asegura alineación uniforme en todas las modales */
+.modal-actions button {
+  flex: 1;
+  max-width: 150px;
+}
+
+/* ===== FORMULARIO DENTRO DE MODALES ===== */
+.modal-content .form-group {
+  margin-bottom: 1rem;
+}
+
+.modal-content .form-group label {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  display: block;
+  color: var(--color-secundario);
+}
+
+.modal-content .form-group select,
+.modal-content .form-group input {
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background-color: #fff;
+}
+
+.modal-content .form-group select:focus,
+.modal-content .form-group input:focus {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 6px rgba(84, 157, 219, 0.5);
+  outline: none;
+}
+
+/* ===== FILTROS (RADIOS) ===== */
+.filtro-grupo {
+  margin-bottom: 1.2rem;
+}
+
+.filtro-grupo h4 {
+  font-size: 1.1rem;
+  color: var(--color-secundario);
+  margin-bottom: 0.5rem;
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.radio-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #ccd6e0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+  text-align: center;
+}
+
+.radio-card:hover {
+  background: #eaf3ff;
+  border-color: var(--color-primario);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+}
+
+.radio-card .radio-label {
+  font-size: 0.95rem;
+  color: #222;
+}
+
+/* ===== ANIMACIÓN ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .form-container {
+    padding: 1.5rem;
+    max-width: 100%;
+  }
+  .form-container h2 {
+    font-size: 1.4rem;
+  }
+  .table-modern th,
+  .table-modern td {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+}
+
+#detalleModal .modal-content {
+  max-width: 1100px; /* Aumenta el ancho de la modal */
+  max-height: 80vh; /* Ajusta la altura máxima */
+  padding: 30px 20px; /* Añade más espacio dentro de la modal */
+  width: 95%; /* Asegura que ocupe el 95% del ancho de la pantalla */
+}
+
+#detalleModal h3 {
+  margin-bottom: 1rem;
+  color: var(--color-secundario);
+  text-align: center;
+}

@@ -2,16 +2,21 @@
 
 require_once __DIR__ . '../../DAOS/stockDAO.php';
 require_once __DIR__ . '../../modelos/stock/stockModelo.php';
+require_once __DIR__ . '../../modelos/ingreso/ingresoModelo.php';
+require_once __DIR__ . '../../DAOS/ingresoDAO.php';
 
 class StockController
 {
   private $stockDAO;
+  private $ingresoDAO;
   private $connError = null;
 
   public function __construct()
   {
     try {
       $this->stockDAO = new StockDAO();
+      $this->ingresoDAO = new IngresoDAO();
+
     } catch (Exception $e) {
       $this->stockDAO = null;
       $this->connError = $e->getMessage();
@@ -319,6 +324,18 @@ class StockController
             $precio = floatval($precio);
           }
 
+          $this->ingresoDAO->registrarIngreso(new Ingreso(
+            null,
+            $almacenId,
+            $tipoAlimentoId,
+            $alimentoId,
+            $cantidad,
+            $produccionInternaInt,
+            $proveedorId,
+            $precio,
+            $fechaIngreso
+          ));
+
           $ok = $this->stockDAO->registrarStock(
             new Stock(
               null,
@@ -369,6 +386,20 @@ class StockController
           $alimentoId = intval($alimentoId);
           $cantidad = intval($cantidad);
 
+          $this->ingresoDAO->modificarIngreso(
+            new Ingreso(
+              $id,
+              $almacenId,
+              $tipoAlimentoId,
+              $alimentoId,
+              $cantidad,
+              $produccionInternaInt,
+              $proveedorId,
+              $precio,
+              $fechaIngreso
+            )
+          );
+
           $ok = $this->stockDAO->modificarStock(
             new Stock(
               $id,
@@ -394,6 +425,7 @@ class StockController
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido para eliminar.'];
           } else {
             try {
+              $this->ingresoDAO->eliminarIngreso($id);
               $ok = $this->stockDAO->eliminarStock($id);
               $res = $ok
                 ? ['tipo' => 'success', 'mensaje' => 'Stock eliminado correctamente.']
