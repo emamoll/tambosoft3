@@ -139,4 +139,21 @@ class Orden
   {
     $this->horaActualizacion = $horaActualizacion;
   }
+
+  public function toArray(): array
+  {
+    return [
+      'id' => $this->id,
+      'potreroId' => $this->potreroId,
+      'tipoAlimentoId' => $this->tipoAlimentoId,
+      'alimentoId' => $this->alimentoId,
+      'cantidad' => $this->cantidad,
+      'usuarioId' => $this->usuarioId,
+      'estadoId' => $this->estadoId,
+      'fechaCreacion' => $this->fechaCreacion,
+      'fechaActualizacion' => $this->fechaActualizacion,
+      'horaCreacion' => $this->horaCreacion,
+      'horaActualizacion' => $this->horaActualizacion,
+    ];
+  }
 }

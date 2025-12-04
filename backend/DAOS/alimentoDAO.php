@@ -22,6 +22,11 @@ class AlimentoDAO
     $this->conn = $this->db->connect();
   }
 
+  public function getConn()
+  {
+    return $this->conn;
+  }
+
   /**
    * Verifica si existe un Alimento con el mismo nombre.
    * Si se pasa un $id, lo excluye de la validación (para modificaciones).

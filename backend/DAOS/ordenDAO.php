@@ -2,12 +2,14 @@
 require_once __DIR__ . '../../servicios/databaseFactory.php';
 require_once __DIR__ . '../../modelos/orden/ordenModelo.php';
 require_once __DIR__ . '../../modelos/orden/ordenTabla.php';
+require_once __DIR__ . '../stockDAO.php';
 
-class OrdenkDAO
+class OrdenDAO
 {
   private $db;
   private $conn;
   private $crearTabla;
+  private $stockDAO;
 
   public function __construct()
   {
@@ -17,6 +19,12 @@ class OrdenkDAO
     $this->crearTabla->insertarValoresTablaEstados();
     $this->crearTabla->crearTablaOrden();
     $this->conn = $this->db->connect();
+    $this->stockDAO = new StockDAO();
+  }
+
+  public function getConn()
+  {
+    return $this->conn;
   }
 
   // Registrar orden
@@ -26,16 +34,30 @@ class OrdenkDAO
     $tipoAlimentoId = $orden->getTipoAlimentoId();
     $alimentoId = $orden->getAlimentoId();
     $cantidad = $orden->getCantidad();
+    // CAMPOS FIJOS/AUTOMÁTICOS
     $usuarioId = $orden->getUsuarioId();
-    $estadoId = $orden->getEstadoId();
-    $fechaCreacion = (int) $orden->getFechaCreacion();
-    $fechaActualizacion = (int) $orden->getFechaActualizacion();
-    $horaCreacion = $orden->getHoraCreacion();
-    $horaActualizacion = $orden->getHoraActualizacion();
+    $estadoId = 1; // Estado inicial: 'Pendiente'
+    $fechaCreacion = date('Y-m-d');
+    $fechaActualizacion = date('Y-m-d');
+    $horaCreacion = date('H:i:s');
+    $horaActualizacion = date('H:i:s');
 
+    // 1. Verificación de Stock Suficiente
+    $stockTotal = $this->stockDAO->getTotalStockByAlimentoIdAndTipo($alimentoId, $tipoAlimentoId);
+    if ($stockTotal < $cantidad) {
+      return false; // Retorna FALSE si el stock es insuficiente (esto se manejará en el Controller)
+    }
+
+    // 2. Reducción de Stock FIFO (la DAO de stock maneja su propia transacción)
+    if (!$this->stockDAO->reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidad)) {
+      // Si falla la reducción por un error de DB inesperado (no stock), se aborta la creación.
+      return false;
+    }
+
+    // 3. Registro de la Orden
     $sql = "INSERT INTO ordenes 
              (potreroId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param(
@@ -54,11 +76,11 @@ class OrdenkDAO
 
     $ok = $stmt->execute();
 
-    // Obtener el ID generado
+    // Obtener el ID generado (si es necesario)
     if ($ok) {
-      $lastId = $this->conn->insert_id; // Obtener el último ID insertado
+      $lastId = $this->conn->insert_id;
       $stmt->close();
-      return $lastId;  // Retornamos el ID generado por la base de datos
+      return $lastId;
     }
 
     $stmt->close();
@@ -75,10 +97,12 @@ class OrdenkDAO
     $cantidad = $orden->getCantidad();
     $usuarioId = $orden->getUsuarioId();
     $estadoId = $orden->getEstadoId();
-    $fechaCreacion = (int) $orden->getFechaCreacion();
-    $fechaActualizacion = (int) $orden->getFechaActualizacion();
+
+    // Asumimos que getFechaCreacion y getHoraCreacion devuelven formatos válidos
+    $fechaCreacion = $orden->getFechaCreacion();
+    $fechaActualizacion = date('Y-m-d');
     $horaCreacion = $orden->getHoraCreacion();
-    $horaActualizacion = $orden->getHoraActualizacion();
+    $horaActualizacion = date('H:i:s');
 
     $sql = "UPDATE ordenes
              SET potreroId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, usuarioId = ?, estadoId = ?, fechaCreacion = ?, fechaActualizacion = ?, horaCreacion = ?, horaActualizacion = ?

@@ -792,4 +792,89 @@ class StockDAO
       )
       : null;
   }
+
+  // Obtener la cantidad total de stock disponible para un alimento específico.
+  public function getTotalStockByAlimentoIdAndTipo($alimentoId, $tipoAlimentoId): int
+  {
+    $sql = "SELECT COALESCE(SUM(cantidad), 0) AS totalStock 
+            FROM stocks 
+            WHERE alimentoId = ? AND tipoAlimentoId = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $alimentoId, $tipoAlimentoId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    return (int) $row['totalStock'];
+  }
+
+  // Retorna true si la reducción fue exitosa, false en caso contrario (ej: stock insuficiente).
+  public function reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidadRequerida): bool
+  {
+    $cantidadPendiente = (int) $cantidadRequerida;
+
+    if ($cantidadPendiente <= 0) {
+      return true; // Nada que reducir
+    }
+
+    // 1. Obtener entradas de stock para el alimento y tipo, ordenadas por fecha de ingreso (FIFO)
+    $sqlSelect = "SELECT id, cantidad FROM stocks 
+                  WHERE alimentoId = ? AND tipoAlimentoId = ? AND cantidad > 0
+                  ORDER BY fechaIngreso ASC, id ASC"; // FIFO por fecha, luego por ID
+    $stmtSelect = $this->conn->prepare($sqlSelect);
+    $stmtSelect->bind_param("ii", $alimentoId, $tipoAlimentoId);
+    $stmtSelect->execute();
+    $result = $stmtSelect->get_result();
+    $stmtSelect->close();
+
+    $this->conn->begin_transaction();
+    $success = true;
+
+    while ($row = $result->fetch_assoc()) {
+      $stockId = $row['id'];
+      $cantidadActual = (int) $row['cantidad'];
+
+      if ($cantidadPendiente <= 0) {
+        break;
+      }
+
+      $cantidadConsumida = min($cantidadPendiente, $cantidadActual);
+      $cantidadRestante = $cantidadActual - $cantidadConsumida;
+      $cantidadPendiente -= $cantidadConsumida;
+
+      if ($cantidadRestante == 0) {
+        // Eliminar fila si el stock queda en cero
+        $sqlDelete = "DELETE FROM stocks WHERE id = ?";
+        $stmtDelete = $this->conn->prepare($sqlDelete);
+        $stmtDelete->bind_param("i", $stockId);
+        if (!$stmtDelete->execute()) {
+          $success = false;
+        }
+        $stmtDelete->close();
+      } else {
+        // Actualizar cantidad si queda stock
+        $sqlUpdate = "UPDATE stocks SET cantidad = ? WHERE id = ?";
+        $stmtUpdate = $this->conn->prepare($sqlUpdate);
+        $stmtUpdate->bind_param("ii", $cantidadRestante, $stockId);
+        if (!$stmtUpdate->execute()) {
+          $success = false;
+        }
+        $stmtUpdate->close();
+      }
+
+      if (!$success) {
+        break;
+      }
+    }
+
+    // 2. Comprobar si se pudo satisfacer toda la demanda
+    if ($cantidadPendiente > 0 || !$success) {
+      $this->conn->rollback();
+      error_log("Fallo la reducción de stock FIFO. Stock insuficiente o error de DB. Pendiente: {$cantidadPendiente}");
+      return false;
+    }
+
+    $this->conn->commit();
+    return true;
+  }
 }
