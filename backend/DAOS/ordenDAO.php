@@ -31,6 +31,7 @@ class OrdenDAO
   public function registrarOrden(Orden $orden): bool
   {
     $potreroId = $orden->getPotreroId();
+    $almacenId = $orden->getAlmacenId();
     $tipoAlimentoId = $orden->getTipoAlimentoId();
     $alimentoId = $orden->getAlimentoId();
     $cantidad = $orden->getCantidad();
@@ -42,27 +43,28 @@ class OrdenDAO
     $horaCreacion = date('H:i:s');
     $horaActualizacion = date('H:i:s');
 
-    // 1. Verificación de Stock Suficiente
-    $stockTotal = $this->stockDAO->getTotalStockByAlimentoIdAndTipo($alimentoId, $tipoAlimentoId);
+    // 1. Verificación de Stock Suficiente (MODIFICADO para incluir AlmacenId)
+    $stockTotal = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId);
     if ($stockTotal < $cantidad) {
       return false; // Retorna FALSE si el stock es insuficiente (esto se manejará en el Controller)
     }
 
-    // 2. Reducción de Stock FIFO (la DAO de stock maneja su propia transacción)
-    if (!$this->stockDAO->reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidad)) {
+    // 2. Reducción de Stock FIFO (MODIFICADO para incluir AlmacenId)
+    if (!$this->stockDAO->reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidad, $almacenId)) {
       // Si falla la reducción por un error de DB inesperado (no stock), se aborta la creación.
       return false;
     }
 
-    // 3. Registro de la Orden
+    // 3. Registro de la Orden (MODIFICADO)
     $sql = "INSERT INTO ordenes 
-             (potreroId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             (potreroId, almacenId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param(
-      "iiiiiissss",
+      "iiiiiiissss",
       $potreroId,
+      $almacenId,
       $tipoAlimentoId,
       $alimentoId,
       $cantidad,
@@ -92,6 +94,7 @@ class OrdenDAO
   {
     $id = $orden->getId();
     $potreroId = $orden->getPotreroId();
+    $almacenId = $orden->getAlmacenId();
     $tipoAlimentoId = $orden->getTipoAlimentoId();
     $alimentoId = $orden->getAlimentoId();
     $cantidad = $orden->getCantidad();
@@ -105,13 +108,14 @@ class OrdenDAO
     $horaActualizacion = date('H:i:s');
 
     $sql = "UPDATE ordenes
-             SET potreroId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, usuarioId = ?, estadoId = ?, fechaCreacion = ?, fechaActualizacion = ?, horaCreacion = ?, horaActualizacion = ?
+             SET potreroId = ?, almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, usuarioId = ?, estadoId = ?, fechaCreacion = ?, fechaActualizacion = ?, horaCreacion = ?, horaActualizacion = ?
              WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param(
-      "iiiiiissssi",
+      "iiiiiiissssi",
       $potreroId,
+      $almacenId,
       $tipoAlimentoId,
       $alimentoId,
       $cantidad,
@@ -145,6 +149,7 @@ class OrdenDAO
       $ordenes[] = new Orden(
         $row['id'],
         $row['potreroId'],
+        $row['almacenId'],
         $row['tipoAlimentoId'],
         $row['alimentoId'],
         $row['cantidad'],
@@ -172,6 +177,7 @@ class OrdenDAO
       ? new Orden(
         $res['id'],
         $res['potreroId'],
+        $res['almacenId'],
         $res['tipoAlimentoId'],
         $res['alimentoId'],
         $res['cantidad'],
@@ -187,7 +193,7 @@ class OrdenDAO
 
   public function getOrdenByPotreroId($potreroId): ?Orden
   {
-    $sql = "SELECT * FROM ordenes WHERE potrer$potreroId = ?";
+    $sql = "SELECT * FROM ordenes WHERE potreroId = ?"; // FIX de typo
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $potreroId);
     $stmt->execute();
@@ -197,6 +203,7 @@ class OrdenDAO
       ? new Orden(
         $res['id'],
         $res['potreroId'],
+        $res['almacenId'],
         $res['tipoAlimentoId'],
         $res['alimentoId'],
         $res['cantidad'],
@@ -222,6 +229,7 @@ class OrdenDAO
       ? new Orden(
         $res['id'],
         $res['potreroId'],
+        $res['almacenId'],
         $res['tipoAlimentoId'],
         $res['alimentoId'],
         $res['cantidad'],
@@ -247,6 +255,7 @@ class OrdenDAO
       ? new Orden(
         $res['id'],
         $res['potreroId'],
+        $res['almacenId'],
         $res['tipoAlimentoId'],
         $res['alimentoId'],
         $res['cantidad'],
@@ -262,7 +271,7 @@ class OrdenDAO
 
   public function getOrdenByCantidad($cantidad): ?Orden
   {
-    $sql = "SELECT * FROM ordenes WHERE cant$cantidad = ?";
+    $sql = "SELECT * FROM ordenes WHERE cantidad = ?"; // FIX de typo
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $cantidad);
     $stmt->execute();
@@ -272,6 +281,7 @@ class OrdenDAO
       ? new Orden(
         $res['id'],
         $res['potreroId'],
+        $res['almacenId'],
         $res['tipoAlimentoId'],
         $res['alimentoId'],
         $res['cantidad'],
@@ -297,6 +307,7 @@ class OrdenDAO
       ? new Orden(
         $res['id'],
         $res['potreroId'],
+        $res['almacenId'],
         $res['tipoAlimentoId'],
         $res['alimentoId'],
         $res['cantidad'],
@@ -322,6 +333,7 @@ class OrdenDAO
       ? new Orden(
         $res['id'],
         $res['potreroId'],
+        $res['almacenId'],
         $res['tipoAlimentoId'],
         $res['alimentoId'],
         $res['cantidad'],

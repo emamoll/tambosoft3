@@ -6,6 +6,7 @@ class Orden
   // Propiedades que corresponden a las columnas de la tabla ordenes
   private $id;
   private $potreroId;
+  private $almacenId;
   private $tipoAlimentoId;
   private $alimentoId;
   private $cantidad;
@@ -17,10 +18,11 @@ class Orden
   private $horaActualizacion;
 
 
-  public function __construct($id = null, $potreroId = null, $tipoAlimentoId = null, $alimentoId = null, $cantidad = null, $usuarioId = null, $estadoId = null, $fechaCreacion = null, $fechaActualizacion = null, $horaCreacion = null, $horaActualizacion = null)
+  public function __construct($id = null, $potreroId = null, $almacenId = null, $tipoAlimentoId = null, $alimentoId = null, $cantidad = null, $usuarioId = null, $estadoId = null, $fechaCreacion = null, $fechaActualizacion = null, $horaCreacion = null, $horaActualizacion = null)
   {
     $this->id = $id;
     $this->potreroId = $potreroId;
+    $this->almacenId = $almacenId;
     $this->tipoAlimentoId = $tipoAlimentoId;
     $this->alimentoId = $alimentoId;
     $this->cantidad = $cantidad;
@@ -41,6 +43,11 @@ class Orden
   public function getPotreroId()
   {
     return $this->potreroId;
+  }
+
+  public function getAlmacenId()
+  {
+    return $this->almacenId;
   }
 
   public function getTipoAlimentoId()
@@ -95,6 +102,11 @@ class Orden
     $this->potreroId = $potreroId;
   }
 
+  public function setAlmacenId($almacenId)
+  {
+    $this->almacenId = $almacenId;
+  }
+
   public function setTipoAlimentoId($tipoAlimentoId)
   {
     $this->tipoAlimentoId = $tipoAlimentoId;
@@ -145,6 +157,7 @@ class Orden
     return [
       'id' => $this->id,
       'potreroId' => $this->potreroId,
+      'almacenId' => $this->almacenId,
       'tipoAlimentoId' => $this->tipoAlimentoId,
       'alimentoId' => $this->alimentoId,
       'cantidad' => $this->cantidad,

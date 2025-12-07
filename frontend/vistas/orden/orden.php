@@ -14,8 +14,11 @@ $controllerOrden = new OrdenController();
 // 3. Obtener datos para SELECTs y listado
 $ordenes = $controllerOrden->obtenerOrden();
 $potreros = $controllerOrden->obtenerTodosLosPotreros();
+$almacenes = $controllerOrden->obtenerTodosLosAlmacenes();
 $tiposAlimentos = $controllerOrden->obtenerTiposAlimentos();
-$alimentos = $controllerOrden->obtenerTodosLosAlimentos();
+$alimentos = $controllerOrden->obtenerTodosLosAlimentos(); // Se mantiene para compatibilidad con JS
+$tractoristas = $controllerOrden->obtenerTractoristas();
+$usuarioLogueadoId = $_SESSION['usuarioId'] ?? 0;
 
 function esc($s)
 {
@@ -40,6 +43,27 @@ function esc($s)
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
     crossorigin="anonymous"></script>
   <script src="../../javascript/header.js"></script>
+
+  <style>
+    .alert-success {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert-error {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+
 </head>
 
 <body class="bodyHome">
@@ -48,6 +72,8 @@ function esc($s)
 
   <div class="form-container form">
     <h2 id="form-title">Registrar Orden</h2>
+
+    <div id="system-message-container" style="margin-bottom: 15px;"></div>
 
     <form id="ordenForm" method="post" action="../../../backend/controladores/ordenController.php" novalidate>
       <input type="hidden" id="id" name="id" />
@@ -66,6 +92,21 @@ function esc($s)
           <?php endif; ?>
         </select>
         <div id="error-potreroId" class="error-message">El campo es obligatorio</div>
+      </div>
+
+      <div class="form-group">
+        <label for="almacenId">Almacén de Origen *</label>
+        <select id="almacenId" name="almacenId" class="campo-input">
+          <option value="">-- Seleccioná un Almacén --</option>
+          <?php if (is_array($almacenes)): ?>
+            <?php foreach ($almacenes as $almacen): ?>
+              <option value="<?= esc($almacen['id']) ?>">
+                <?= esc($almacen['nombre']) ?>
+              </option>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </select>
+        <div id="error-almacenId" class="error-message">El almacén de origen es obligatorio</div>
       </div>
 
       <div class="form-group">
@@ -102,6 +143,22 @@ function esc($s)
         </div>
       </div>
 
+      <div class="form-group">
+        <label for="usuarioId">Tractorista (opcional)</label>
+        <select id="usuarioId" name="usuarioId" class="campo-input">
+          <option value="">-- Seleccioná un Tractorista --</option>
+          <?php if (is_array($tractoristas)): ?>
+            <?php foreach ($tractoristas as $user): ?>
+              <option value="<?= esc($user['id']) ?>" <?= $usuarioLogueadoId == $user['id'] ? 'selected' : '' ?>>
+                <?= esc($user['username']) ?>
+              </option>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </select>
+        <small class="form-text text-muted">Si no se selecciona, se usará el usuario logueado (si es
+          Tractorista).</small>
+      </div>
+
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
 
@@ -124,6 +181,7 @@ function esc($s)
         <thead>
           <tr>
             <th>Potrero</th>
+            <th>Almacén</th>
             <th>Tipo de Alimento</th>
             <th>Alimento</th>
             <th>Cantidad</th>

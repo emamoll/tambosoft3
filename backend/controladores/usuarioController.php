@@ -2,6 +2,7 @@
 
 // Incluye el archivo de la capa de acceso a datos para los usuarios.
 require_once __DIR__ . '../../DAOS/usuarioDAO.php';
+require_once __DIR__ . '../../modelos/usuario/usuarioModelo.php';
 
 // Clase controladora para gestionar las operaciones relacionadas con los usuarios
 class UsuarioController
@@ -19,32 +20,43 @@ class UsuarioController
     // Cifra la contraseña utilizando password_hash
     $hash = password_hash($password, PASSWORD_DEFAULT);
 
-    // Verifica si el nombre de usuario o el email ya existen.
+    // 1. Verifica si el nombre de usuario o el email ya existen.
     $existeUsername = $this->usuarioDAO->getUsuarioByUsername($username);
     $existeEmail = $this->usuarioDAO->getUsuarioByEmail($email);
 
-    // Si el usuario ya existe, devuelve un mensaje de error.
+    // 2. Si el usuario ya existe, devuelve un mensaje de error.
     if ($existeUsername) {
-      return ['success' => false, 'message' => 'Usuario ya existe'];
+      return ['tipo' => 'error', 'mensaje' => 'El nombre de usuario ya está en uso.'];
     }
 
-    // Si el email ya existe, devuelve un mensaje de error.
+    // 3. Si el email ya existe, devuelve un mensaje de error.
     if ($existeEmail) {
-      return ['success' => false, 'message' => 'Email ya existe'];
+      return ['tipo' => 'error', 'mensaje' => 'El email ya está registrado.'];
     }
 
-    // Si no existen, procede con el registro.
+    // 4. Si no existen, procede con el registro.
     $this->usuarioDAO->verificarRoles();
-    $usuario = new Usuario(null, $username, $email, $hash, $rolId, $imagen, $token);
+    // NOTA: La imagen y el token son placeholders, generalmente 'user.png' y null o vacío en el registro.
+    // Usamos el rolId del formulario.
+    $usuario = new Usuario(null, $username, $email, $hash, $rolId, 'user.png', '');
     $resultado = $this->usuarioDAO->registrarUsuario($usuario);
 
-    // Devuelve el resultado del registro.
-    if ($resultado) {
-      return ['success' => true];
+    // 5. Devuelve el resultado del registro.
+    if ($resultado === true) {
+      return ['tipo' => 'success', 'mensaje' => 'Usuario registrado correctamente.'];
     } else {
-      return ['success' => false, 'message' => 'Error al registrar el usuario'];
+      // Si el DAO devuelve un string, asumimos que es un error de DB
+      $error = is_string($resultado) ? 'Error de DB: ' . $resultado : 'Error desconocido al registrar el usuario.';
+      return ['tipo' => 'error', 'mensaje' => $error];
     }
   }
+
+  // Obtiene todos los roles (MÉTODO AGREGADO para solucionar el error)
+  public function obtenerRoles()
+  {
+    return $this->usuarioDAO->getAllRoles();
+  }
+
 
   // Inicia sesión de un usuario.
   public function loginUsuario($username, $password)
@@ -90,5 +102,55 @@ class UsuarioController
   public function getUsuarioByToken($token)
   {
     return $this->usuarioDAO->getUsuarioByToken($token);
+  }
+
+  // Manejador de peticiones AJAX (Registro)
+  public function procesarFormularios()
+  {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+      // Asumimos que los datos vienen de FormData (POST)
+      $accion = $_POST['accion'] ?? null;
+
+      $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida.'];
+
+      if ($accion === 'registrar') {
+        // Validación básica (debería ser robusta en JS también)
+        if (empty($_POST['username']) || empty($_POST['email']) || empty($_POST['password']) || empty($_POST['rolId'])) {
+          $res = ['tipo' => 'error', 'mensaje' => 'Todos los campos marcados con * son obligatorios.'];
+        } else {
+          $username = trim($_POST['username']);
+          $email = trim($_POST['email']);
+          $password = trim($_POST['password']);
+          $rolId = intval($_POST['rolId']);
+
+          // Por defecto la imagen es 'user.png' y el token vacío.
+          $resultadoRegistro = $this->registrarUsuario($username, $email, $password, $rolId, 'user.png', '');
+
+          $res = $resultadoRegistro; // Ya tiene el formato ['tipo' => '...', 'mensaje' => '...']
+        }
+      }
+
+      // Respuesta JSON para AJAX
+      if (ob_get_level()) {
+        ob_clean();
+      }
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode($res);
+      exit;
+    }
+  }
+}
+
+// Punto de entrada para peticiones AJAX de registro
+if (php_sapi_name() !== 'cli' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+  // Verificamos si es una petición AJAX
+  $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+
+  if ($isAjax) {
+    // Ob_start solo si es una petición que se procesará en el controlador
+    ob_start();
+    $ctrl = new UsuarioController();
+    $ctrl->procesarFormularios();
+    exit;
   }
 }

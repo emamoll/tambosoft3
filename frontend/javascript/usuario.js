@@ -1,72 +1,109 @@
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("registroForm");
-  if (form) {
-    const inputImagen = document.getElementById("imagen");
-    form.addEventListener("submit", (e) => {
-      let valido = true;
+  const systemMessageContainer = document.getElementById(
+    "system-message-container"
+  );
 
-      const username = document.getElementById("username").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-      const confirmar = document.getElementById("confirmar")?.value || "";
-      const rolId = document.getElementById("rolId")?.value || "";
+  // Función para mostrar mensajes de sistema (éxito o error)
+  function mostrarMensaje(tipo, mensaje) {
+    systemMessageContainer.innerHTML = "";
 
-      const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const regexPass = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{8,}$/;
+    if (!mensaje) return;
 
-      if (username === "") {
-        document.getElementById("error-username").style.display = "block";
-        valido = false;
-      } else document.getElementById("error-username").style.display = "none";
+    const alertDiv = document.createElement("div");
 
-      if (!regexEmail.test(email)) {
-        document.getElementById("error-email").style.display = "block";
-        valido = false;
-      } else document.getElementById("error-email").style.display = "none";
+    if (tipo === "success") {
+      alertDiv.className = "alert-success";
+    } else {
+      alertDiv.className = "alert-error";
+    }
 
-      if (!regexPass.test(password)) {
-        document.getElementById("error-password").style.display = "block";
-        valido = false;
-      } else document.getElementById("error-password").style.display = "none";
+    alertDiv.textContent = mensaje;
 
-      if (confirmar && password !== confirmar) {
-        document.getElementById("error-confirmar").style.display = "block";
-        valido = false;
-      } else if (document.getElementById("error-confirmar")) {
-        document.getElementById("error-confirmar").style.display = "none";
-      }
+    systemMessageContainer.appendChild(alertDiv);
 
-      if (rolId && document.getElementById("error-rol")) {
-        document.getElementById("error-rol").style.display = "none";
-      } else if (document.getElementById("error-rol")) {
-        document.getElementById("error-rol").style.display = "block";
-        valido = false;
-      }
-
-      if (
-        inputImagen &&
-        inputImagen.files.length === 0 &&
-        document.getElementById("error-imagen")
-      ) {
-        document.getElementById("error-imagen").style.display = "block";
-        valido = false;
-      } else if (document.getElementById("error-imagen")) {
-        document.getElementById("error-imagen").style.display = "none";
-      }
-
-      if (!valido) e.preventDefault();
-    });
+    // Auto-ocultar después de 5 segundos
+    setTimeout(() => {
+      alertDiv.style.display = "none";
+      systemMessageContainer.innerHTML = "";
+    }, 5000);
   }
 
-  const passwordInput = document.getElementById("password");
-  const toggleEye = document.getElementById("togglePassword");
+  // Helper para realizar peticiones y obtener JSON
+  async function fetchJSON(url, options = {}) {
+    const resp = await fetch(url, options);
+    const ct = resp.headers.get("content-type") || "";
+    const raw = await resp.text();
 
-  if (passwordInput && toggleEye) {
-    toggleEye.addEventListener("click", () => {
-      const isHidden = passwordInput.type === "password";
-      passwordInput.type = isHidden ? "text" : "password";
-      toggleEye.classList.toggle("fa-eye", !isHidden);
-      toggleEye.classList.toggle("fa-eye-slash", isHidden);
-    });
+    if (!ct.includes("application/json")) {
+      console.error("[Backend NON-JSON]", {
+        url,
+        status: resp.status,
+        contentType: ct,
+        preview: raw.slice(0, 400),
+      });
+      return { tipo: "error", mensaje: "Respuesta inválida del servidor." };
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error("[JSON Parse Error]", raw.slice(0, 400), e);
+      return {
+        tipo: "error",
+        mensaje: "Error al procesar la respuesta del servidor.",
+      };
+    }
   }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    let ok = true;
+    document
+      .querySelectorAll(".error-message")
+      .forEach((el) => (el.style.display = "none"));
+    mostrarMensaje("", ""); // Limpiar mensajes anteriores
+
+    const username = document.getElementById("username").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const rolId = document.getElementById("rolId").value;
+
+    const mostrarError = (id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "block";
+      ok = false;
+    };
+
+    if (!username) mostrarError("error-username");
+    if (!email) mostrarError("error-email");
+    if (!password) mostrarError("error-password");
+    if (!rolId) mostrarError("error-rolId");
+
+    if (!ok) {
+      mostrarMensaje("error", "Por favor, corrija los errores del formulario.");
+      return;
+    }
+
+    const fd = new FormData(form);
+
+    try {
+      const data = await fetchJSON(form.action, {
+        method: "POST",
+        body: fd,
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+
+      if (data.tipo === "success") {
+        mostrarMensaje(data.tipo, data.mensaje);
+        form.reset(); // Limpiar formulario
+      } else {
+        mostrarMensaje(data.tipo, data.mensaje);
+      }
+    } catch (err) {
+      console.error(err);
+      mostrarMensaje("error", "Error al procesar la solicitud.");
+    }
+  });
 });

@@ -1,9 +1,9 @@
 let currentFiltros = {}; // Variable global para almacenar el estado actual de los filtros
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("stock.js cargado correctamente");
+  console.log("orden.js cargado correctamente");
 
-  const API = "../../../backend/controladores/stockController.php";
+  const API = "../../../backend/controladores/ordenController.php";
 
   // --- FORM ---
   const form = document.getElementById("ordenForm");
@@ -13,13 +13,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const cancelarEdicion = document.getElementById("cancelarEdicion");
 
   const potreroId = document.getElementById("potreroId");
+  const almacenId = document.getElementById("almacenId");
   const tipoAlimentoId = document.getElementById("tipoAlimentoId");
   const alimentoId = document.getElementById("alimentoId");
   const cantidad = document.getElementById("cantidad");
+  const usuarioId = document.getElementById("usuarioId");
 
   const stockDisplay = document.getElementById("stockDisplay");
   const errorStockInsuficiente = document.getElementById(
     "error-stock-insuficiente"
+  );
+
+  // Contenedor de mensajes de sistema
+  const systemMessageContainer = document.getElementById(
+    "system-message-container"
   );
 
   // --- TABLA PRINCIPAL ---
@@ -62,10 +69,39 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS por tipo
+  // FUNCIÓN: MOSTRAR MENSAJE DE SISTEMA (USANDO CLASES CSS)
   // ----------------------------------------------------
-  function cargarAlimentosPorTipo() {
+  function mostrarMensaje(tipo, mensaje) {
+    // Limpia cualquier mensaje anterior
+    systemMessageContainer.innerHTML = "";
+
+    if (!mensaje) return;
+
+    const alertDiv = document.createElement("div");
+
+    if (tipo === "success") {
+      alertDiv.className = "alert-success";
+    } else {
+      alertDiv.className = "alert-error";
+    }
+
+    alertDiv.textContent = mensaje;
+
+    systemMessageContainer.appendChild(alertDiv);
+
+    // Auto-ocultar después de 5 segundos
+    setTimeout(() => {
+      alertDiv.style.display = "none";
+      systemMessageContainer.innerHTML = "";
+    }, 5000);
+  }
+
+  // ----------------------------------------------------
+  // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS por tipo y ALMACÉN (AJAX)
+  // ----------------------------------------------------
+  async function cargarAlimentosDisponibles() {
     const tipoSeleccionado = tipoAlimentoId.value;
+    const almacenSeleccionado = almacenId.value;
     const alimentoSeleccionadoActual = alimentoId.value;
 
     // Limpiar el select de alimentos, manteniendo la opción por defecto
@@ -74,24 +110,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Resetea el stock mostrado
     stockDisplay.textContent = "Stock: -";
+    stockDisplay.dataset.stock = 0;
     errorStockInsuficiente.style.display = "none";
 
-    if (tipoSeleccionado && typeof ALL_ALIMENTOS !== "undefined") {
-      const alimentosFiltrados = ALL_ALIMENTOS.filter(
-        (a) => String(a.tipoAlimentoId) === tipoSeleccionado
-      );
+    if (tipoSeleccionado && almacenSeleccionado) {
+      try {
+        const params = new URLSearchParams({
+          action: "getAlimentosConStock",
+          almacenId: almacenSeleccionado,
+          tipoAlimentoId: tipoSeleccionado,
+        });
 
-      alimentosFiltrados.forEach((alimento) => {
-        const option = document.createElement("option");
-        option.value = alimento.id;
-        option.textContent = alimento.nombre;
+        const alimentosConStock = await fetchJSON(
+          `${API}?${params.toString()}`
+        );
 
-        if (String(alimento.id) === alimentoSeleccionadoActual) {
-          option.selected = true;
+        if (Array.isArray(alimentosConStock)) {
+          alimentosConStock.forEach((alimento) => {
+            const option = document.createElement("option");
+            // Mostrar stock disponible al lado del nombre
+            option.textContent = `${alimento.nombre} (Disp: ${alimento.cantidad})`;
+            option.value = alimento.id;
+
+            // Asignar dataset de stock para la validación rápida en el submit
+            option.dataset.stock = alimento.cantidad;
+
+            if (String(alimento.id) === alimentoSeleccionadoActual) {
+              option.selected = true;
+              stockDisplay.dataset.stock = alimento.cantidad;
+              stockDisplay.textContent = `Stock: ${alimento.cantidad}`;
+            }
+
+            alimentoId.appendChild(option);
+          });
         }
-
-        alimentoId.appendChild(option);
-      });
+      } catch (e) {
+        console.error("Error al cargar alimentos disponibles:", e);
+      }
     }
   }
 
@@ -99,13 +154,31 @@ document.addEventListener("DOMContentLoaded", () => {
   // FUNCIÓN: OBTENER Y MOSTRAR STOCK (AJAX)
   // ----------------------------------------------------
   async function obtenerYMostrarStock() {
+    const almacenSeleccionado = almacenId.value;
     const alimentoSeleccionado = alimentoId.value;
     const tipoAlimentoSeleccionado = tipoAlimentoId.value;
 
     stockDisplay.textContent = "Cargando...";
     errorStockInsuficiente.style.display = "none";
 
-    if (!alimentoSeleccionado || !tipoAlimentoSeleccionado) {
+    // Obtener stock desde el atributo dataset del <option> si existe
+    const selectedOption = alimentoId.options[alimentoId.selectedIndex];
+    const stockPrecargado = selectedOption
+      ? selectedOption.dataset.stock
+      : undefined;
+
+    if (stockPrecargado !== undefined && accionInput.value === "registrar") {
+      stockDisplay.dataset.stock = Number(stockPrecargado);
+      stockDisplay.textContent = `Stock: ${stockPrecargado}`;
+      return;
+    }
+
+    // Si no hay opción seleccionada o estamos en modo edición, hacer la llamada AJAX
+    if (
+      !almacenSeleccionado ||
+      !alimentoSeleccionado ||
+      !tipoAlimentoSeleccionado
+    ) {
       stockDisplay.textContent = "Stock: -";
       stockDisplay.dataset.stock = 0;
       return;
@@ -114,6 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const params = new URLSearchParams({
         action: "getStock",
+        almacenId: almacenSeleccionado,
         alimentoId: alimentoSeleccionado,
         tipoAlimentoId: tipoAlimentoSeleccionado,
       });
@@ -137,13 +211,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // ----------------------------------------------------
   // EVENT LISTENERS PARA FILTRAR ALIMENTO Y MOSTRAR STOCK
   // ----------------------------------------------------
-  tipoAlimentoId.addEventListener("change", () => {
+  almacenId.addEventListener("change", () => {
+    // Resetear tipo y alimento para forzar la carga de los disponibles en el nuevo almacén
+    tipoAlimentoId.value = "";
     alimentoId.value = "";
-    cargarAlimentosPorTipo();
+    cargarAlimentosDisponibles();
     obtenerYMostrarStock();
   });
 
+  tipoAlimentoId.addEventListener("change", () => {
+    alimentoId.value = ""; // Resetear alimento al cambiar tipo
+    cargarAlimentosDisponibles(); // Cargar alimentos disponibles para el almacén y tipo seleccionado
+    obtenerYMostrarStock();
+  });
+
+  // Si el alimento cambia, recalcular stock
   alimentoId.addEventListener("change", obtenerYMostrarStock);
+
   cantidad.addEventListener("input", () => {
     errorStockInsuficiente.style.display = "none"; // Ocultar al cambiar cantidad
   });
@@ -166,7 +250,8 @@ document.addEventListener("DOMContentLoaded", () => {
       tableBody.innerHTML = "";
 
       if (!Array.isArray(data) || data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No hay ordenes registradas.</td></tr>`;
+        // Colspan ajustado a 10 (9 columnas de datos + 1 de Acciones)
+        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center;">No hay ordenes registradas.</td></tr>`;
         return;
       }
 
@@ -179,6 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tr.innerHTML = `
         <td>${o.potreroNombre}</td>
+        <td>${o.almacenNombre}</td>
         <td>${o.tipoAlimentoNombre}</td>
         <td>${o.alimentoNombre}</td>
         <td>${o.cantidad}</td>
@@ -198,6 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (e) {
       console.error("Error listando:", e);
+      mostrarMensaje("error", "Error al listar las órdenes.");
     }
   }
 
@@ -212,8 +299,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     idInput.value = "";
     form.reset();
-    cargarAlimentosPorTipo();
+
+    // Restablecer la selección de usuario logueado por defecto
+    const defaultUserId = usuarioId.querySelector(
+      `option[value="${usuarioId.dataset.defaultUserId}"]`
+    );
+    if (defaultUserId) {
+      defaultUserId.selected = true;
+    } else {
+      usuarioId.value = ""; // Si no hay default, dejar vacío
+    }
+
+    // Al resetear, forzar la carga de alimentos disponibles para el almacén (que ahora es vacío)
+    almacenId.value = "";
+    tipoAlimentoId.value = "";
+    alimentoId.value = "";
+    cargarAlimentosDisponibles();
+
     stockDisplay.textContent = "Stock: -";
+    stockDisplay.dataset.stock = 0;
     errorStockInsuficiente.style.display = "none";
 
     document
@@ -234,6 +338,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     errorStockInsuficiente.style.display = "none";
 
+    // Limpiar mensajes anteriores al intentar enviar
+    mostrarMensaje("", "");
+
     const mostrarError = (id) => {
       const el = document.getElementById(id);
       if (el) el.style.display = "block";
@@ -242,6 +349,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Validación básica
     if (!potreroId.value.trim()) mostrarError("error-potreroId");
+    if (!almacenId.value.trim()) mostrarError("error-almacenId");
     if (!tipoAlimentoId.value.trim()) mostrarError("error-tipoAlimentoId");
     if (!alimentoId.value.trim()) mostrarError("error-alimentoId");
 
@@ -254,13 +362,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (accionInput.value === "registrar" && ok) {
       const stockDisponible = Number(stockDisplay.dataset.stock) || 0;
       if (cant > stockDisponible) {
-        errorStockInsuficiente.textContent = `Stock insuficiente. Solo hay ${stockDisponible} unidades disponibles.`;
+        errorStockInsuficiente.textContent = `Stock insuficiente en el almacén. Solo hay ${stockDisponible} unidades disponibles.`;
         errorStockInsuficiente.style.display = "block";
         ok = false;
       }
     }
 
-    if (!ok) return;
+    if (!ok) {
+      mostrarMensaje("error", "Por favor, corrija los errores del formulario.");
+      return;
+    }
 
     const fd = new FormData(form);
 
@@ -272,16 +383,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (data.tipo === "success") {
-        alert(data.mensaje);
+        mostrarMensaje(data.tipo, data.mensaje);
         await refrescarTabla();
         setRegistrarMode();
-        obtenerYMostrarStock(); // Actualiza el stock después de la creación
       } else {
-        alert(data.mensaje);
+        mostrarMensaje(data.tipo, data.mensaje);
       }
     } catch (err) {
       console.error(err);
-      alert("Error al procesar la solicitud.");
+      mostrarMensaje("error", "Error al procesar la solicitud.");
     }
   });
 
@@ -296,6 +406,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const id = btn.dataset.id;
 
+    // Limpiar mensajes de sistema
+    mostrarMensaje("", "");
+
     // EDITAR ORDEN
     if (btn.classList.contains("js-editar")) {
       document.getElementById("form-title").textContent = "Modificar Orden";
@@ -309,15 +422,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (ordenData) {
         idInput.value = ordenData.id;
         potreroId.value = ordenData.potreroId;
+        almacenId.value = ordenData.almacenId;
         tipoAlimentoId.value = ordenData.tipoAlimentoId;
 
-        // Recargar alimentos y luego asignar el alimentoId
-        cargarAlimentosPorTipo();
+        // Cargar alimentos disponibles para el almacén y tipo. Usamos await
+        await cargarAlimentosDisponibles();
         alimentoId.value = ordenData.alimentoId;
 
         cantidad.value = ordenData.cantidad;
+        usuarioId.value = ordenData.usuarioId;
 
-        // Mostrar stock después de cargar el alimento (solo informativo en edición)
+        // Mostrar stock actual (sólo informativo en edición)
         obtenerYMostrarStock();
       }
       return;
@@ -351,14 +466,16 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (res.tipo === "success") {
-        alert(res.mensaje);
+        mostrarMensaje(res.tipo, res.mensaje);
         await refrescarTabla();
+        // Si se elimina una orden, resetear el modo de registro.
+        setRegistrarMode();
       } else {
-        alert(res.mensaje);
+        mostrarMensaje(res.tipo, res.mensaje);
       }
     } catch (err) {
       console.error("Error al eliminar la orden:", err);
-      alert("Error al eliminar la orden.");
+      mostrarMensaje("error", "Error al eliminar la orden.");
     }
 
     modal.style.display = "none";
@@ -371,7 +488,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // ------------------------------
   // INICIAR
   // ------------------------------
+  // Guardar el ID del usuario logueado (si es Tractorista)
+  const userOption = usuarioId.querySelector("option:checked");
+  if (userOption) {
+    usuarioId.dataset.defaultUserId = userOption.value;
+  }
+
   setRegistrarMode();
-  cargarAlimentosPorTipo();
   refrescarTabla();
 });

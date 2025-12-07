@@ -52,18 +52,14 @@ class UsuarioDAO
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $id);
     $stmt->execute();
-    $stmt->store_result();
 
-    // Si no se encuentra ninguna fila, retorna null.
-    if ($stmt->num_rows() === 0) {
-      return null;
-    }
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
 
-    // Vincula las variables a las columnas del resultado y obtiene la fila.
-    $stmt->bind_result($id, $username, $email, $password, $rolId, $imagen, $token);
-    $stmt->fetch();
-
-    return new Usuario($id, $username, $email, $password, $rolId, $imagen, $token);
+    return $row
+      ? new Usuario($row['id'], $row['username'], $row['email'], $row['password'], $row['rolId'], $row['imagen'], $row['token'])
+      : null;
   }
 
   // Obtiene un usuario por su nombre de usuario.
@@ -73,18 +69,14 @@ class UsuarioDAO
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("s", $username);
     $stmt->execute();
-    $stmt->store_result();
 
-    // Si no se encuentra ninguna fila, retorna null.
-    if ($stmt->num_rows() === 0) {
-      return null;
-    }
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
 
-    // Vincula las variables y obtiene la fila.
-    $stmt->bind_result($id, $username, $email, $password, $rolId, $imagen, $token);
-    $stmt->fetch();
-
-    return new Usuario($id, $username, $email, $password, $rolId, $imagen, $token);
+    return $row
+      ? new Usuario($row['id'], $row['username'], $row['email'], $row['password'], $row['rolId'], $row['imagen'], $row['token'])
+      : null;
   }
 
   // Obtiene un usuario por su dirección de correo electrónico.
@@ -94,38 +86,31 @@ class UsuarioDAO
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("s", $email);
     $stmt->execute();
-    $stmt->store_result();
 
-    // Si no se encuentra ninguna fila, retorna null.
-    if ($stmt->num_rows() === 0) {
-      return null;
-    }
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
 
-    // Vincula las variables y obtiene la fila.
-    $stmt->bind_result($id, $username, $email, $password, $rolId, $imagen, $token);
-    $stmt->fetch();
-
-    return new Usuario($id, $username, $email, $password, $rolId, $imagen, $token);
+    return $row
+      ? new Usuario($row['id'], $row['username'], $row['email'], $row['password'], $row['rolId'], $row['imagen'], $row['token'])
+      : null;
   }
 
   // Obtiene un usuario por su token de sesión
   public function getUsuarioByToken($token)
   {
-    $sql = "SELECT id, username, email, password, rolId, token FROM usuarios WHERE token = ?";
+    $sql = "SELECT * FROM usuarios WHERE token = ?";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("s", $token);
     $stmt->execute();
-    $stmt->store_result();
 
-    // Si no se encuentra ninguna fila, retorna null
-    if ($stmt->num_rows === 0)
-      return null;
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
 
-    // Vincula las variables y obtiene la fila.
-    $stmt->bind_result($id, $username, $email, $password, $rolId, $imagen, $token);
-    $stmt->fetch();
-
-    return new Usuario($id, $username, $email, $password, $rolId, $imagen, $token);
+    return $row
+      ? new Usuario($row['id'], $row['username'], $row['email'], $row['password'], $row['rolId'], $row['imagen'], $row['token'])
+      : null;
   }
 
   // Inserta los roles predeterminados si no existen.
@@ -156,6 +141,21 @@ class UsuarioDAO
     }
   }
 
+  // Obtiene todos los roles (NUEVO)
+  public function getAllRoles(): array
+  {
+    $sql = "SELECT id, nombre FROM roles ORDER BY id";
+    $result = $this->conn->query($sql);
+
+    $roles = [];
+    if ($result) {
+      while ($row = $result->fetch_assoc()) {
+        $roles[] = $row;
+      }
+    }
+    return $roles;
+  }
+
   // Verifica si los roles predeterminados están presentes
   public function verificarRoles()
   {
@@ -174,8 +174,8 @@ class UsuarioDAO
     $stmt = $this->conn->prepare($sql);
 
     if (!$stmt) {
-      echo ("Error en prepare: " . $this->conn->error);
-      return false;
+      // Devolvemos el error en lugar de usar echo y die/return false sin detalle
+      return $this->conn->error;
     }
 
     $username = $usuario->getUsername();
@@ -188,11 +188,13 @@ class UsuarioDAO
     $stmt->bind_param("sssiss", $username, $email, $password, $rolId, $imagen, $token);
 
     $resultado = $stmt->execute();
+
     if (!$resultado) {
-      echo ("Error en execute: " . $stmt->error);
+      // Devolvemos el error de ejecución
+      return $stmt->error;
     }
 
-    return $resultado;
+    return true; // Éxito
   }
 
   // Intenta iniciar sesión con un usuario y contraseña
@@ -223,5 +225,29 @@ class UsuarioDAO
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("si", $token, $id);
     $stmt->execute();
+  }
+
+  // Obtiene usuarios por su ID de Rol.
+  public function getUsuariosByRolId($rolId)
+  {
+    $sql = "SELECT id, username, email, rolId, imagen FROM usuarios WHERE rolId = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $rolId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $usuarios = [];
+    while ($row = $result->fetch_assoc()) {
+      $usuarios[] = [
+        'id' => $row['id'],
+        'username' => $row['username'],
+        'email' => $row['email'],
+        'rolId' => $row['rolId'],
+        'imagen' => $row['imagen'],
+      ];
+    }
+
+    $stmt->close();
+    return $usuarios;
   }
 }

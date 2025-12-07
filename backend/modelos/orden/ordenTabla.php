@@ -15,7 +15,7 @@ class OrdenCrearTabla
     $this->db = $db;
   }
 
-  
+
   // Crear la tabla estados si no existe
   public function crearTablaEstados()
   {
@@ -48,6 +48,7 @@ class OrdenCrearTabla
     $sql = "CREATE TABLE IF NOT EXISTS ordenes (
               id INT PRIMARY KEY AUTO_INCREMENT,
               potreroId INT NOT NULL,
+              almacenId INT NOT NULL,
               tipoAlimentoId INT NOT NULL,
               alimentoId INT NOT NULL,
               cantidad INT NOT NULL,
@@ -58,11 +59,12 @@ class OrdenCrearTabla
               horaCreacion TIME NOT NULL,
               horaActualizacion TIME NOT NULL,
               FOREIGN KEY (potreroId) REFERENCES potreros(id),
+              FOREIGN KEY (almacenId) REFERENCES almacenes(id),
               FOREIGN KEY (tipoAlimentoId) REFERENCES tiposAlimentos(id),
               FOREIGN KEY (alimentoId) REFERENCES alimentos(id),
               FOREIGN KEY (usuarioId) REFERENCES usuarios(id),
               FOREIGN KEY (estadoId) REFERENCES estados(id))";
-    
+
     $conn->query($sql);
     $conn->close();
   }

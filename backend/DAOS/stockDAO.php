@@ -255,7 +255,7 @@ class StockDAO
     $params = [$almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna];
     $types = "iiii";
 
-    if ($proveedorId !== null && $proveedorId !== '') {
+    if ($proveedorId !== null && $proveedorId !== '' && $proveedorId !== 0) {
       $sql .= " AND s.proveedorId = ?";
       $params[] = $proveedorId;
       $types .= "i";
@@ -267,13 +267,13 @@ class StockDAO
     if ($fechaMin) {
       $sql .= " AND s.fechaIngreso >= ?";
       $params[] = $fechaMin;
-      $types .= "s";
+      $types .= "s"; // s for string (date)
     }
 
     if ($fechaMax) {
       $sql .= " AND s.fechaIngreso <= ?";
       $params[] = $fechaMax;
-      $types .= "s";
+      $types .= "s"; // s for string (date)
     }
 
     $stmt = $this->conn->prepare($sql);
@@ -343,6 +343,75 @@ class StockDAO
     }
 
     return $rows;
+  }
+
+  // =============================================================
+  // MÉTODO PARA DEVOLVER STOCK (ROLLBACK) - CORREGIDO FINAL
+  // =============================================================
+  public function aumentarStockParaRollback($almacenId, $tipoAlimentoId, $alimentoId, $cantidad): bool
+  {
+    // 1. Buscar el registro de stock ACTIVO (cantidad > 0) más reciente para este producto/almacén.
+    $sqlSelectLatestActive = "SELECT id FROM stocks 
+                                WHERE almacenId = ? AND tipoAlimentoId = ? AND alimentoId = ? AND cantidad > 0
+                                ORDER BY id DESC LIMIT 1";
+    $stmtSelect = $this->conn->prepare($sqlSelectLatestActive);
+    $stmtSelect->bind_param("iii", $almacenId, $tipoAlimentoId, $alimentoId);
+    $stmtSelect->execute();
+    $result = $stmtSelect->get_result();
+    $row = $result->fetch_assoc();
+    $stmtSelect->close();
+
+    $this->conn->begin_transaction();
+    $ok = false;
+
+    if ($row) {
+      // 2. Si se encuentra un registro ACTIVO, actualizamos su cantidad directamente por ID.
+      $stockId = $row['id'];
+      // Usamos 'cantidad = cantidad + ?' para garantizar atomicidad y no depender de la cantidad leída.
+      $sql = "UPDATE stocks SET cantidad = cantidad + ? WHERE id = ?";
+      $stmt = $this->conn->prepare($sql);
+      $stmt->bind_param("ii", $cantidad, $stockId);
+      $ok = $stmt->execute();
+      $stmt->close();
+    } else {
+      // 3. Si NO existe NINGÚN registro de stock ACTIVO (cantidad > 0).
+      // Buscamos el ÚLTIMO registro (activo o inactivo) para reutilizar su ID y evitar fragmentación.
+      $sqlSelectAny = "SELECT id FROM stocks 
+                            WHERE almacenId = ? AND tipoAlimentoId = ? AND alimentoId = ?
+                            ORDER BY id DESC LIMIT 1";
+      $stmtSelectAny = $this->conn->prepare($sqlSelectAny);
+      $stmtSelectAny->bind_param("iii", $almacenId, $tipoAlimentoId, $alimentoId);
+      $stmtSelectAny->execute();
+      $rowAny = $stmtSelectAny->get_result()->fetch_assoc();
+      $stmtSelectAny->close();
+
+      if ($rowAny) {
+        // 3b. Si existe una fila previa (incluso con cantidad 0), la actualizamos sumando la cantidad.
+        $stockId = $rowAny['id'];
+        $sql = "UPDATE stocks SET cantidad = cantidad + ? WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $cantidad, $stockId);
+        $ok = $stmt->execute();
+        $stmt->close();
+      } else {
+        // 3c. Si NO EXISTE NINGUNA fila, creamos una nueva (produccionInterna=0, fecha actual).
+        $produccionInterna = 0;
+        $fechaIngreso = date('Y-m-d');
+
+        $sqlInsert = "INSERT INTO stocks(almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, fechaIngreso) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $this->conn->prepare($sqlInsert);
+
+        $ok = $stmt->bind_param("iiiiis", $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna, $fechaIngreso) && $stmt->execute();
+        $stmt->close();
+      }
+    }
+
+    if ($ok) {
+      $this->conn->commit();
+    } else {
+      $this->conn->rollback();
+    }
+    return $ok;
   }
 
   // =============================================================
@@ -565,7 +634,7 @@ class StockDAO
       : null;
   }
 
-  public function actualizarStock($almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna, $cantidad): ?Stock
+  public function actualizarStock($almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna, $cantidad): ?bool
   {
     $stockActual = $this->getStockByAlmacenIdAndTipoAlimentoAndAlimentoIdAndProduccionInterna(
       $almacenId,
@@ -581,9 +650,11 @@ class StockDAO
       $stmt->bind_param("iiiii", $nuevoStock, $almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna);
       return $stmt->execute();
     } else {
-      $sql = "INSERT INTO stocks(almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna) VALUES (?, ?, ?, ?, ?)";
+      // Si no existe una fila de stock, se inserta una nueva entrada
+      $sql = "INSERT INTO stocks(almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, fechaIngreso) VALUES (?, ?, ?, ?, ?, ?)";
       $stmt = $this->conn->prepare($sql);
-      $stmt->bind_param("iiiii", $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna);
+      $fechaIngreso = date('Y-m-d');
+      $stmt->bind_param("iiiiis", $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna, $fechaIngreso);
       return $stmt->execute();
     }
   }
@@ -793,14 +864,14 @@ class StockDAO
       : null;
   }
 
-  // Obtener la cantidad total de stock disponible para un alimento específico.
-  public function getTotalStockByAlimentoIdAndTipo($alimentoId, $tipoAlimentoId): int
+  // Obtener la cantidad total de stock disponible para un alimento específico y un almacén.
+  public function getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId): int
   {
     $sql = "SELECT COALESCE(SUM(cantidad), 0) AS totalStock 
             FROM stocks 
-            WHERE alimentoId = ? AND tipoAlimentoId = ?";
+            WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ?";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("ii", $alimentoId, $tipoAlimentoId);
+    $stmt->bind_param("iii", $alimentoId, $tipoAlimentoId, $almacenId);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
@@ -809,7 +880,7 @@ class StockDAO
   }
 
   // Retorna true si la reducción fue exitosa, false en caso contrario (ej: stock insuficiente).
-  public function reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidadRequerida): bool
+  public function reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidadRequerida, $almacenId): bool
   {
     $cantidadPendiente = (int) $cantidadRequerida;
 
@@ -817,12 +888,12 @@ class StockDAO
       return true; // Nada que reducir
     }
 
-    // 1. Obtener entradas de stock para el alimento y tipo, ordenadas por fecha de ingreso (FIFO)
+    // 1. Obtener entradas de stock para el alimento, tipo, y ALMACÉN ordenadas por fecha de ingreso (FIFO)
     $sqlSelect = "SELECT id, cantidad FROM stocks 
-                  WHERE alimentoId = ? AND tipoAlimentoId = ? AND cantidad > 0
+                  WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ? AND cantidad > 0
                   ORDER BY fechaIngreso ASC, id ASC"; // FIFO por fecha, luego por ID
     $stmtSelect = $this->conn->prepare($sqlSelect);
-    $stmtSelect->bind_param("ii", $alimentoId, $tipoAlimentoId);
+    $stmtSelect->bind_param("iii", $alimentoId, $tipoAlimentoId, $almacenId);
     $stmtSelect->execute();
     $result = $stmtSelect->get_result();
     $stmtSelect->close();
@@ -877,4 +948,35 @@ class StockDAO
     $this->conn->commit();
     return true;
   }
+
+  // NUEVO: Obtener Alimentos con Stock por Almacén y Tipo (para el filtro en cascada del form)
+  public function getAlimentosConStockByAlmacenIdAndTipoId($almacenId, $tipoAlimentoId): array
+  {
+    $sql = "SELECT s.alimentoId, a.nombre AS alimentoNombre, SUM(s.cantidad) AS totalStock
+              FROM stocks s
+              JOIN alimentos a ON s.alimentoId = a.id
+              WHERE s.almacenId = ?
+                AND s.tipoAlimentoId = ?
+              GROUP BY s.alimentoId, a.nombre
+              HAVING SUM(s.cantidad) > 0
+              ORDER BY a.nombre ASC";
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $almacenId, $tipoAlimentoId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $alimentos = [];
+    while ($row = $result->fetch_assoc()) {
+      $alimentos[] = [
+        'id' => $row['alimentoId'],
+        'nombre' => $row['alimentoNombre'],
+        'cantidad' => (int) $row['totalStock']
+      ];
+    }
+    $stmt->close();
+    return $alimentos;
+  }
+
+
 }
