@@ -20,13 +20,15 @@ $controllerOrden = new OrdenController();
 
 // 3. Obtener datos (solo la tabla necesita datos)
 $alimentos = $controllerOrden->obtenerTodosLosAlimentos(); // Se mantiene para compatibilidad con JS
-$usuarioLogueadoId = $_SESSION['usuarioId'] ?? 0; // OBTENEMOS EL ID DEL USUARIO LOGUEADO
+$usuarioLogueadoId = $_SESSION['usuarioId'] ?? ($_SESSION['id'] ?? 0); // OBTENEMOS EL ID DEL USUARIO LOGUEADO
 
 function esc($s)
 {
   // Función de escape (asegura que los datos sean seguros para HTML)
   return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 }
+
+
 ?>
 
 <!DOCTYPE html>

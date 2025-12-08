@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($usuario) {
     // Si el login es exitoso, establece la sesión y redirige
+    $_SESSION['usuarioId'] = $usuario->getId();
     $_SESSION['username'] = $usuario->getUsername();
     $_SESSION['rolId'] = $usuario->getRolId();
     $_SESSION['imagen'] = $usuario->getImagen();
@@ -49,7 +50,7 @@ try {
   new CategoriaController();
   new PotreroController();
   new PasturaController();
-   new StockController();
+  new StockController();
 
   $db = DatabaseFactory::createDatabaseConnection('mysql');
   // ... cualquier otra lógica de configuración de tablas
