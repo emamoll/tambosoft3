@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const cantidad = document.getElementById("cantidad");
   const usuarioId = document.getElementById("usuarioId");
 
-  // Nuevo elemento para mostrar el potrero asociado
+  // Elemento para mostrar el potrero
   const potreroAsignadoDisplay = document.getElementById(
     "potreroAsignadoDisplay"
   );
@@ -165,6 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? selectedOption.dataset.potrero
       : null;
 
+    // MOSTRAR POTRERO
     if (potreroNombre) {
       potreroAsignadoDisplay.textContent = `Potrero asignado: ${potreroNombre}`;
     } else {
@@ -275,9 +276,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       tableBody.innerHTML = "";
 
-      // Colspan ajustado a 12 (11 columnas de datos + 1 de Acciones)
+      // Colspan ajustado a 9 (8 columnas de datos + 1 de Acciones)
+      // Columnas: Categoria(Potrero), Almacén, Alimento(Tipo), Cantidad, Tractorista, Estado, Fecha, Hora, Acciones (9 columnas)
       if (!Array.isArray(data) || data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="12" style="text-align:center;">No hay ordenes registradas.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No hay ordenes registradas.</td></tr>`;
         return;
       }
 
@@ -288,14 +290,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const estadoColor = o.estadoColor || "#ccc";
         const estadoStyle = `background-color: ${estadoColor}; color: white; border-radius: 4px; padding: 2px 5px;`;
 
-        // Generar las celdas en el nuevo orden: Campo, Categoría, Potrero, Almacén, Tipo Alimento, Alimento, Cantidad, Tractorista, Estado, Fecha, Hora, Acciones
+        // Generar las celdas en el nuevo orden
         tr.innerHTML = `
-        <td>${o.campoNombre}</td>
-        <td>${o.categoriaNombre}</td>
-        <td>${o.potreroNombre}</td>
         <td>${o.almacenNombre}</td>
-        <td>${o.tipoAlimentoNombre}</td>
-        <td>${o.alimentoNombre}</td>
+        <td>${o.categoriaNombre} (${o.potreroNombre})</td>
+        <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>
         <td>${o.cantidad}</td>
         <td>${o.usuarioNombre}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
@@ -339,9 +338,10 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarAlimentosDisponibles();
 
     // Reestablecer la selección de usuario logueado por defecto (si existe) y es obligatorio.
-    const defaultUserId = usuarioId.dataset.defaultUserId;
-    if (defaultUserId) {
-      usuarioId.value = defaultUserId;
+    const userOption = usuarioId.querySelector("option:checked");
+    if (userOption) {
+      usuarioId.dataset.defaultUserId = userOption.value;
+      usuarioId.value = userOption.value;
     } else {
       usuarioId.value = ""; // Si no hay default, dejar vacío
     }
@@ -362,6 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
 
     let ok = true;
+    // IMPORTANTE: Limpiar todos los mensajes de error de campo antes de validar
     document
       .querySelectorAll(".error-message")
       .forEach((el) => (el.style.display = "none"));
@@ -373,6 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const mostrarError = (id) => {
       const el = document.getElementById(id);
+      // Forzar la visibilidad del mensaje de error de campo
       if (el) el.style.display = "block";
       ok = false;
     };
@@ -401,6 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!ok) {
+      // Mostrar mensaje global SÓLO si la validación interna falló
       mostrarMensaje("error", "Por favor, corrija los errores del formulario.");
       return;
     }
@@ -419,7 +422,7 @@ document.addEventListener("DOMContentLoaded", () => {
         await refrescarTabla();
         setRegistrarMode();
       } else {
-        // En caso de que el backend falle la validación de potrero asociado a la categoría
+        // Mapeo de errores del backend para que aparezcan bajo el campo correcto
         if (
           data.mensaje &&
           data.mensaje.includes("Categoría (con potrero asignado)")
@@ -432,6 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ) {
           mostrarError("error-usuarioId");
         }
+        // Mostrar mensaje principal del sistema, que también contiene los errores de stock/DB
         mostrarMensaje(data.tipo, data.mensaje);
       }
     } catch (err) {

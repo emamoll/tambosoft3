@@ -63,6 +63,13 @@ function esc($s)
       border: 1px solid #f5c6cb;
     }
 
+    .error-message {
+      /* Estilo base para los mensajes de error */
+      color: #721c24;
+      font-size: 0.85em;
+      margin-top: 5px;
+    }
+
     #potreroAsignadoDisplay {
       font-size: 0.85em;
       margin-top: 5px;
@@ -87,9 +94,9 @@ function esc($s)
       <input type="hidden" id="accion" name="accion" value="registrar" />
 
       <div class="form-group">
-        <label for="almacenId">Almacén de Origen *</label>
+        <label for="almacenId">Campo de Origen *</label>
         <select id="almacenId" name="almacenId" class="campo-input">
-          <option value="">-- Seleccioná un Almacén --</option>
+          <option value="">-- Seleccioná un Campo --</option>
           <?php if (is_array($almacenes)): ?>
             <?php foreach ($almacenes as $almacen): ?>
               <option value="<?= esc($almacen['id']) ?>">
@@ -98,7 +105,7 @@ function esc($s)
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-        <div id="error-almacenId" class="error-message">El almacén de origen es obligatorio</div>
+        <div id="error-almacenId" class="error-message" style="display:none;">El almacén de origen es obligatorio</div>
       </div>
 
       <div class="form-group">
@@ -114,7 +121,7 @@ function esc($s)
           <?php endif; ?>
         </select>
         <div id="potreroAsignadoDisplay"></div>
-        <div id="error-categoriaId" class="error-message">La categoría es obligatoria</div>
+        <div id="error-categoriaId" class="error-message" style="display:none;">La categoría es obligatoria</div>
         <input type="hidden" id="potreroId" name="potreroId" />
       </div>
 
@@ -130,7 +137,8 @@ function esc($s)
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-        <div id="error-tipoAlimentoId" class="error-message">El tipo de alimento es obligatorio</div>
+        <div id="error-tipoAlimentoId" class="error-message" style="display:none;">El tipo de alimento es obligatorio
+        </div>
       </div>
 
       <div class="form-group">
@@ -141,13 +149,13 @@ function esc($s)
           </select>
           <span id="stockDisplay" style="font-size: 0.9em; font-weight: bold; color: #084a83;">Stock: -</span>
         </div>
-        <div id="error-alimentoId" class="error-message">El alimento es obligatorio</div>
+        <div id="error-alimentoId" class="error-message" style="display:none;">El alimento es obligatorio</div>
       </div>
 
       <div class="form-group">
         <label for="cantidad">Cantidad *</label>
         <input type="number" id="cantidad" name="cantidad" required min="1" />
-        <div id="error-cantidad" class="error-message">La cantidad es obligatoria</div>
+        <div id="error-cantidad" class="error-message" style="display:none;">La cantidad es obligatoria</div>
         <div id="error-stock-insuficiente" class="error-message" style="display:none; color:red;">Stock insuficiente.
         </div>
       </div>
@@ -164,7 +172,7 @@ function esc($s)
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-        <div id="error-usuarioId" class="error-message">El tractorista es obligatorio</div>
+        <div id="error-usuarioId" class="error-message" style="display:none;">El tractorista es obligatorio</div>
       </div>
 
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
@@ -188,17 +196,14 @@ function esc($s)
       <table id="tablaOrdenPrincipal" class="table-modern" aria-label="Listado de Ordenes">
         <thead>
           <tr>
-            <th>Campo</th>
-            <th>Categoría</th>
-            <th>Potrero</th>
-            <th>Almacén</th>
-            <th>Tipo de Alimento</th>
+            <th>Campo Origen</th>
+            <th>Categoría (Potrero)</th>
             <th>Alimento</th>
             <th>Cantidad</th>
             <th>Tractorista</th>
             <th>Estado</th>
-            <th>Fecha Creacion (dd/mm/yy)</th>
-            <th>Hora Creacion (hh:mm:ss)</th>
+            <th>Fecha Creación</th>
+            <th>Hora Creación</th>
             <th>Acciones</th>
           </tr>
         </thead>

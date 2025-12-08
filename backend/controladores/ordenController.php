@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Argentina/Buenos_Aires');
 
 require_once __DIR__ . '../../DAOS/ordenDAO.php';
 require_once __DIR__ . '../../DAOS/alimentoDAO.php';
@@ -523,11 +524,11 @@ class OrdenController
 
     $conn = $this->ordenDAO->getConn();
 
-    // MODIFICADO: Ahora el campo 'categoriaId' se saca directamente de 'ordenes'
+    // MODIFICADO: Hora a HH:mm y se elimina la selección de campoNombre
     $sql = "SELECT 
                 o.id, o.potreroId, o.almacenId, o.tipoAlimentoId, o.alimentoId, o.cantidad, o.usuarioId, o.estadoId, o.categoriaId,
                 DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
-                TIME_FORMAT(o.horaCreacion, '%H:%i:%s') AS horaCreacion,
+                TIME_FORMAT(o.horaCreacion, '%H:%i') AS horaCreacion, /* FORMATO DE HORA MODIFICADO */
                 p.nombre AS potreroNombre,
                 al.nombre AS almacenNombre,
                 ta.tipoAlimento AS tipoAlimentoNombre,
@@ -535,8 +536,8 @@ class OrdenController
                 u.username AS usuarioNombre,
                 e.descripcion AS estadoDescripcion,
                 e.colores AS estadoColor,
-                c.nombre AS categoriaNombre,
-                ca.nombre AS campoNombre
+                c.nombre AS categoriaNombre
+                /* ELIMINADO: ca.nombre AS campoNombre */
             FROM ordenes o
             LEFT JOIN potreros p ON o.potreroId = p.id
             LEFT JOIN almacenes al ON o.almacenId = al.id
@@ -544,7 +545,7 @@ class OrdenController
             LEFT JOIN alimentos a ON o.alimentoId = a.id
             LEFT JOIN usuarios u ON o.usuarioId = u.id
             LEFT JOIN estados e ON o.estadoId = e.id
-            LEFT JOIN categorias c ON o.categoriaId = c.id -- USAMOS EL NUEVO CAMPO DIRECTAMENTE DE LA ORDEN
+            LEFT JOIN categorias c ON o.categoriaId = c.id
             LEFT JOIN campos ca ON p.campoId = ca.id
             ORDER BY o.fechaCreacion DESC, o.horaCreacion DESC";
 

@@ -291,9 +291,15 @@ class PotreroDAO
   // 🔹 Obtener todas las categorías que están asignadas a un potrero (para el SELECT del form)
   public function getAllCategoriasConPotrero(): array
   {
-    $sql = "SELECT DISTINCT c.id, c.nombre, p.nombre AS potreroNombre
+    // MODIFICADO: Añadido ca.nombre AS campoNombre y LEFT JOIN campos
+    $sql = "SELECT 
+                  DISTINCT c.id, 
+                  c.nombre, 
+                  p.nombre AS potreroNombre,
+                  ca.nombre AS campoNombre
               FROM categorias c
               JOIN potreros p ON c.id = p.categoriaId
+              LEFT JOIN campos ca ON p.campoId = ca.id
               ORDER BY c.nombre ASC";
 
     $result = $this->conn->query($sql);
