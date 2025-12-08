@@ -326,7 +326,7 @@ class OrdenController
           $tipoAlimentoId = intval($tipoAlimentoId);
           $alimentoId = intval($alimentoId);
           $cantidadNueva = intval($cantidad);
-          $usuarioIdNuevo = $usuarioIdForm;
+          $usuarioIdNuevo = intval($usuarioIdForm); // Aseguramos que sea int
 
 
           $ordenActual = $this->ordenDAO->getOrdenById($id);

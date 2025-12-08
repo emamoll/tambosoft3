@@ -76,7 +76,7 @@ function esc($s)
     // ** Pasar los datos del backend a JS **
     const ALL_ALIMENTOS = <?= json_encode($alimentos) ?>;
     const ROL_ID = <?= $rolId ?>;
-    const USER_ID = <?= $usuarioLogueadoId ?>; // <--- ID DEL USUARIO AÑADIDO
+    const USER_ID = <?= $usuarioLogueadoId ?>; // <--- ID DEL USUARIO AÑADIDO Y DISPONIBLE GLOBALMENTE
     const ROL_TRACTORISTA = 3;
     // Se agregan variables vacías para evitar errores de referencia en el JS
     const categoriaId = null;
@@ -89,14 +89,14 @@ function esc($s)
       <table id="tablaOrdenPrincipal" class="table-modern" aria-label="Listado de Ordenes">
         <thead>
           <tr>
-            <th>Campo Origen</th>
             <th>Categoría (Potrero)</th>
-            <th>Alimento</th>
+            <th>Almacén</th>
+            <th>Alimento (Tipo)</th>
             <th>Cantidad</th>
             <th>Tractorista</th>
             <th>Estado</th>
-            <th>Fecha Creación</th>
-            <th>Hora Creación</th>
+            <th>Fecha Creacion (dd/mm/yy)</th>
+            <th>Hora Creacion (HH:mm)</th>
             <th>Acciones</th>
           </tr>
         </thead>

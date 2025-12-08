@@ -5,10 +5,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const API = "../../../backend/controladores/ordenController.php";
 
-  // ROL_ID y ROL_TRACTORISTA se asumen globales y se pasan desde PHP en ordenTractorista.php
+  // ROL_ID, USER_ID, ROL_TRACTORISTA son variables GLOBALES definidas en ordenTractorista.php
   const ROL_TRACTORISTA = 3;
-  const ROL_ID = ROL_ID; // Se utiliza la variable global definida en PHP
-  const USER_ID = USER_ID; // <--- AHORA DISPONIBLE
+  // No se redeclaran ROL_ID y USER_ID aquí para usar los valores globales de PHP
 
   // --- TABLA PRINCIPAL ---
   const tableBody = document.querySelector("#tablaOrdenPrincipal tbody");
@@ -84,13 +83,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // FUNCIÓN: REFRESCAR TABLA (LISTAR ORDENES)
+  // FUNCIÓN: REFRESCAR TABLA (LISTAR ORDENES FILTRADAS)
   // ----------------------------------------------------
   async function refrescarTabla() {
     console.log("Listando ordenes para Tractorista...");
 
-    // AÑADIDO: Parámetro de filtro por ID de usuario
-    const url = `${API}?action=obtenerOrden&usuarioId=${USER_ID}`;
+    // VERIFICACIÓN: Ahora se usa la variable global (USER_ID)
+    if (typeof window.USER_ID === "undefined" || window.USER_ID === 0) {
+      mostrarMensaje(
+        "error",
+        "Error de sesión: ID de usuario no disponible para filtrar órdenes."
+      );
+      tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Error: No se pudo obtener el ID del usuario. Inicie sesión nuevamente.</td></tr>`;
+      return;
+    }
+
+    // ENVÍO: Parámetro de filtro por ID de usuario
+    const url = `${API}?action=obtenerOrden&usuarioId=${window.USER_ID}`;
 
     try {
       const resp = await fetch(url, {
@@ -118,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let accionesHtml = "";
 
-        // Botón Modificar (no funcional en esta vista, solo visual)
+        // Botón Modificar (solo visual)
         accionesHtml += `<button type="button" class="btn-icon edit js-modificar-placeholder" data-id="${o.id}" title="Ver/Modificar">✏️</button>`;
 
         // Botón En Preparación (solo si está Pendiente - estadoId = 1)
@@ -129,9 +138,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Generar las celdas en el orden simplificado
         tr.innerHTML = `
-        <td>${o.almacenNombre}</td>
         <td>${o.categoriaNombre} (${o.potreroNombre})</td>
-        <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>
+        <td>${o.almacenNombre}</td>
+        <td>${o.alimentoNombre} (${o.tipoAlimentoNombre})</td>
         <td>${o.cantidad}</td>
         <td>${o.usuarioNombre}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
@@ -148,7 +157,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (e) {
       console.error("Error listando:", e);
-      mostrarMensaje("error", "Error al listar las órdenes.");
+      mostrarMensaje(
+        "error",
+        "Error al listar las órdenes. Revise la conexión al backend."
+      );
     }
   }
 
