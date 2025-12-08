@@ -31,7 +31,7 @@ class OrdenDAO
   }
 
   // =============================================================
-  // Registrar orden (Modificado: Pasa la conexión a StockDAO)
+  // Registrar orden (MODIFICADA: Agrega categoriaId)
   // =============================================================
   public function registrarOrden(Orden $orden): bool|int
   {
@@ -40,6 +40,7 @@ class OrdenDAO
     $tipoAlimentoId = $orden->getTipoAlimentoId();
     $alimentoId = $orden->getAlimentoId();
     $cantidad = $orden->getCantidad();
+    $categoriaId = $orden->getCategoriaId(); // NUEVO CAMPO
     // CAMPOS FIJOS/AUTOMÁTICOS
     $usuarioId = $orden->getUsuarioId();
     $estadoId = 1; // Estado inicial: 'Pendiente'
@@ -61,11 +62,12 @@ class OrdenDAO
     try {
       // A. Registro de la Orden
       $sql = "INSERT INTO ordenes 
-                 (potreroId, almacenId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                 (potreroId, almacenId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, categoriaId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
       $stmt = $this->conn->prepare($sql);
+      // Tipos: 7x(i) para IDs/Cantidades, 1x(i) para categoriaId, 4x(s) para fechas/horas
       $stmt->bind_param(
-        "iiiiiiissss",
+        "iiiiiiiissss",
         $potreroId,
         $almacenId,
         $tipoAlimentoId,
@@ -73,6 +75,7 @@ class OrdenDAO
         $cantidad,
         $usuarioId,
         $estadoId,
+        $categoriaId, // NUEVO BIND
         $fechaCreacion,
         $fechaActualizacion,
         $horaCreacion,
@@ -108,7 +111,7 @@ class OrdenDAO
     }
   }
 
-  // Modificar una orden (La lógica de Stock se maneja en el Controller)
+  // Modificar una orden (MODIFICADA: Agrega categoriaId)
   public function modificarOrden(Orden $orden): bool
   {
     $id = $orden->getId();
@@ -119,6 +122,7 @@ class OrdenDAO
     $cantidad = $orden->getCantidad();
     $usuarioId = $orden->getUsuarioId();
     $estadoId = $orden->getEstadoId();
+    $categoriaId = $orden->getCategoriaId(); // NUEVO CAMPO
 
     // Asumimos que getFechaCreacion y getHoraCreacion devuelven formatos válidos
     $fechaCreacion = $orden->getFechaCreacion();
@@ -127,12 +131,13 @@ class OrdenDAO
     $horaActualizacion = date('H:i:s');
 
     $sql = "UPDATE ordenes
-             SET potreroId = ?, almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, usuarioId = ?, estadoId = ?, fechaCreacion = ?, fechaActualizacion = ?, horaCreacion = ?, horaActualizacion = ?
+             SET potreroId = ?, almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, usuarioId = ?, estadoId = ?, categoriaId = ?, fechaCreacion = ?, fechaActualizacion = ?, horaCreacion = ?, horaActualizacion = ?
              WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
+    // Tipos: 8x(i) para IDs/Cantidades, 4x(s) para fechas/horas, 1x(i) para id
     $stmt->bind_param(
-      "iiiiiiissssi",
+      "iiiiiiiissssi",
       $potreroId,
       $almacenId,
       $tipoAlimentoId,
@@ -140,6 +145,7 @@ class OrdenDAO
       $cantidad,
       $usuarioId,
       $estadoId,
+      $categoriaId, // NUEVO BIND
       $fechaCreacion,
       $fechaActualizacion,
       $horaCreacion,
@@ -152,7 +158,7 @@ class OrdenDAO
     return $ok;
   }
 
-  // Mostrar todas las ordenes
+  // Mostrar todas las ordenes (MODIFICADA: Agrega categoriaId al constructor)
   public function getAllOrdenes(): array
   {
     $sql = "SELECT * FROM ordenes ORDER BY fechaCreacion ASC";
@@ -174,6 +180,7 @@ class OrdenDAO
         $row['cantidad'],
         $row['usuarioId'],
         $row['estadoId'],
+        $row['categoriaId'], // NUEVO CAMPO
         $row['fechaCreacion'],
         $row['fechaActualizacion'],
         $row['horaCreacion'],
@@ -202,6 +209,7 @@ class OrdenDAO
         $res['cantidad'],
         $res['usuarioId'],
         $res['estadoId'],
+        $res['categoriaId'], // NUEVO CAMPO
         $res['fechaCreacion'],
         $res['fechaActualizacion'],
         $res['horaCreacion'],
@@ -212,7 +220,7 @@ class OrdenDAO
 
   public function getOrdenByPotreroId($potreroId): ?Orden
   {
-    $sql = "SELECT * FROM ordenes WHERE potreroId = ?"; // FIX de typo
+    $sql = "SELECT * FROM ordenes WHERE potreroId = ?";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $potreroId);
     $stmt->execute();
@@ -228,6 +236,7 @@ class OrdenDAO
         $res['cantidad'],
         $res['usuarioId'],
         $res['estadoId'],
+        $res['categoriaId'], // NUEVO CAMPO
         $res['fechaCreacion'],
         $res['fechaActualizacion'],
         $res['horaCreacion'],
@@ -254,6 +263,7 @@ class OrdenDAO
         $res['cantidad'],
         $res['usuarioId'],
         $res['estadoId'],
+        $res['categoriaId'], // NUEVO CAMPO
         $res['fechaCreacion'],
         $res['fechaActualizacion'],
         $res['horaCreacion'],
@@ -280,6 +290,7 @@ class OrdenDAO
         $res['cantidad'],
         $res['usuarioId'],
         $res['estadoId'],
+        $res['categoriaId'], // NUEVO CAMPO
         $res['fechaCreacion'],
         $res['fechaActualizacion'],
         $res['horaCreacion'],
@@ -306,6 +317,7 @@ class OrdenDAO
         $res['cantidad'],
         $res['usuarioId'],
         $res['estadoId'],
+        $res['categoriaId'], // NUEVO CAMPO
         $res['fechaCreacion'],
         $res['fechaActualizacion'],
         $res['horaCreacion'],
@@ -332,6 +344,7 @@ class OrdenDAO
         $res['cantidad'],
         $res['usuarioId'],
         $res['estadoId'],
+        $res['categoriaId'], // NUEVO CAMPO
         $res['fechaCreacion'],
         $res['fechaActualizacion'],
         $res['horaCreacion'],
@@ -358,6 +371,7 @@ class OrdenDAO
         $res['cantidad'],
         $res['usuarioId'],
         $res['estadoId'],
+        $res['categoriaId'], // NUEVO CAMPO
         $res['fechaCreacion'],
         $res['fechaActualizacion'],
         $res['horaCreacion'],
@@ -367,7 +381,7 @@ class OrdenDAO
   }
 
   // =============================================================
-  // Eliminar orden (Modificado: Pasa la conexión a StockDAO)
+  // Eliminar orden (Sin cambios sustanciales, solo necesita el constructor actualizado)
   // =============================================================
   public function eliminarOrden($id): bool
   {

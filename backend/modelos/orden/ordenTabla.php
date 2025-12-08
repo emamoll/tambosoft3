@@ -40,7 +40,7 @@ class OrdenCrearTabla
     $conn->close();
   }
 
-  // Crear la tabla orden si no existe
+  // Crear la tabla orden si no existe (MODIFICADA: Se agrega categoriaId)
   public function crearTablaOrden()
   {
     $this->db = DatabaseFactory::createDatabaseConnection('mysql');
@@ -54,6 +54,7 @@ class OrdenCrearTabla
               cantidad INT NOT NULL,
               usuarioId INT NOT NULL,
               estadoId INT NOT NULL,
+              categoriaId INT NOT NULL, -- NUEVO CAMPO AGREGADO PARA ESTADÍSTICAS
               fechaCreacion DATE NOT NULL,
               fechaActualizacion DATE NOT NULL,
               horaCreacion TIME NOT NULL,
@@ -63,7 +64,9 @@ class OrdenCrearTabla
               FOREIGN KEY (tipoAlimentoId) REFERENCES tiposAlimentos(id),
               FOREIGN KEY (alimentoId) REFERENCES alimentos(id),
               FOREIGN KEY (usuarioId) REFERENCES usuarios(id),
-              FOREIGN KEY (estadoId) REFERENCES estados(id))";
+              FOREIGN KEY (estadoId) REFERENCES estados(id),
+              FOREIGN KEY (categoriaId) REFERENCES categorias(id) -- NUEVA FK
+            )";
 
     $conn->query($sql);
     $conn->close();

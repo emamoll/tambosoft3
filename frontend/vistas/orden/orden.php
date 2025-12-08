@@ -12,8 +12,8 @@ require_once __DIR__ . '../../../../backend/controladores/ordenController.php';
 $controllerOrden = new OrdenController();
 
 // 3. Obtener datos para SELECTs y listado
-$ordenes = $controllerOrden->obtenerOrden();
-$potreros = $controllerOrden->obtenerTodosLosPotreros();
+// $ordenes = $controllerOrden->obtenerOrden(); // Se obtendrá por AJAX en JS
+$categorias = $controllerOrden->obtenerCategoriasConPotrero(); // NUEVO: Obtener categorías con potrero asignado
 $almacenes = $controllerOrden->obtenerTodosLosAlmacenes();
 $tiposAlimentos = $controllerOrden->obtenerTiposAlimentos();
 $alimentos = $controllerOrden->obtenerTodosLosAlimentos(); // Se mantiene para compatibilidad con JS
@@ -62,6 +62,13 @@ function esc($s)
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
+
+    #potreroAsignadoDisplay {
+      font-size: 0.85em;
+      margin-top: 5px;
+      color: #084a83;
+      font-weight: 500;
+    }
   </style>
 
 </head>
@@ -80,21 +87,6 @@ function esc($s)
       <input type="hidden" id="accion" name="accion" value="registrar" />
 
       <div class="form-group">
-        <label for="potreroId">Potrero *</label>
-        <select id="potreroId" name="potreroId" class="campo-input">
-          <option value="">-- Seleccioná un Potrero --</option>
-          <?php if (is_array($potreros)): ?>
-            <?php foreach ($potreros as $potrero): ?>
-              <option value="<?= esc($potrero['id']) ?>">
-                <?= esc($potrero['nombre']) ?>
-              </option>
-            <?php endforeach; ?>
-          <?php endif; ?>
-        </select>
-        <div id="error-potreroId" class="error-message">El campo es obligatorio</div>
-      </div>
-
-      <div class="form-group">
         <label for="almacenId">Almacén de Origen *</label>
         <select id="almacenId" name="almacenId" class="campo-input">
           <option value="">-- Seleccioná un Almacén --</option>
@@ -107,6 +99,23 @@ function esc($s)
           <?php endif; ?>
         </select>
         <div id="error-almacenId" class="error-message">El almacén de origen es obligatorio</div>
+      </div>
+
+      <div class="form-group">
+        <label for="categoriaId">Categoría *</label>
+        <select id="categoriaId" name="categoriaId" class="campo-input">
+          <option value="">-- Seleccioná una Categoría --</option>
+          <?php if (is_array($categorias)): ?>
+            <?php foreach ($categorias as $categoria): ?>
+              <option value="<?= esc($categoria['id']) ?>" data-potrero="<?= esc($categoria['potreroNombre']) ?>">
+                <?= esc($categoria['nombre']) ?>
+              </option>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </select>
+        <div id="potreroAsignadoDisplay"></div>
+        <div id="error-categoriaId" class="error-message">La categoría es obligatoria</div>
+        <input type="hidden" id="potreroId" name="potreroId" />
       </div>
 
       <div class="form-group">
@@ -144,7 +153,7 @@ function esc($s)
       </div>
 
       <div class="form-group">
-        <label for="usuarioId">Tractorista (opcional)</label>
+        <label for="usuarioId">Tractorista *</label>
         <select id="usuarioId" name="usuarioId" class="campo-input">
           <option value="">-- Seleccioná un Tractorista --</option>
           <?php if (is_array($tractoristas)): ?>
@@ -155,8 +164,7 @@ function esc($s)
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-        <small class="form-text text-muted">Si no se selecciona, se usará el usuario logueado (si es
-          Tractorista).</small>
+        <div id="error-usuarioId" class="error-message">El tractorista es obligatorio</div>
       </div>
 
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
@@ -180,15 +188,17 @@ function esc($s)
       <table id="tablaOrdenPrincipal" class="table-modern" aria-label="Listado de Ordenes">
         <thead>
           <tr>
+            <th>Campo</th>
+            <th>Categoría</th>
             <th>Potrero</th>
             <th>Almacén</th>
             <th>Tipo de Alimento</th>
             <th>Alimento</th>
             <th>Cantidad</th>
-            <th>Usuario</th>
+            <th>Tractorista</th>
             <th>Estado</th>
-            <th>Fecha Creacion</th>
-            <th>Hora Creacion</th>
+            <th>Fecha Creacion (dd/mm/yy)</th>
+            <th>Hora Creacion (hh:mm:ss)</th>
             <th>Acciones</th>
           </tr>
         </thead>

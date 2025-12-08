@@ -12,12 +12,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const submitBtn = document.getElementById("submitBtn");
   const cancelarEdicion = document.getElementById("cancelarEdicion");
 
-  const potreroId = document.getElementById("potreroId");
+  // Reemplazado potreroId por categoriaId
+  const categoriaId = document.getElementById("categoriaId");
   const almacenId = document.getElementById("almacenId");
   const tipoAlimentoId = document.getElementById("tipoAlimentoId");
   const alimentoId = document.getElementById("alimentoId");
   const cantidad = document.getElementById("cantidad");
   const usuarioId = document.getElementById("usuarioId");
+
+  // Nuevo elemento para mostrar el potrero asociado
+  const potreroAsignadoDisplay = document.getElementById(
+    "potreroAsignadoDisplay"
+  );
 
   const stockDisplay = document.getElementById("stockDisplay");
   const errorStockInsuficiente = document.getElementById(
@@ -97,18 +103,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // FUNCIÓN MODIFICADA: FILTRAR Y CARGAR ALIMENTOS por tipo y ALMACÉN (AJAX)
-  // Permite pasar los valores para preselección en modo edición.
+  // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS por tipo y ALMACÉN (AJAX)
   // ----------------------------------------------------
-  async function cargarAlimentosDisponibles(
-    almacenIdValue = null,
-    tipoAlimentoIdValue = null,
-    alimentoIdOriginal = null
-  ) {
-    // Usamos los valores pasados, o leemos del DOM si no se pasaron (modo registrar)
-    const tipoSeleccionado = tipoAlimentoIdValue || tipoAlimentoId.value;
-    const almacenSeleccionado = almacenIdValue || almacenId.value;
-    const alimentoSeleccionadoActual = alimentoIdOriginal || alimentoId.value;
+  async function cargarAlimentosDisponibles() {
+    const tipoSeleccionado = tipoAlimentoId.value;
+    const almacenSeleccionado = almacenId.value;
+    const alimentoSeleccionadoActual = alimentoId.value;
 
     // Limpiar el select de alimentos, manteniendo la opción por defecto
     alimentoId.innerHTML =
@@ -141,8 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Asignar dataset de stock para la validación rápida en el submit
             option.dataset.stock = alimento.cantidad;
 
-            // Lógica de selección del alimento original (CORREGIDO)
-            if (String(alimento.id) === String(alimentoSeleccionadoActual)) {
+            if (String(alimento.id) === alimentoSeleccionadoActual) {
               option.selected = true;
               stockDisplay.dataset.stock = alimento.cantidad;
               stockDisplay.textContent = `Stock: ${alimento.cantidad}`;
@@ -154,6 +153,22 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) {
         console.error("Error al cargar alimentos disponibles:", e);
       }
+    }
+  }
+
+  // ----------------------------------------------------
+  // FUNCIÓN: MOSTRAR POTRERO ASIGNADO (a la categoría)
+  // ----------------------------------------------------
+  function mostrarPotreroAsignado() {
+    const selectedOption = categoriaId.options[categoriaId.selectedIndex];
+    const potreroNombre = selectedOption
+      ? selectedOption.dataset.potrero
+      : null;
+
+    if (potreroNombre) {
+      potreroAsignadoDisplay.textContent = `Potrero asignado: ${potreroNombre}`;
+    } else {
+      potreroAsignadoDisplay.textContent = "";
     }
   }
 
@@ -174,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? selectedOption.dataset.stock
       : undefined;
 
-    // Lógica para modo 'registrar': Si hay stock precargado, lo usamos y salimos
+    // Solo obtenemos stock directamente del dataset si estamos en modo 'registrar'
     if (stockPrecargado !== undefined && accionInput.value === "registrar") {
       stockDisplay.dataset.stock = Number(stockPrecargado);
       stockDisplay.textContent = `Stock: ${stockPrecargado}`;
@@ -223,17 +238,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // Resetear tipo y alimento para forzar la carga de los disponibles en el nuevo almacén
     tipoAlimentoId.value = "";
     alimentoId.value = "";
-    // Llama a la función sin parámetros, por lo que lee del DOM (comportamiento normal)
     cargarAlimentosDisponibles();
     obtenerYMostrarStock();
   });
 
   tipoAlimentoId.addEventListener("change", () => {
     alimentoId.value = ""; // Resetear alimento al cambiar tipo
-    // Llama a la función sin parámetros, por lo que lee del DOM (comportamiento normal)
-    cargarAlimentosDisponibles();
+    cargarAlimentosDisponibles(); // Cargar alimentos disponibles para el almacén y tipo seleccionado
     obtenerYMostrarStock();
   });
+
+  // NUEVO: Evento para mostrar el potrero asignado a la categoría
+  categoriaId.addEventListener("change", mostrarPotreroAsignado);
 
   // Si el alimento cambia, recalcular stock
   alimentoId.addEventListener("change", obtenerYMostrarStock);
@@ -249,16 +265,19 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Listando ordenes...");
 
     try {
-      // Se utiliza fetchJSON con el URL completo para garantizar que maneje la respuesta
-      const data = await fetchJSON(`${API}?action=obtenerOrden`, {
+      const resp = await fetch(`${API}?action=obtenerOrden`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+
+      const data = await fetchJSON(resp.url, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
       tableBody.innerHTML = "";
 
+      // Colspan ajustado a 12 (11 columnas de datos + 1 de Acciones)
       if (!Array.isArray(data) || data.length === 0) {
-        // Colspan ajustado a 10 (9 columnas de datos + 1 de Acciones)
-        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center;">No hay ordenes registradas.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="12" style="text-align:center;">No hay ordenes registradas.</td></tr>`;
         return;
       }
 
@@ -269,7 +288,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const estadoColor = o.estadoColor || "#ccc";
         const estadoStyle = `background-color: ${estadoColor}; color: white; border-radius: 4px; padding: 2px 5px;`;
 
+        // Generar las celdas en el nuevo orden: Campo, Categoría, Potrero, Almacén, Tipo Alimento, Alimento, Cantidad, Tractorista, Estado, Fecha, Hora, Acciones
         tr.innerHTML = `
+        <td>${o.campoNombre}</td>
+        <td>${o.categoriaNombre}</td>
         <td>${o.potreroNombre}</td>
         <td>${o.almacenNombre}</td>
         <td>${o.tipoAlimentoNombre}</td>
@@ -307,22 +329,22 @@ document.addEventListener("DOMContentLoaded", () => {
     idInput.value = "";
     form.reset();
 
-    // Restablecer la selección de usuario logueado por defecto
-    const defaultUserId = usuarioId.querySelector(
-      `option[value="${usuarioId.dataset.defaultUserId}"]`
-    );
+    // Restablecer valores a vacío y forzar la carga de alimentos (después de resetear)
+    almacenId.value = "";
+    categoriaId.value = "";
+    tipoAlimentoId.value = "";
+    alimentoId.value = "";
+
+    mostrarPotreroAsignado(); // Resetear texto de potrero
+    cargarAlimentosDisponibles();
+
+    // Reestablecer la selección de usuario logueado por defecto (si existe) y es obligatorio.
+    const defaultUserId = usuarioId.dataset.defaultUserId;
     if (defaultUserId) {
-      defaultUserId.selected = true;
+      usuarioId.value = defaultUserId;
     } else {
       usuarioId.value = ""; // Si no hay default, dejar vacío
     }
-
-    // Al resetear, forzar la carga de alimentos disponibles para el almacén (que ahora es vacío)
-    almacenId.value = "";
-    tipoAlimentoId.value = "";
-    alimentoId.value = "";
-    // Llama a la función sin parámetros, forzando a que lea los valores vacíos del DOM
-    cargarAlimentosDisponibles();
 
     stockDisplay.textContent = "Stock: -";
     stockDisplay.dataset.stock = 0;
@@ -355,29 +377,27 @@ document.addEventListener("DOMContentLoaded", () => {
       ok = false;
     };
 
-    // Validación básica
-    if (!potreroId.value.trim()) mostrarError("error-potreroId");
-    if (!almacenId.value.trim()) mostrarError("error-almacenId");
-    if (!tipoAlimentoId.value.trim()) mostrarError("error-tipoAlimentoId");
-    if (!alimentoId.value.trim()) mostrarError("error-alimentoId");
+    // Validación básica: Orden de los campos en el formulario modificado
+    if (!almacenId.value.trim()) mostrarError("error-almacenId"); // 1. Almacén
+    if (!categoriaId.value.trim()) mostrarError("error-categoriaId"); // 2. Categoría
+    if (!tipoAlimentoId.value.trim()) mostrarError("error-tipoAlimentoId"); // 3. Tipo Alimento
+    if (!alimentoId.value.trim()) mostrarError("error-alimentoId"); // 4. Alimento
 
     const cant = Number(cantidad.value);
     if (!cantidad.value.trim() || !Number.isInteger(cant) || cant <= 0) {
       mostrarError("error-cantidad");
     }
 
-    // Validación de Stock Suficiente (solo para acción 'registrar' o si se modificó y es mayor)
-    if (ok) {
-      // Para 'registrar', la validación ya usa stockDisplay.dataset.stock
-      if (accionInput.value === "registrar") {
-        const stockDisponible = Number(stockDisplay.dataset.stock) || 0;
-        if (cant > stockDisponible) {
-          errorStockInsuficiente.textContent = `Stock insuficiente en el almacén. Solo hay ${stockDisponible} unidades disponibles.`;
-          errorStockInsuficiente.style.display = "block";
-          ok = false;
-        }
+    if (!usuarioId.value.trim()) mostrarError("error-usuarioId"); // 5. Tractorista (Obligatorio)
+
+    // Validación de Stock Suficiente (solo para acción 'registrar')
+    if (accionInput.value === "registrar" && ok) {
+      const stockDisponible = Number(stockDisplay.dataset.stock) || 0;
+      if (cant > stockDisponible) {
+        errorStockInsuficiente.textContent = `Stock insuficiente en el almacén. Solo hay ${stockDisponible} unidades disponibles.`;
+        errorStockInsuficiente.style.display = "block";
+        ok = false;
       }
-      // Para 'modificar', la validación real se hace en el backend
     }
 
     if (!ok) {
@@ -399,6 +419,19 @@ document.addEventListener("DOMContentLoaded", () => {
         await refrescarTabla();
         setRegistrarMode();
       } else {
+        // En caso de que el backend falle la validación de potrero asociado a la categoría
+        if (
+          data.mensaje &&
+          data.mensaje.includes("Categoría (con potrero asignado)")
+        ) {
+          mostrarError("error-categoriaId");
+        }
+        if (
+          data.mensaje &&
+          data.mensaje.includes("Tractorista es obligatorio")
+        ) {
+          mostrarError("error-usuarioId");
+        }
         mostrarMensaje(data.tipo, data.mensaje);
       }
     } catch (err) {
@@ -433,22 +466,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (ordenData) {
         idInput.value = ordenData.id;
-        potreroId.value = ordenData.potreroId;
         almacenId.value = ordenData.almacenId;
         tipoAlimentoId.value = ordenData.tipoAlimentoId;
 
-        // CORRECCIÓN PRINCIPAL: Cargar el select de alimentos y seleccionar el valor en un solo paso asíncrono
-        await cargarAlimentosDisponibles(
-          ordenData.almacenId,
-          ordenData.tipoAlimentoId,
-          ordenData.alimentoId
-        );
+        // Cargar categoriaId y mostrar el potrero asociado
+        categoriaId.value = ordenData.categoriaId;
+        mostrarPotreroAsignado();
 
-        // Despues de cargar el select y preseleccionar el alimento, cargamos los otros valores
+        // Cargar alimentos disponibles para el almacén y tipo. Usamos await
+        await cargarAlimentosDisponibles();
+        alimentoId.value = ordenData.alimentoId;
+
         cantidad.value = ordenData.cantidad;
         usuarioId.value = ordenData.usuarioId;
 
-        // Mostrar stock actual (hace una llamada AJAX para obtener el stock)
+        // Mostrar stock actual (sólo informativo en edición)
         obtenerYMostrarStock();
       }
       return;
@@ -509,6 +541,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (userOption) {
     usuarioId.dataset.defaultUserId = userOption.value;
   }
+
+  // Llamar a mostrarPotreroAsignado al inicio
+  mostrarPotreroAsignado();
 
   setRegistrarMode();
   refrescarTabla();

@@ -125,9 +125,10 @@ class OrdenController
 
         $data = null;
         if ($orden) {
-          // FIX: Creamos el array manualmente usando los getters del modelo Orden.
-          // Esto asegura que todos los IDs (incluyendo tipoAlimentoId y alimentoId)
-          // estén presentes para que el JS pueda inicializar la cascada.
+          // Ahora el modelo Orden tiene categoriaId. Lo usamos directamente.
+          $categoriaId = $orden->getCategoriaId();
+
+          // Creamos el array manualmente usando los getters del modelo Orden.
           $data = [
             'id' => $orden->getId(),
             'potreroId' => $orden->getPotreroId(),
@@ -141,6 +142,7 @@ class OrdenController
             'fechaActualizacion' => $orden->getFechaActualizacion(),
             'horaCreacion' => $orden->getHoraCreacion(),
             'horaActualizacion' => $orden->getHoraActualizacion(),
+            'categoriaId' => $categoriaId, // Ahora viene del modelo
           ];
         }
 
@@ -168,12 +170,12 @@ class OrdenController
       $id = intval($data['id'] ?? 0);
 
       // Sanitización y obtención de datos
-      $potreroId = trim($data['potreroId'] ?? '');
+      $categoriaIdForm = trim($data['categoriaId'] ?? '');
       $almacenId = trim($data['almacenId'] ?? '');
       $tipoAlimentoId = trim($data['tipoAlimentoId'] ?? '');
       $alimentoId = trim($data['alimentoId'] ?? '');
       $cantidad = intval($data['cantidad'] ?? 0);
-      $usuarioIdForm = intval($data['usuarioId'] ?? 0); // Para el nuevo select de tractorista
+      $usuarioIdForm = intval($data['usuarioId'] ?? 0);
 
       $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida'];
 
@@ -181,12 +183,11 @@ class OrdenController
 
         case 'registrar':
 
-          // 1. Obtener ID del usuario a usar (formulario o sesión)
-          $usuarioIdLogueado = $_SESSION['usuarioId'] ?? 0;
-          $usuarioIdFinal = $usuarioIdForm > 0 ? $usuarioIdForm : $usuarioIdLogueado;
+          // 1. Validar que el tractorista es OBLIGATORIO
+          $usuarioIdFinal = $usuarioIdForm;
 
           if ($usuarioIdFinal == 0) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Sesión de usuario no válida o usuario no seleccionado.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'El campo Tractorista es obligatorio.'];
             break;
           }
 
@@ -200,9 +201,15 @@ class OrdenController
             break;
           }
 
-          // 3. Validación de campos
+          // 3. Obtener el PotreroId asociado a la Categoria seleccionada
+          $potreroDetails = $this->potreroDAO->getPotreroDetailsByCategoriaId(intval($categoriaIdForm));
+          $potreroId = $potreroDetails ? $potreroDetails['potreroId'] : 0;
+
+
+          // 4. Validación de campos
           if (
-            empty($potreroId) ||
+            empty($categoriaIdForm) ||
+            $potreroId == 0 || // Aseguramos que se encontró el potrero asociado
             empty($almacenId) ||
             empty($tipoAlimentoId) ||
             empty($alimentoId) ||
@@ -210,33 +217,34 @@ class OrdenController
           ) {
             $res = [
               'tipo' => 'error',
-              'mensaje' => 'Debés completar Potrero, Almacén, Tipo Alimento, Alimento y Cantidad (debe ser mayor a 0).'
+              'mensaje' => 'Debés completar Almacén, Categoría (con potrero asignado), Tipo Alimento, Alimento y Cantidad (debe ser mayor a 0).'
             ];
             break;
           }
 
-          $potreroId = intval($potreroId);
           $almacenId = intval($almacenId);
           $tipoAlimentoId = intval($tipoAlimentoId);
           $alimentoId = intval($alimentoId);
+          $categoriaId = intval($categoriaIdForm); // El ID de la categoría es el que se almacena
 
-          // 4. Crear Orden Modelo
+          // 5. Crear Orden Modelo
           $orden = new Orden(
             null,
-            $potreroId,
+            $potreroId, // Usamos el potreroId encontrado
             $almacenId, // Almacén ID
             $tipoAlimentoId,
             $alimentoId,
             $cantidad,
             $usuarioIdFinal, // ID del usuario final
             1, // Estado inicial 1: Pendiente.
+            $categoriaId, // NUEVO CAMPO
             date('Y-m-d'), // Placeholder, el DAO lo maneja
             date('Y-m-d'), // Placeholder, el DAO lo maneja
             date('H:i:s'), // Placeholder, el DAO lo maneja
             date('H:i:s')  // Placeholder, el DAO lo maneja
           );
 
-          // 5. El DAO se encarga de: a) Verificar stock (por almacén), b) Reducir stock FIFO (por almacén), c) Registrar orden.
+          // 6. El DAO se encarga de: a) Verificar stock (por almacén), b) Reducir stock FIFO (por almacén), c) Registrar orden.
           $ok = $this->ordenDAO->registrarOrden($orden);
 
           if ($ok === false) {
@@ -264,16 +272,29 @@ class OrdenController
             break;
           }
 
-          if (empty($potreroId) || empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || $cantidad <= 0) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Potrero, Almacén, Tipo Alimento, Alimento y Cantidad (debe ser mayor a 0).'];
+          // El tractorista es obligatorio en la modificación también
+          if ($usuarioIdForm == 0) {
+            $res = ['tipo' => 'error', 'mensaje' => 'El campo Tractorista es obligatorio.'];
             break;
           }
 
-          $potreroId = intval($potreroId);
+          // 1. Obtener el PotreroId asociado a la Categoria seleccionada
+          $potreroDetails = $this->potreroDAO->getPotreroDetailsByCategoriaId(intval($categoriaIdForm));
+          $potreroIdNuevo = $potreroDetails ? $potreroDetails['potreroId'] : 0;
+          $categoriaIdNueva = intval($categoriaIdForm);
+
+
+          if (empty($categoriaIdForm) || $potreroIdNuevo == 0 || empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || $cantidad <= 0) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Categoría (con potrero asignado), Almacén, Tipo Alimento, Alimento y Cantidad (debe ser mayor a 0).'];
+            break;
+          }
+
           $almacenId = intval($almacenId);
           $tipoAlimentoId = intval($tipoAlimentoId);
           $alimentoId = intval($alimentoId);
           $cantidadNueva = intval($cantidad);
+          $usuarioIdNuevo = $usuarioIdForm;
+
 
           $ordenActual = $this->ordenDAO->getOrdenById($id);
           if (!$ordenActual) {
@@ -285,10 +306,20 @@ class OrdenController
           $almacenOriginal = $ordenActual->getAlmacenId();
           $alimentoOriginal = $ordenActual->getAlimentoId();
           $tipoAlimentoOriginal = $ordenActual->getTipoAlimentoId();
+          $potreroOriginal = $ordenActual->getPotreroId();
+          $categoriaOriginal = $ordenActual->getCategoriaId(); // OBTENEMOS EL ID DE LA CATEGORÍA ORIGINAL
+
 
           // 1. Verificar si el almacén, tipo o alimento han cambiado (no permitido)
           if ($almacenOriginal != $almacenId || $alimentoOriginal != $alimentoId || $tipoAlimentoOriginal != $tipoAlimentoId) {
             $res = ['tipo' => 'error', 'mensaje' => 'No se permite cambiar el almacén, tipo o alimento en la modificación de la orden para garantizar la integridad del stock. Por favor, elimine y registre una nueva orden.'];
+            break;
+          }
+
+          // 2. Verificar si el potrero (a través de la categoría) ha cambiado (no permitido)
+          // Se verifica tanto el potrero como la categoría.
+          if ($potreroOriginal != $potreroIdNuevo || $categoriaOriginal != $categoriaIdNueva) {
+            $res = ['tipo' => 'error', 'mensaje' => 'No se permite cambiar la Categoría/Potrero en la modificación de la orden. Por favor, elimine y registre una nueva orden.'];
             break;
           }
 
@@ -406,13 +437,14 @@ class OrdenController
             // 5. Modificación de la Orden en la DB (metadata)
             $ordenModificada = new Orden(
               $id,
-              $potreroId,
+              $potreroIdNuevo, // Usamos el potreroId asociado a la categoría
               $almacenId,
               $tipoAlimentoId,
               $alimentoId,
               $cantidadNueva,
-              $ordenActual->getUsuarioId(),
+              $usuarioIdNuevo, // Se permite cambiar el tractorista
               $ordenActual->getEstadoId(),
+              $categoriaIdNueva, // NUEVO CAMPO
               $ordenActual->getFechaCreacion(),
               date('Y-m-d'),
               $ordenActual->getHoraCreacion(),
@@ -491,16 +523,20 @@ class OrdenController
 
     $conn = $this->ordenDAO->getConn();
 
+    // MODIFICADO: Ahora el campo 'categoriaId' se saca directamente de 'ordenes'
     $sql = "SELECT 
-                o.id, o.potreroId, o.almacenId, o.tipoAlimentoId, o.alimentoId, o.cantidad, o.usuarioId, o.estadoId, 
-                o.fechaCreacion, o.fechaActualizacion, o.horaCreacion, o.horaActualizacion,
+                o.id, o.potreroId, o.almacenId, o.tipoAlimentoId, o.alimentoId, o.cantidad, o.usuarioId, o.estadoId, o.categoriaId,
+                DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
+                TIME_FORMAT(o.horaCreacion, '%H:%i:%s') AS horaCreacion,
                 p.nombre AS potreroNombre,
                 al.nombre AS almacenNombre,
                 ta.tipoAlimento AS tipoAlimentoNombre,
                 a.nombre AS alimentoNombre,
                 u.username AS usuarioNombre,
                 e.descripcion AS estadoDescripcion,
-                e.colores AS estadoColor
+                e.colores AS estadoColor,
+                c.nombre AS categoriaNombre,
+                ca.nombre AS campoNombre
             FROM ordenes o
             LEFT JOIN potreros p ON o.potreroId = p.id
             LEFT JOIN almacenes al ON o.almacenId = al.id
@@ -508,6 +544,8 @@ class OrdenController
             LEFT JOIN alimentos a ON o.alimentoId = a.id
             LEFT JOIN usuarios u ON o.usuarioId = u.id
             LEFT JOIN estados e ON o.estadoId = e.id
+            LEFT JOIN categorias c ON o.categoriaId = c.id -- USAMOS EL NUEVO CAMPO DIRECTAMENTE DE LA ORDEN
+            LEFT JOIN campos ca ON p.campoId = ca.id
             ORDER BY o.fechaCreacion DESC, o.horaCreacion DESC";
 
     $result = $conn->query($sql);
@@ -520,6 +558,16 @@ class OrdenController
     }
 
     return $ordenes;
+  }
+
+  // Nuevo método para obtener categorías con potrero asignado para el SELECT del form
+  public function obtenerCategoriasConPotrero()
+  {
+    if ($this->connError !== null) {
+      return [];
+    }
+    // Usamos el nuevo método del DAO
+    return $this->potreroDAO->getAllCategoriasConPotrero();
   }
 
   // Métodos auxiliares para llenar los SELECTs del formulario

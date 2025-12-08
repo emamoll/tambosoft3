@@ -199,7 +199,14 @@ class PotreroDAO
     $stmt->close();
 
     return $res
-      ? new Potrero($res['id'], $res['nombre'], $res['pasturaId'], $res['categoriaId'], $res['cantidadCategoria'], $res['campoId'])
+      ? new Potrero(
+        $res['id'],
+        $res['nombre'],
+        $res['pasturaId'],
+        $res['categoriaId'],
+        $res['cantidadCategoria'],
+        $res['campoId']
+      )
       : null;
   }
 
@@ -252,6 +259,52 @@ class PotreroDAO
     $ok = $stmt->execute();
     $stmt->close();
     return $ok;
+  }
+
+  // =============================================================
+  // NUEVOS MÉTODOS PARA ORDEN CONTROLLER
+  // =============================================================
+
+  // 🔹 Obtener los detalles del potrero y campo por categoriaId
+  public function getPotreroDetailsByCategoriaId($categoriaId): ?array
+  {
+    // Buscamos el potrero que tiene esta categoria asignada
+    $sql = "SELECT 
+                  p.id AS potreroId, 
+                  p.nombre AS potreroNombre,
+                  c.id AS categoriaId,
+                  c.nombre AS categoriaNombre,
+                  ca.nombre AS campoNombre
+              FROM potreros p
+              JOIN categorias c ON p.categoriaId = c.id
+              LEFT JOIN campos ca ON p.campoId = ca.id
+              WHERE p.categoriaId = ?";
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $categoriaId);
+    $stmt->execute();
+    $res = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $res;
+  }
+
+  // 🔹 Obtener todas las categorías que están asignadas a un potrero (para el SELECT del form)
+  public function getAllCategoriasConPotrero(): array
+  {
+    $sql = "SELECT DISTINCT c.id, c.nombre, p.nombre AS potreroNombre
+              FROM categorias c
+              JOIN potreros p ON c.id = p.categoriaId
+              ORDER BY c.nombre ASC";
+
+    $result = $this->conn->query($sql);
+
+    $categorias = [];
+    if ($result) {
+      while ($row = $result->fetch_assoc()) {
+        $categorias[] = $row;
+      }
+    }
+    return $categorias;
   }
 
   // 🔹 Mover categoría entre potreros (MOVER TOTAL)

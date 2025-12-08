@@ -1,9 +1,7 @@
 <?php
 
-// Clase de modelo para la entidad orden
 class Orden
 {
-  // Propiedades que corresponden a las columnas de la tabla ordenes
   private $id;
   private $potreroId;
   private $almacenId;
@@ -12,14 +10,27 @@ class Orden
   private $cantidad;
   private $usuarioId;
   private $estadoId;
+  private $categoriaId; // NUEVO: Campo para estadísticas
   private $fechaCreacion;
   private $fechaActualizacion;
   private $horaCreacion;
   private $horaActualizacion;
 
-
-  public function __construct($id = null, $potreroId = null, $almacenId = null, $tipoAlimentoId = null, $alimentoId = null, $cantidad = null, $usuarioId = null, $estadoId = null, $fechaCreacion = null, $fechaActualizacion = null, $horaCreacion = null, $horaActualizacion = null)
-  {
+  public function __construct(
+    $id,
+    $potreroId,
+    $almacenId,
+    $tipoAlimentoId,
+    $alimentoId,
+    $cantidad,
+    $usuarioId,
+    $estadoId,
+    $categoriaId, // NUEVO
+    $fechaCreacion,
+    $fechaActualizacion,
+    $horaCreacion,
+    $horaActualizacion
+  ) {
     $this->id = $id;
     $this->potreroId = $potreroId;
     $this->almacenId = $almacenId;
@@ -28,16 +39,21 @@ class Orden
     $this->cantidad = $cantidad;
     $this->usuarioId = $usuarioId;
     $this->estadoId = $estadoId;
+    $this->categoriaId = $categoriaId; // NUEVO
     $this->fechaCreacion = $fechaCreacion;
     $this->fechaActualizacion = $fechaActualizacion;
     $this->horaCreacion = $horaCreacion;
     $this->horaActualizacion = $horaActualizacion;
   }
-  // Métodos "getter" para acceder a las propiedades.
 
   public function getId()
   {
     return $this->id;
+  }
+
+  public function setId($id): void
+  {
+    $this->id = $id;
   }
 
   public function getPotreroId()
@@ -45,9 +61,19 @@ class Orden
     return $this->potreroId;
   }
 
+  public function setPotreroId($potreroId): void
+  {
+    $this->potreroId = $potreroId;
+  }
+
   public function getAlmacenId()
   {
     return $this->almacenId;
+  }
+
+  public function setAlmacenId($almacenId): void
+  {
+    $this->almacenId = $almacenId;
   }
 
   public function getTipoAlimentoId()
@@ -55,9 +81,19 @@ class Orden
     return $this->tipoAlimentoId;
   }
 
+  public function setTipoAlimentoId($tipoAlimentoId): void
+  {
+    $this->tipoAlimentoId = $tipoAlimentoId;
+  }
+
   public function getAlimentoId()
   {
     return $this->alimentoId;
+  }
+
+  public function setAlimentoId($alimentoId): void
+  {
+    $this->alimentoId = $alimentoId;
   }
 
   public function getCantidad()
@@ -65,9 +101,19 @@ class Orden
     return $this->cantidad;
   }
 
+  public function setCantidad($cantidad): void
+  {
+    $this->cantidad = $cantidad;
+  }
+
   public function getUsuarioId()
   {
     return $this->usuarioId;
+  }
+
+  public function setUsuarioId($usuarioId): void
+  {
+    $this->usuarioId = $usuarioId;
   }
 
   public function getEstadoId()
@@ -75,9 +121,29 @@ class Orden
     return $this->estadoId;
   }
 
+  public function setEstadoId($estadoId): void
+  {
+    $this->estadoId = $estadoId;
+  }
+
+  public function getCategoriaId() // NUEVO GETTER
+  {
+    return $this->categoriaId;
+  }
+
+  public function setCategoriaId($categoriaId): void // NUEVO SETTER
+  {
+    $this->categoriaId = $categoriaId;
+  }
+
   public function getFechaCreacion()
   {
     return $this->fechaCreacion;
+  }
+
+  public function setFechaCreacion($fechaCreacion): void
+  {
+    $this->fechaCreacion = $fechaCreacion;
   }
 
   public function getFechaActualizacion()
@@ -85,9 +151,19 @@ class Orden
     return $this->fechaActualizacion;
   }
 
+  public function setFechaActualizacion($fechaActualizacion): void
+  {
+    $this->fechaActualizacion = $fechaActualizacion;
+  }
+
   public function getHoraCreacion()
   {
     return $this->horaCreacion;
+  }
+
+  public function setHoraCreacion($horaCreacion): void
+  {
+    $this->horaCreacion = $horaCreacion;
   }
 
   public function getHoraActualizacion()
@@ -95,78 +171,8 @@ class Orden
     return $this->horaActualizacion;
   }
 
-  // Métodos "setter" para modificar las propiedades.
-
-  public function setPotreroId($potreroId)
-  {
-    $this->potreroId = $potreroId;
-  }
-
-  public function setAlmacenId($almacenId)
-  {
-    $this->almacenId = $almacenId;
-  }
-
-  public function setTipoAlimentoId($tipoAlimentoId)
-  {
-    $this->tipoAlimentoId = $tipoAlimentoId;
-  }
-
-  public function setAlimentoId($alimentoId)
-  {
-    $this->alimentoId = $alimentoId;
-  }
-
-  public function setCantidad($cantidad)
-  {
-    $this->cantidad = $cantidad;
-  }
-
-  public function setUsuarioId($usuarioId)
-  {
-    $this->usuarioId = $usuarioId;
-  }
-
-  public function setEstadoId($estadoId)
-  {
-    $this->estadoId = $estadoId;
-  }
-
-  public function setFechaCreacion($fechaCreacion)
-  {
-    $this->fechaCreacion = $fechaCreacion;
-  }
-
-  public function setFechaActualizacion($fechaActualizacion)
-  {
-    $this->fechaActualizacion = $fechaActualizacion;
-  }
-
-  public function setHoraCreacion($horaActualizacion)
+  public function setHoraActualizacion($horaActualizacion): void
   {
     $this->horaActualizacion = $horaActualizacion;
-  }
-
-  public function setHoraActualizacion($horaActualizacion)
-  {
-    $this->horaActualizacion = $horaActualizacion;
-  }
-
-  public function toArray(): array
-  {
-    return [
-      'id' => $this->id,
-      'potreroId' => $this->potreroId,
-      'almacenId' => $this->almacenId,
-      'tipoAlimentoId' => $this->tipoAlimentoId,
-      'alimentoId' => $this->alimentoId,
-      'cantidad' => $this->cantidad,
-      'usuarioId' => $this->usuarioId,
-      'estadoId' => $this->estadoId,
-      'fechaCreacion' => $this->fechaCreacion,
-      'fechaActualizacion' => $this->fechaActualizacion,
-      'horaCreacion' => $this->horaCreacion,
-      'horaActualizacion' => $this->horaActualizacion,
-    ];
   }
 }
