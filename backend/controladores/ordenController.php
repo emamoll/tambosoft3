@@ -1,5 +1,6 @@
 <?php
-date_default_timezone_set('America/Argentina/Buenos_Aires');
+
+date_default_timezone_set('America/Argentina/Buenos_Aires'); // FIJADO ZONA HORARIA A ARGENTINA
 
 require_once __DIR__ . '../../DAOS/ordenDAO.php';
 require_once __DIR__ . '../../DAOS/alimentoDAO.php';
@@ -110,7 +111,10 @@ class OrdenController
 
       // Obtener la lista completa de órdenes (para llenar la tabla con JS)
       if ($accion === 'obtenerOrden') {
-        $ordenes = $this->obtenerOrden();
+        $usuarioIdFiltro = intval($_GET['usuarioId'] ?? 0); // Captura el ID del usuario si se envía
+
+        $ordenes = $this->obtenerOrden($usuarioIdFiltro > 0 ? $usuarioIdFiltro : null);
+
         if (ob_get_level()) {
           ob_clean();
         }
@@ -170,6 +174,9 @@ class OrdenController
       $accion = $data['accion'] ?? null;
       $id = intval($data['id'] ?? 0);
 
+      // NUEVO: Obtener el nuevo estado ID para la acción de cambiar estado
+      $nuevoEstadoId = intval($data['nuevoEstadoId'] ?? 0);
+
       // Sanitización y obtención de datos
       $categoriaIdForm = trim($data['categoriaId'] ?? '');
       $almacenId = trim($data['almacenId'] ?? '');
@@ -181,6 +188,31 @@ class OrdenController
       $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida'];
 
       switch ($accion) {
+
+        case 'cambiarEstado':
+          if (!$id) {
+            $res = ['tipo' => 'error', 'mensaje' => 'ID de orden inválido.'];
+            break;
+          }
+          $ordenActual = $this->ordenDAO->getOrdenById($id);
+          if (!$ordenActual) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Orden no encontrada.'];
+            break;
+          }
+
+          $estadoActual = $ordenActual->getEstadoId();
+
+          // Requisito: Solo de Pendiente (1) a En preparación (2)
+          if ($estadoActual == 1 && $nuevoEstadoId == 2) {
+            $ok = $this->ordenDAO->actualizarEstadoOrden($id, $nuevoEstadoId);
+
+            $res = $ok
+              ? ['tipo' => 'success', 'mensaje' => 'Estado actualizado a "En preparación" correctamente.']
+              : ['tipo' => 'error', 'mensaje' => 'Error al actualizar el estado de la orden.'];
+          } else {
+            $res = ['tipo' => 'error', 'mensaje' => 'Transición de estado no permitida. Solo de Pendiente a En preparación.'];
+          }
+          break;
 
         case 'registrar':
 
@@ -516,7 +548,7 @@ class OrdenController
   // ================
   // MÉTODOS DE APOYO
   // ================
-  public function obtenerOrden()
+  public function obtenerOrden(?int $usuarioId = null) // MODIFICADO: Acepta ID de usuario opcional
   {
     if ($this->connError !== null) {
       return [];
@@ -524,7 +556,6 @@ class OrdenController
 
     $conn = $this->ordenDAO->getConn();
 
-    // MODIFICADO: Hora a HH:mm y se elimina la selección de campoNombre
     $sql = "SELECT 
                 o.id, o.potreroId, o.almacenId, o.tipoAlimentoId, o.alimentoId, o.cantidad, o.usuarioId, o.estadoId, o.categoriaId,
                 DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
@@ -537,7 +568,6 @@ class OrdenController
                 e.descripcion AS estadoDescripcion,
                 e.colores AS estadoColor,
                 c.nombre AS categoriaNombre
-                /* ELIMINADO: ca.nombre AS campoNombre */
             FROM ordenes o
             LEFT JOIN potreros p ON o.potreroId = p.id
             LEFT JOIN almacenes al ON o.almacenId = al.id
@@ -547,9 +577,34 @@ class OrdenController
             LEFT JOIN estados e ON o.estadoId = e.id
             LEFT JOIN categorias c ON o.categoriaId = c.id
             LEFT JOIN campos ca ON p.campoId = ca.id
-            ORDER BY o.fechaCreacion DESC, o.horaCreacion DESC";
+            WHERE 1=1";
 
-    $result = $conn->query($sql);
+    $params = [];
+    $types = '';
+
+    // LÓGICA DE FILTRADO AÑADIDA
+    if ($usuarioId !== null && $usuarioId > 0) {
+      $sql .= " AND o.usuarioId = ?";
+      $params[] = $usuarioId;
+      $types .= 'i';
+    }
+
+    $sql .= " ORDER BY o.fechaCreacion DESC, o.horaCreacion DESC";
+
+    // Preparar y ejecutar la consulta (necesario si hay parámetros)
+    if (!empty($params)) {
+      $stmt = $conn->prepare($sql);
+      if ($stmt === false) {
+        error_log("Error preparando consulta en obtenerOrden: " . $conn->error);
+        return [];
+      }
+      $stmt->bind_param($types, ...$params);
+      $stmt->execute();
+      $result = $stmt->get_result();
+      $stmt->close();
+    } else {
+      $result = $conn->query($sql);
+    }
 
     $ordenes = [];
     if ($result) {

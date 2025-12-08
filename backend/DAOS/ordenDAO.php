@@ -31,6 +31,26 @@ class OrdenDAO
   }
 
   // =============================================================
+  // NUEVO: Actualizar solo el estado de la orden
+  // =============================================================
+  public function actualizarEstadoOrden($ordenId, $nuevoEstadoId): bool
+  {
+    $fechaActualizacion = date('Y-m-d');
+    $horaActualizacion = date('H:i:s');
+
+    $sql = "UPDATE ordenes
+             SET estadoId = ?, fechaActualizacion = ?, horaActualizacion = ?
+             WHERE id = ?";
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("issi", $nuevoEstadoId, $fechaActualizacion, $horaActualizacion, $ordenId);
+
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
+  }
+
+  // =============================================================
   // Registrar orden (MODIFICADA: Agrega categoriaId)
   // =============================================================
   public function registrarOrden(Orden $orden): bool|int
@@ -40,7 +60,7 @@ class OrdenDAO
     $tipoAlimentoId = $orden->getTipoAlimentoId();
     $alimentoId = $orden->getAlimentoId();
     $cantidad = $orden->getCantidad();
-    $categoriaId = $orden->getCategoriaId(); // NUEVO CAMPO
+    $categoriaId = $orden->getCategoriaId();
     // CAMPOS FIJOS/AUTOMÁTICOS
     $usuarioId = $orden->getUsuarioId();
     $estadoId = 1; // Estado inicial: 'Pendiente'
@@ -65,7 +85,7 @@ class OrdenDAO
                  (potreroId, almacenId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, categoriaId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
       $stmt = $this->conn->prepare($sql);
-      // Tipos: 7x(i) para IDs/Cantidades, 1x(i) para categoriaId, 4x(s) para fechas/horas
+      // Tipos: 8x(i) para IDs/Cantidades, 4x(s) para fechas/horas
       $stmt->bind_param(
         "iiiiiiiissss",
         $potreroId,
@@ -75,7 +95,7 @@ class OrdenDAO
         $cantidad,
         $usuarioId,
         $estadoId,
-        $categoriaId, // NUEVO BIND
+        $categoriaId,
         $fechaCreacion,
         $fechaActualizacion,
         $horaCreacion,
