@@ -1,5 +1,4 @@
 <?php
-// S'assumeix que $rolId s'obté de la sessió:
 $rolId = $_SESSION['rolId'] ?? 0;
 ?>
 

@@ -8,7 +8,6 @@ class OrdenConsumoStockDAO
   private $db;
   private $conn;
   private $crearTabla;
-  private $tableName = 'orden_stock_consumo';
 
   public function __construct()
   {
@@ -21,7 +20,7 @@ class OrdenConsumoStockDAO
   // Registra un detalle de consumo (debe usar la conexión de la transacción)
   public function registrarDetalle(object $transactionConn, int $ordenId, int $stockId, int $cantidadConsumida): bool
   {
-    $sql = "INSERT INTO {$this->tableName} (ordenId, stockId, cantidadConsumida) VALUES (?, ?, ?)";
+    $sql = "INSERT INTO ordenConsumoStock (ordenId, stockId, cantidadConsumida) VALUES (?, ?, ?)";
     $stmt = $transactionConn->prepare($sql); // USANDO $transactionConn
     $stmt->bind_param("iii", $ordenId, $stockId, $cantidadConsumida);
     $ok = $stmt->execute();
@@ -32,7 +31,7 @@ class OrdenConsumoStockDAO
   // Obtiene todos los registros de consumo para una orden específica
   public function getConsumoByOrdenId(int $ordenId): array
   {
-    $sql = "SELECT stockId, cantidadConsumida FROM {$this->tableName} WHERE ordenId = ?";
+    $sql = "SELECT stockId, cantidadConsumida FROM ordenConsumoStock WHERE ordenId = ?";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $ordenId);
     $stmt->execute();
@@ -48,7 +47,7 @@ class OrdenConsumoStockDAO
   // Elimina todos los registros de consumo para una orden específica (debe usar la conexión de la transacción)
   public function eliminarConsumoByOrdenId(object $transactionConn, int $ordenId): bool
   {
-    $sql = "DELETE FROM {$this->tableName} WHERE ordenId = ?";
+    $sql = "DELETE FROM ordenConsumoStock WHERE ordenId = ?";
     $stmt = $transactionConn->prepare($sql); // USANDO $transactionConn
     $stmt->bind_param("i", $ordenId);
     $ok = $stmt->execute();

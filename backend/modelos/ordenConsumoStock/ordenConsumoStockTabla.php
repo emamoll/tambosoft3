@@ -14,7 +14,7 @@ class OrdenConsumoStockCrearTabla
   {
     $conn = $this->db->connect();
 
-    $sql = "CREATE TABLE IF NOT EXISTS {$this->tableName} (
+    $sql = "CREATE TABLE IF NOT EXISTS ordenConsumoStock (
             id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
             ordenId INT(11) NOT NULL,
             stockId INT(11) NOT NULL,
@@ -24,9 +24,9 @@ class OrdenConsumoStockCrearTabla
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 
     if ($conn->query($sql) === TRUE) {
-      // echo "Tabla {$this->tableName} creada exitosamente\n";
+      // echo "Tabla ordenConsumoStock creada exitosamente\n";
     } else {
-      error_log("Error creando la tabla {$this->tableName}: " . $conn->error);
+      error_log("Error creando la tabla ordenConsumoStock: " . $conn->error);
     }
   }
 }
