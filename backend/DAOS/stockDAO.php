@@ -83,8 +83,9 @@ class StockDAO
              WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
+    // CORRECCIÓN: La cadena correcta es "iiiiiidsi" para los 9 parámetros.
     $stmt->bind_param(
-      "iiiiisssi",
+      "iiiiiidsi",
       $almacenId,
       $tipoAlimentoId,
       $alimentoId,
@@ -891,14 +892,16 @@ class StockDAO
   // NUEVO: Obtener Alimentos con Stock por Almacén y Tipo (para el filtro en cascada del form)
   public function getAlimentosConStockByAlmacenIdAndTipoId($almacenId, $tipoAlimentoId): array
   {
-    $sql = "SELECT s.alimentoId, a.nombre AS alimentoNombre, SUM(s.cantidad) AS totalStock
-              FROM stocks s
-              JOIN alimentos a ON s.alimentoId = a.id
-              WHERE s.almacenId = ?
-                AND s.tipoAlimentoId = ?
-              GROUP BY s.alimentoId, a.nombre
-              HAVING SUM(s.cantidad) > 0
-              ORDER BY a.nombre ASC";
+    $sql = "SELECT 
+            s.alimentoId, 
+            a.nombre AS alimentoNombre, 
+            COALESCE(SUM(s.cantidad), 0) AS totalStock
+          FROM stocks s
+          JOIN alimentos a ON s.alimentoId = a.id
+          WHERE s.almacenId = ?
+            AND s.tipoAlimentoId = ?
+          GROUP BY s.alimentoId, a.nombre
+          ORDER BY a.nombre ASC";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("ii", $almacenId, $tipoAlimentoId);
@@ -910,10 +913,11 @@ class StockDAO
       $alimentos[] = [
         'id' => $row['alimentoId'],
         'nombre' => $row['alimentoNombre'],
-        'cantidad' => (int) $row['totalStock']
+        'cantidad' => (int) $row['totalStock'],
       ];
     }
     $stmt->close();
+
     return $alimentos;
   }
 

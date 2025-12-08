@@ -97,12 +97,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS por tipo y ALMACÉN (AJAX)
+  // FUNCIÓN MODIFICADA: FILTRAR Y CARGAR ALIMENTOS por tipo y ALMACÉN (AJAX)
+  // Permite pasar los valores para preselección en modo edición.
   // ----------------------------------------------------
-  async function cargarAlimentosDisponibles() {
-    const tipoSeleccionado = tipoAlimentoId.value;
-    const almacenSeleccionado = almacenId.value;
-    const alimentoSeleccionadoActual = alimentoId.value;
+  async function cargarAlimentosDisponibles(
+    almacenIdValue = null,
+    tipoAlimentoIdValue = null,
+    alimentoIdOriginal = null
+  ) {
+    // Usamos los valores pasados, o leemos del DOM si no se pasaron (modo registrar)
+    const tipoSeleccionado = tipoAlimentoIdValue || tipoAlimentoId.value;
+    const almacenSeleccionado = almacenIdValue || almacenId.value;
+    const alimentoSeleccionadoActual = alimentoIdOriginal || alimentoId.value;
 
     // Limpiar el select de alimentos, manteniendo la opción por defecto
     alimentoId.innerHTML =
@@ -135,7 +141,8 @@ document.addEventListener("DOMContentLoaded", () => {
             // Asignar dataset de stock para la validación rápida en el submit
             option.dataset.stock = alimento.cantidad;
 
-            if (String(alimento.id) === alimentoSeleccionadoActual) {
+            // Lógica de selección del alimento original (CORREGIDO)
+            if (String(alimento.id) === String(alimentoSeleccionadoActual)) {
               option.selected = true;
               stockDisplay.dataset.stock = alimento.cantidad;
               stockDisplay.textContent = `Stock: ${alimento.cantidad}`;
@@ -167,6 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? selectedOption.dataset.stock
       : undefined;
 
+    // Lógica para modo 'registrar': Si hay stock precargado, lo usamos y salimos
     if (stockPrecargado !== undefined && accionInput.value === "registrar") {
       stockDisplay.dataset.stock = Number(stockPrecargado);
       stockDisplay.textContent = `Stock: ${stockPrecargado}`;
@@ -215,13 +223,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Resetear tipo y alimento para forzar la carga de los disponibles en el nuevo almacén
     tipoAlimentoId.value = "";
     alimentoId.value = "";
+    // Llama a la función sin parámetros, por lo que lee del DOM (comportamiento normal)
     cargarAlimentosDisponibles();
     obtenerYMostrarStock();
   });
 
   tipoAlimentoId.addEventListener("change", () => {
     alimentoId.value = ""; // Resetear alimento al cambiar tipo
-    cargarAlimentosDisponibles(); // Cargar alimentos disponibles para el almacén y tipo seleccionado
+    // Llama a la función sin parámetros, por lo que lee del DOM (comportamiento normal)
+    cargarAlimentosDisponibles();
     obtenerYMostrarStock();
   });
 
@@ -239,11 +249,8 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Listando ordenes...");
 
     try {
-      const resp = await fetch(`${API}?action=obtenerOrden`, {
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-
-      const data = await fetchJSON(resp.url, {
+      // Se utiliza fetchJSON con el URL completo para garantizar que maneje la respuesta
+      const data = await fetchJSON(`${API}?action=obtenerOrden`, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
@@ -314,6 +321,7 @@ document.addEventListener("DOMContentLoaded", () => {
     almacenId.value = "";
     tipoAlimentoId.value = "";
     alimentoId.value = "";
+    // Llama a la función sin parámetros, forzando a que lea los valores vacíos del DOM
     cargarAlimentosDisponibles();
 
     stockDisplay.textContent = "Stock: -";
@@ -358,14 +366,18 @@ document.addEventListener("DOMContentLoaded", () => {
       mostrarError("error-cantidad");
     }
 
-    // Validación de Stock Suficiente (solo para acción 'registrar')
-    if (accionInput.value === "registrar" && ok) {
-      const stockDisponible = Number(stockDisplay.dataset.stock) || 0;
-      if (cant > stockDisponible) {
-        errorStockInsuficiente.textContent = `Stock insuficiente en el almacén. Solo hay ${stockDisponible} unidades disponibles.`;
-        errorStockInsuficiente.style.display = "block";
-        ok = false;
+    // Validación de Stock Suficiente (solo para acción 'registrar' o si se modificó y es mayor)
+    if (ok) {
+      // Para 'registrar', la validación ya usa stockDisplay.dataset.stock
+      if (accionInput.value === "registrar") {
+        const stockDisponible = Number(stockDisplay.dataset.stock) || 0;
+        if (cant > stockDisponible) {
+          errorStockInsuficiente.textContent = `Stock insuficiente en el almacén. Solo hay ${stockDisponible} unidades disponibles.`;
+          errorStockInsuficiente.style.display = "block";
+          ok = false;
+        }
       }
+      // Para 'modificar', la validación real se hace en el backend
     }
 
     if (!ok) {
@@ -425,14 +437,18 @@ document.addEventListener("DOMContentLoaded", () => {
         almacenId.value = ordenData.almacenId;
         tipoAlimentoId.value = ordenData.tipoAlimentoId;
 
-        // Cargar alimentos disponibles para el almacén y tipo. Usamos await
-        await cargarAlimentosDisponibles();
-        alimentoId.value = ordenData.alimentoId;
+        // CORRECCIÓN PRINCIPAL: Cargar el select de alimentos y seleccionar el valor en un solo paso asíncrono
+        await cargarAlimentosDisponibles(
+          ordenData.almacenId,
+          ordenData.tipoAlimentoId,
+          ordenData.alimentoId
+        );
 
+        // Despues de cargar el select y preseleccionar el alimento, cargamos los otros valores
         cantidad.value = ordenData.cantidad;
         usuarioId.value = ordenData.usuarioId;
 
-        // Mostrar stock actual (sólo informativo en edición)
+        // Mostrar stock actual (hace una llamada AJAX para obtener el stock)
         obtenerYMostrarStock();
       }
       return;

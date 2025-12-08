@@ -73,7 +73,7 @@ class IngresoDAO
     $precio = $ingreso->getPrecio() ?: null;
     $fechaIngreso = $ingreso->getFechaIngreso();
 
-    $sql = "UPDATE ingreso
+    $sql = "UPDATE ingresos
              SET almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, precio = ?, fechaIngreso = ?
              WHERE id = ?";
 
