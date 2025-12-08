@@ -6,7 +6,9 @@ require_once __DIR__ . '../../DAOS/stockDAO.php';
 require_once __DIR__ . '../../DAOS/potreroDAO.php';
 require_once __DIR__ . '../../DAOS/usuarioDAO.php';
 require_once __DIR__ . '../../DAOS/almacenDAO.php';
+require_once __DIR__ . '../../DAOS/ordenConsumoStockDAO.php'; // NUEVO REQUIRE
 require_once __DIR__ . '../../modelos/orden/ordenModelo.php';
+require_once __DIR__ . '../../modelos/ordenConsumoStock/ordenConsumoStockModelo.php'; // NUEVO REQUIRE
 
 class OrdenController
 {
@@ -16,6 +18,7 @@ class OrdenController
   private $potreroDAO;
   private $usuarioDAO;
   private $almacenDAO;
+  private $ordenConsumoStockDAO; // NUEVA PROPIEDAD
   private $connError = null;
 
   public function __construct()
@@ -27,6 +30,7 @@ class OrdenController
       $this->potreroDAO = new PotreroDAO();
       $this->usuarioDAO = new UsuarioDAO();
       $this->almacenDAO = new AlmacenDAO();
+      $this->ordenConsumoStockDAO = new OrdenConsumoStockDAO(); // INICIALIZACIÓN
 
     } catch (Exception $e) {
       $this->ordenDAO = null;
@@ -118,12 +122,33 @@ class OrdenController
       if ($accion === 'getOrdenById') {
         $id = intval($_GET['id'] ?? 0);
         $orden = $this->ordenDAO->getOrdenById($id);
+
+        $data = null;
+        if ($orden) {
+          // FIX: Creamos el array manualmente usando los getters del modelo Orden.
+          // Esto asegura que todos los IDs (incluyendo tipoAlimentoId y alimentoId)
+          // estén presentes para que el JS pueda inicializar la cascada.
+          $data = [
+            'id' => $orden->getId(),
+            'potreroId' => $orden->getPotreroId(),
+            'almacenId' => $orden->getAlmacenId(),
+            'tipoAlimentoId' => $orden->getTipoAlimentoId(),
+            'alimentoId' => $orden->getAlimentoId(),
+            'cantidad' => $orden->getCantidad(),
+            'usuarioId' => $orden->getUsuarioId(),
+            'estadoId' => $orden->getEstadoId(),
+            'fechaCreacion' => $orden->getFechaCreacion(),
+            'fechaActualizacion' => $orden->getFechaActualizacion(),
+            'horaCreacion' => $orden->getHoraCreacion(),
+            'horaActualizacion' => $orden->getHoraActualizacion(),
+          ];
+        }
+
         if (ob_get_level()) {
           ob_clean();
         }
         header('Content-Type: application/json; charset=utf-8');
-        // Devolver el objeto Orden en formato JSON
-        echo json_encode($orden ? $orden->toArray() : null);
+        echo json_encode($data);
         exit;
       }
 
@@ -223,7 +248,8 @@ class OrdenController
                 'mensaje' => "Stock insuficiente en el almacén. Solo hay {$stockDisponible} unidades disponibles."
               ];
             } else {
-              $res = ['tipo' => 'error', 'mensaje' => 'Error al registrar la orden y/o reducir el stock (error DB).'];
+              // El error de DB se maneja dentro del DAO
+              $res = ['tipo' => 'error', 'mensaje' => 'Error al registrar la orden y/o reducir el stock (error de transacción DB).'];
             }
           } else {
             $res = ['tipo' => 'success', 'mensaje' => 'Orden registrada correctamente y stock reducido.'];
@@ -232,14 +258,14 @@ class OrdenController
           break;
 
         case 'modificar':
-
+          // LÓGICA REESCRITA PARA ROLLBACK/AVANCE PRECISO
           if (!$id) {
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido.'];
             break;
           }
 
-          if (empty($potreroId) || empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || empty($cantidad)) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Potrero, Almacén, Tipo Alimento, Alimento y Cantidad.'];
+          if (empty($potreroId) || empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || $cantidad <= 0) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Potrero, Almacén, Tipo Alimento, Alimento y Cantidad (debe ser mayor a 0).'];
             break;
           }
 
@@ -260,72 +286,159 @@ class OrdenController
           $alimentoOriginal = $ordenActual->getAlimentoId();
           $tipoAlimentoOriginal = $ordenActual->getTipoAlimentoId();
 
-          $stockAfectado = true;
-
-          // 1. Verificar si el almacén, tipo o alimento han cambiado (no permitido por ahora)
+          // 1. Verificar si el almacén, tipo o alimento han cambiado (no permitido)
           if ($almacenOriginal != $almacenId || $alimentoOriginal != $alimentoId || $tipoAlimentoOriginal != $tipoAlimentoId) {
             $res = ['tipo' => 'error', 'mensaje' => 'No se permite cambiar el almacén, tipo o alimento en la modificación de la orden para garantizar la integridad del stock. Por favor, elimine y registre una nueva orden.'];
             break;
           }
 
-          // 2. Manejo del Stock: Comparar cantidad nueva con la original
-          $diferenciaCantidad = $cantidadOriginal - $cantidadNueva;
+          // Iniciar Transacción y obtener la conexión para pasarla a los DAOs auxiliares
+          $conn = $this->ordenDAO->getConn();
+          $conn->begin_transaction();
+          $stockAfectado = true;
 
-          if ($diferenciaCantidad > 0) { // La cantidad se redujo (roll back parcial)
-            $cantidadDevuelta = $diferenciaCantidad;
-            // Devolver la cantidad al stock del almacén original (usando actualizarStock)
-            $stockAfectado = $this->stockDAO->aumentarStockParaRollback($almacenOriginal, $tipoAlimentoOriginal, $alimentoOriginal, $cantidadDevuelta);
+          try {
+            $diferenciaCantidad = $cantidadOriginal - $cantidadNueva;
+            $nuevosConsumos = [];
 
-          } elseif ($diferenciaCantidad < 0) { // La cantidad se aumentó (requiere más stock)
-            $cantidadRequeridaAdicional = abs($diferenciaCantidad);
+            if ($diferenciaCantidad > 0) { // La cantidad se redujo (Rollback parcial)
+              $cantidadDevuelta = $diferenciaCantidad;
 
-            // Verificar stock disponible para la cantidad adicional
-            $stockDisponible = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId);
+              // A. Recuperar lotes consumidos por la orden
+              $consumosOriginales = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
 
-            if ($stockDisponible < $cantidadRequeridaAdicional) {
-              $res = [
-                'tipo' => 'error',
-                'mensaje' => "Stock insuficiente en el almacén para el aumento solicitado. Solo hay {$stockDisponible} unidades disponibles para retirar."
-              ];
-              break;
+              // B. Aplicar el Rollback LIFO (se revierte el FIFO)
+              $cantidadPendienteDevolver = $cantidadDevuelta;
+
+              // Se revierte el array para ir del lote más nuevo al más antiguo consumido
+              $consumosInversos = array_reverse($consumosOriginales);
+
+              $errorStock = false;
+
+              foreach ($consumosInversos as $consumo) {
+                if ($cantidadPendienteDevolver <= 0) {
+                  break;
+                }
+
+                $cantidadDevolverEsteLote = min($cantidadPendienteDevolver, $consumo['cantidadConsumida']);
+
+                // Rollback: Devolver el stock al lote exacto (PASANDO $conn)
+                if (!$this->stockDAO->aumentarStockPorLote($conn, $consumo['stockId'], $cantidadDevolverEsteLote)) {
+                  $errorStock = true;
+                  break;
+                }
+
+                $cantidadConsumidaNueva = $consumo['cantidadConsumida'] - $cantidadDevolverEsteLote;
+                $cantidadPendienteDevolver -= $cantidadDevolverEsteLote;
+
+                // Guardar el nuevo consumo restante para el detalle
+                if ($cantidadConsumidaNueva > 0) {
+                  $nuevosConsumos[] = [
+                    'stockId' => $consumo['stockId'],
+                    'cantidadConsumida' => $cantidadConsumidaNueva
+                  ];
+                }
+              }
+              // Volver a ordenar para que queden como en la base de datos (FIFO)
+              $nuevosConsumos = array_reverse($nuevosConsumos);
+
+              if ($errorStock) {
+                throw new Exception('Error de DB al devolver el stock.');
+              }
+
+            } elseif ($diferenciaCantidad < 0) { // La cantidad se aumentó (requiere más stock)
+              $cantidadRequeridaAdicional = abs($diferenciaCantidad);
+
+              // 2. Verificar y obtener lotes para el stock adicional (FIFO)
+              $lotesAdicionales = $this->stockDAO->calcularReduccionFIFO($alimentoId, $tipoAlimentoId, $cantidadRequeridaAdicional, $almacenId);
+
+              if (empty($lotesAdicionales)) {
+                $stockDisponible = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId);
+                throw new Exception("Stock insuficiente en el almacén para el aumento solicitado. Solo hay {$stockDisponible} unidades disponibles para retirar.");
+              }
+
+              // 3. Ejecutar la reducción y combinar los consumos
+              $consumosOriginales = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
+              $nuevosConsumos = $consumosOriginales;
+
+              foreach ($lotesAdicionales as $lote) {
+                // Ejecutar la Reducción en stocks (PASANDO $conn)
+                if (!$this->stockDAO->ejecutarConsumo($conn, $lote['stockId'], $lote['cantidadConsumida'])) {
+                  throw new Exception("Error al ejecutar consumo de stock adicional.");
+                }
+
+                // Intentar fusionar el consumo si el stockId ya existe (puede pasar si un lote se consumió parcialmente)
+                $found = false;
+                foreach ($nuevosConsumos as $key => $nConsumo) {
+                  if ($nConsumo['stockId'] == $lote['stockId']) {
+                    $nuevosConsumos[$key]['cantidadConsumida'] += $lote['cantidadConsumida'];
+                    $found = true;
+                    break;
+                  }
+                }
+                if (!$found) {
+                  $nuevosConsumos[] = $lote;
+                }
+              }
+
+            } else {
+              // No hay cambio en la cantidad
+              $nuevosConsumos = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
             }
 
-            // Retirar el stock adicional usando FIFO
-            $stockAfectado = $this->stockDAO->reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidadRequeridaAdicional, $almacenId);
+            // 4. Actualizar la tabla de OrdenConsumoStock (solo si hubo cambio en cantidad)
+            if ($diferenciaCantidad != 0) {
+              // A. Eliminar viejos registros de consumo (PASANDO $conn)
+              if (!$this->ordenConsumoStockDAO->eliminarConsumoByOrdenId($conn, $id)) {
+                throw new Exception('Error al limpiar registros de consumo antiguos.');
+              }
+              // B. Insertar nuevos registros de consumo (PASANDO $conn)
+              foreach ($nuevosConsumos as $lote) {
+                // Solo insertamos si la cantidad consumida es > 0
+                if ($lote['cantidadConsumida'] > 0) {
+                  if (!$this->ordenConsumoStockDAO->registrarDetalle($conn, $id, $lote['stockId'], $lote['cantidadConsumida'])) {
+                    throw new Exception('Error al registrar nuevos detalles de consumo.');
+                  }
+                }
+              }
+            }
 
+            // 5. Modificación de la Orden en la DB (metadata)
+            $ordenModificada = new Orden(
+              $id,
+              $potreroId,
+              $almacenId,
+              $tipoAlimentoId,
+              $alimentoId,
+              $cantidadNueva,
+              $ordenActual->getUsuarioId(),
+              $ordenActual->getEstadoId(),
+              $ordenActual->getFechaCreacion(),
+              date('Y-m-d'),
+              $ordenActual->getHoraCreacion(),
+              date('H:i:s')
+            );
+
+            // La modificación de la orden principal NO es transaccional, pero es la última operación.
+            $ok = $this->ordenDAO->modificarOrden($ordenModificada);
+
+            if (!$ok) {
+              throw new Exception('Error al modificar la orden (DB error).');
+            }
+
+            $conn->commit();
+            $res = ['tipo' => 'success', 'mensaje' => 'Orden modificada correctamente y stock ajustado.'];
+
+          } catch (Exception $e) {
+            $conn->rollback();
+            // Se devuelve un mensaje de error detallado
+            $res = ['tipo' => 'error', 'mensaje' => 'Error de base de datos al actualizar el stock. La orden no fue modificada. Detalle: ' . $e->getMessage()];
           }
-
-          if (!$stockAfectado) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Error de base de datos al actualizar el stock. La orden no fue modificada.'];
-            break;
-          }
-
-          // 3. Modificación de la Orden en la DB
-          $ordenModificada = new Orden(
-            $id,
-            $potreroId,
-            $almacenId,
-            $tipoAlimentoId,
-            $alimentoId,
-            $cantidadNueva,
-            $ordenActual->getUsuarioId(),
-            $ordenActual->getEstadoId(),
-            $ordenActual->getFechaCreacion(),
-            date('Y-m-d'),
-            $ordenActual->getHoraCreacion(),
-            date('H:i:s')
-          );
-
-          $ok = $this->ordenDAO->modificarOrden($ordenModificada);
-
-          $res = $ok
-            ? ['tipo' => 'success', 'mensaje' => 'Orden modificada correctamente y stock ajustado.']
-            : ['tipo' => 'error', 'mensaje' => 'Error al modificar la orden (DB error).'];
 
           break;
 
         case 'eliminar':
-          // 1. Obtener la orden para obtener los detalles de stock
+          // 1. Obtener la orden
           if (!$id) {
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido para eliminar.'];
             break;
@@ -337,27 +450,13 @@ class OrdenController
             break;
           }
 
-          $almacenId = $ordenActual->getAlmacenId();
-          $tipoAlimentoId = $ordenActual->getTipoAlimentoId();
-          $alimentoId = $ordenActual->getAlimentoId();
-          $cantidad = $ordenActual->getCantidad();
-
-          $stockAfectado = true;
-
-          // 2. Devolver la cantidad al stock (Rollback completo, usando actualizarStock)
-          $stockAfectado = $this->stockDAO->aumentarStockParaRollback($almacenId, $tipoAlimentoId, $alimentoId, $cantidad);
-
-          if (!$stockAfectado) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Error de base de datos al devolver el stock. La orden NO fue eliminada.'];
-            break;
-          }
-
-          // 3. Eliminar la orden
+          // 2. El DAO ahora maneja la devolución precisa de stock y la eliminación de la orden en una sola transacción.
           try {
             $ok = $this->ordenDAO->eliminarOrden($id);
             $res = $ok
               ? ['tipo' => 'success', 'mensaje' => 'Orden eliminada correctamente y stock devuelto.']
-              : ['tipo' => 'error', 'mensaje' => 'No se encontró la orden o no se pudo eliminar.'];
+              : ['tipo' => 'error', 'mensaje' => 'Error de transacción al eliminar la orden.'];
+
           } catch (mysqli_sql_exception $e) {
             // Manejo de error de DB (FK constraint)
             if ((int) $e->getCode() === 1451) {

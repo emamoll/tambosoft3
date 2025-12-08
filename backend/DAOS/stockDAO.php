@@ -346,76 +346,85 @@ class StockDAO
   }
 
   // =============================================================
-  // MÉTODO PARA DEVOLVER STOCK (ROLLBACK) - CORREGIDO FINAL
+  // MÉTODOS TRANSACCIONALES (PARA USO DE ORDENDAO)
   // =============================================================
-  public function aumentarStockParaRollback($almacenId, $tipoAlimentoId, $alimentoId, $cantidad): bool
+
+  // 1. CÁLCULO DE REDUCCIÓN FIFO (solo devuelve qué lotes consumir, NO ejecuta DB)
+  // Retorna un array con [{stockId, cantidadConsumida}] o un array vacío si el stock es insuficiente.
+  public function calcularReduccionFIFO($alimentoId, $tipoAlimentoId, $cantidadRequerida, $almacenId): array
   {
-    // 1. Buscar el registro de stock ACTIVO (cantidad > 0) más reciente para este producto/almacén.
-    $sqlSelectLatestActive = "SELECT id FROM stocks 
-                                WHERE almacenId = ? AND tipoAlimentoId = ? AND alimentoId = ? AND cantidad > 0
-                                ORDER BY id DESC LIMIT 1";
-    $stmtSelect = $this->conn->prepare($sqlSelectLatestActive);
-    $stmtSelect->bind_param("iii", $almacenId, $tipoAlimentoId, $alimentoId);
+    // Aseguramos que la cantidad requerida sea un entero
+    $cantidadPendiente = (int) $cantidadRequerida;
+    $consumoPorLote = [];
+
+    if ($cantidadPendiente <= 0) {
+      return $consumoPorLote;
+    }
+
+    // 1. Obtener entradas de stock para el alimento, tipo, y ALMACÉN ordenadas por fecha de ingreso (FIFO)
+    $sqlSelect = "SELECT id, cantidad FROM stocks 
+                  WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ? AND cantidad > 0
+                  ORDER BY fechaIngreso ASC, id ASC"; // FIFO por fecha, luego por ID
+    $stmtSelect = $this->conn->prepare($sqlSelect);
+    $stmtSelect->bind_param("iii", $alimentoId, $tipoAlimentoId, $almacenId);
     $stmtSelect->execute();
     $result = $stmtSelect->get_result();
-    $row = $result->fetch_assoc();
     $stmtSelect->close();
 
-    $this->conn->begin_transaction();
-    $ok = false;
 
-    if ($row) {
-      // 2. Si se encuentra un registro ACTIVO, actualizamos su cantidad directamente por ID.
-      $stockId = $row['id'];
-      // Usamos 'cantidad = cantidad + ?' para garantizar atomicidad y no depender de la cantidad leída.
-      $sql = "UPDATE stocks SET cantidad = cantidad + ? WHERE id = ?";
-      $stmt = $this->conn->prepare($sql);
-      $stmt->bind_param("ii", $cantidad, $stockId);
-      $ok = $stmt->execute();
-      $stmt->close();
-    } else {
-      // 3. Si NO existe NINGÚN registro de stock ACTIVO (cantidad > 0).
-      // Buscamos el ÚLTIMO registro (activo o inactivo) para reutilizar su ID y evitar fragmentación.
-      $sqlSelectAny = "SELECT id FROM stocks 
-                            WHERE almacenId = ? AND tipoAlimentoId = ? AND alimentoId = ?
-                            ORDER BY id DESC LIMIT 1";
-      $stmtSelectAny = $this->conn->prepare($sqlSelectAny);
-      $stmtSelectAny->bind_param("iii", $almacenId, $tipoAlimentoId, $alimentoId);
-      $stmtSelectAny->execute();
-      $rowAny = $stmtSelectAny->get_result()->fetch_assoc();
-      $stmtSelectAny->close();
+    while ($row = $result->fetch_assoc()) {
+      $stockId = (int) $row['id']; // Cast de seguridad
+      $cantidadActual = (int) $row['cantidad']; // Cast de seguridad
 
-      if ($rowAny) {
-        // 3b. Si existe una fila previa (incluso con cantidad 0), la actualizamos sumando la cantidad.
-        $stockId = $rowAny['id'];
-        $sql = "UPDATE stocks SET cantidad = cantidad + ? WHERE id = ?";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("ii", $cantidad, $stockId);
-        $ok = $stmt->execute();
-        $stmt->close();
-      } else {
-        // 3c. Si NO EXISTE NINGUNA fila, creamos una nueva (produccionInterna=0, fecha actual).
-        $produccionInterna = 0;
-        $fechaIngreso = date('Y-m-d');
-
-        $sqlInsert = "INSERT INTO stocks(almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, fechaIngreso) VALUES (?, ?, ?, ?, ?, ?)";
-        $stmt = $this->conn->prepare($sqlInsert);
-
-        $ok = $stmt->bind_param("iiiiis", $almacenId, $tipoAlimentoId, $alimentoId, $cantidad, $produccionInterna, $fechaIngreso) && $stmt->execute();
-        $stmt->close();
+      if ($cantidadPendiente <= 0) {
+        break;
       }
+
+      $cantidadConsumida = min($cantidadPendiente, $cantidadActual);
+      $cantidadPendiente -= $cantidadConsumida;
+
+      $consumoPorLote[] = [
+        'stockId' => $stockId,
+        'cantidadConsumida' => $cantidadConsumida
+      ];
     }
 
-    if ($ok) {
-      $this->conn->commit();
-    } else {
-      $this->conn->rollback();
+    // 2. Comprobar si se pudo satisfacer toda la demanda
+    if ($cantidadPendiente > 0) {
+      return []; // Stock insuficiente, devuelve array vacío
     }
+
+    return $consumoPorLote; // Devuelve los detalles de consumo
+  }
+
+  // 2. EJECUCIÓN DE CONSUMO (Método atómico para reducir stock por lote)
+  // Acepta $transactionConn para la atomicidad
+  public function ejecutarConsumo(object $transactionConn, int $stockId, int $cantidadConsumida): bool
+  {
+    // Usa la conexión de la transacción principal
+    $sql = "UPDATE stocks SET cantidad = GREATEST(cantidad - ?, 0) WHERE id = ?";
+    $stmt = $transactionConn->prepare($sql); // USANDO $transactionConn
+    $stmt->bind_param("ii", $cantidadConsumida, $stockId);
+    $ok = $stmt->execute();
+    $stmt->close();
+    return $ok;
+  }
+
+  // 3. AUMENTO/ROLLBACK PRECISO (Método atómico para devolver stock al lote exacto)
+  // Acepta $transactionConn para la atomicidad
+  public function aumentarStockPorLote(object $transactionConn, int $stockId, int $cantidadDevuelta): bool
+  {
+    // Aumenta la cantidad al ID de lote del que salió.
+    $sql = "UPDATE stocks SET cantidad = cantidad + ? WHERE id = ?";
+    $stmt = $transactionConn->prepare($sql); // USANDO $transactionConn
+    $stmt->bind_param("ii", $cantidadDevuelta, $stockId);
+    $ok = $stmt->execute();
+    $stmt->close();
     return $ok;
   }
 
   // =============================================================
-  // RESTO DE TUS MÉTODOS - SIN CAMBIOS
+  // RESTO DE TUS MÉTODOS - SIN CAMBIOS ESTRUCTURALES
   // =============================================================
 
   public function getAllStocks(): array
@@ -877,76 +886,6 @@ class StockDAO
     $row = $result->fetch_assoc();
     $stmt->close();
     return (int) $row['totalStock'];
-  }
-
-  // Retorna true si la reducción fue exitosa, false en caso contrario (ej: stock insuficiente).
-  public function reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidadRequerida, $almacenId): bool
-  {
-    $cantidadPendiente = (int) $cantidadRequerida;
-
-    if ($cantidadPendiente <= 0) {
-      return true; // Nada que reducir
-    }
-
-    // 1. Obtener entradas de stock para el alimento, tipo, y ALMACÉN ordenadas por fecha de ingreso (FIFO)
-    $sqlSelect = "SELECT id, cantidad FROM stocks 
-                  WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ? AND cantidad > 0
-                  ORDER BY fechaIngreso ASC, id ASC"; // FIFO por fecha, luego por ID
-    $stmtSelect = $this->conn->prepare($sqlSelect);
-    $stmtSelect->bind_param("iii", $alimentoId, $tipoAlimentoId, $almacenId);
-    $stmtSelect->execute();
-    $result = $stmtSelect->get_result();
-    $stmtSelect->close();
-
-    $this->conn->begin_transaction();
-    $success = true;
-
-    while ($row = $result->fetch_assoc()) {
-      $stockId = $row['id'];
-      $cantidadActual = (int) $row['cantidad'];
-
-      if ($cantidadPendiente <= 0) {
-        break;
-      }
-
-      $cantidadConsumida = min($cantidadPendiente, $cantidadActual);
-      $cantidadRestante = $cantidadActual - $cantidadConsumida;
-      $cantidadPendiente -= $cantidadConsumida;
-
-      if ($cantidadRestante == 0) {
-        // Eliminar fila si el stock queda en cero
-        $sqlDelete = "DELETE FROM stocks WHERE id = ?";
-        $stmtDelete = $this->conn->prepare($sqlDelete);
-        $stmtDelete->bind_param("i", $stockId);
-        if (!$stmtDelete->execute()) {
-          $success = false;
-        }
-        $stmtDelete->close();
-      } else {
-        // Actualizar cantidad si queda stock
-        $sqlUpdate = "UPDATE stocks SET cantidad = ? WHERE id = ?";
-        $stmtUpdate = $this->conn->prepare($sqlUpdate);
-        $stmtUpdate->bind_param("ii", $cantidadRestante, $stockId);
-        if (!$stmtUpdate->execute()) {
-          $success = false;
-        }
-        $stmtUpdate->close();
-      }
-
-      if (!$success) {
-        break;
-      }
-    }
-
-    // 2. Comprobar si se pudo satisfacer toda la demanda
-    if ($cantidadPendiente > 0 || !$success) {
-      $this->conn->rollback();
-      error_log("Fallo la reducción de stock FIFO. Stock insuficiente o error de DB. Pendiente: {$cantidadPendiente}");
-      return false;
-    }
-
-    $this->conn->commit();
-    return true;
   }
 
   // NUEVO: Obtener Alimentos con Stock por Almacén y Tipo (para el filtro en cascada del form)

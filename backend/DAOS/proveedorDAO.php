@@ -58,7 +58,8 @@ class ProveedorDAO
 
     $stmt = $this->conn->prepare($sql);
 
-    $stmt->bind_param("ssi", $denominacion, $emailP, $telefono);
+    // FIX: Se cambia 'i' a 's' para el teléfono para evitar el desbordamiento de entero.
+    $stmt->bind_param("sss", $denominacion, $emailP, $telefono);
 
     // Ejecutar
     $resultado = $stmt->execute();
@@ -83,7 +84,8 @@ class ProveedorDAO
           WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("ssii", $denominacion, $emailP, $telefono, $id);
+    // FIX: Se cambia 'ssii' a 'sssi' para el teléfono como string.
+    $stmt->bind_param("sssi", $denominacion, $emailP, $telefono, $id);
 
     $resultado = $stmt->execute();
     $stmt->close();

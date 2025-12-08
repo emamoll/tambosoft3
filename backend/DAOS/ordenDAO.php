@@ -3,6 +3,7 @@ require_once __DIR__ . '../../servicios/databaseFactory.php';
 require_once __DIR__ . '../../modelos/orden/ordenModelo.php';
 require_once __DIR__ . '../../modelos/orden/ordenTabla.php';
 require_once __DIR__ . '../stockDAO.php';
+require_once __DIR__ . '../ordenConsumoStockDAO.php'; // NUEVO REQUIRE
 
 class OrdenDAO
 {
@@ -10,6 +11,7 @@ class OrdenDAO
   private $conn;
   private $crearTabla;
   private $stockDAO;
+  private $ordenConsumoStockDAO; // NUEVA PROPIEDAD
 
   public function __construct()
   {
@@ -20,6 +22,7 @@ class OrdenDAO
     $this->crearTabla->crearTablaOrden();
     $this->conn = $this->db->connect();
     $this->stockDAO = new StockDAO();
+    $this->ordenConsumoStockDAO = new OrdenConsumoStockDAO(); // INICIALIZACIÓN
   }
 
   public function getConn()
@@ -27,8 +30,10 @@ class OrdenDAO
     return $this->conn;
   }
 
-  // Registrar orden
-  public function registrarOrden(Orden $orden): bool
+  // =============================================================
+  // Registrar orden (Modificado: Pasa la conexión a StockDAO)
+  // =============================================================
+  public function registrarOrden(Orden $orden): bool|int
   {
     $potreroId = $orden->getPotreroId();
     $almacenId = $orden->getAlmacenId();
@@ -43,53 +48,67 @@ class OrdenDAO
     $horaCreacion = date('H:i:s');
     $horaActualizacion = date('H:i:s');
 
-    // 1. Verificación de Stock Suficiente (MODIFICADO para incluir AlmacenId)
-    $stockTotal = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId);
-    if ($stockTotal < $cantidad) {
-      return false; // Retorna FALSE si el stock es insuficiente (esto se manejará en el Controller)
+    // 1. Calcular Reducción de Stock FIFO (obtiene los lotes, no ejecuta la DB)
+    $lotesConsumidos = $this->stockDAO->calcularReduccionFIFO($alimentoId, $tipoAlimentoId, $cantidad, $almacenId);
+
+    if (empty($lotesConsumidos)) {
+      return false; // Retorna FALSE si el stock es insuficiente o el cálculo falló
     }
 
-    // 2. Reducción de Stock FIFO (MODIFICADO para incluir AlmacenId)
-    if (!$this->stockDAO->reducirStockFIFO($alimentoId, $tipoAlimentoId, $cantidad, $almacenId)) {
-      // Si falla la reducción por un error de DB inesperado (no stock), se aborta la creación.
-      return false;
-    }
+    $this->conn->begin_transaction(); // INICIO DE LA TRANSACCIÓN
+    $lastId = 0;
 
-    // 3. Registro de la Orden (MODIFICADO)
-    $sql = "INSERT INTO ordenes 
-             (potreroId, almacenId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    try {
+      // A. Registro de la Orden
+      $sql = "INSERT INTO ordenes 
+                 (potreroId, almacenId, tipoAlimentoId, alimentoId, cantidad, usuarioId, estadoId, fechaCreacion, fechaActualizacion, horaCreacion, horaActualizacion)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+      $stmt = $this->conn->prepare($sql);
+      $stmt->bind_param(
+        "iiiiiiissss",
+        $potreroId,
+        $almacenId,
+        $tipoAlimentoId,
+        $alimentoId,
+        $cantidad,
+        $usuarioId,
+        $estadoId,
+        $fechaCreacion,
+        $fechaActualizacion,
+        $horaCreacion,
+        $horaActualizacion
+      );
 
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param(
-      "iiiiiiissss",
-      $potreroId,
-      $almacenId,
-      $tipoAlimentoId,
-      $alimentoId,
-      $cantidad,
-      $usuarioId,
-      $estadoId,
-      $fechaCreacion,
-      $fechaActualizacion,
-      $horaCreacion,
-      $horaActualizacion
-    );
-
-    $ok = $stmt->execute();
-
-    // Obtener el ID generado (si es necesario)
-    if ($ok) {
+      if (!$stmt->execute()) {
+        $stmt->close();
+        throw new Exception("Error al registrar la orden.");
+      }
       $lastId = $this->conn->insert_id;
       $stmt->close();
-      return $lastId;
-    }
 
-    $stmt->close();
-    return false;
+      // B. Ejecutar la Reducción de Stock y Registrar el Detalle de Consumo
+      foreach ($lotesConsumidos as $lote) {
+        // Ejecutar la Reducción en stocks (USANDO LA CONEXIÓN DE LA TRANSACCIÓN: $this->conn)
+        if (!$this->stockDAO->ejecutarConsumo($this->conn, $lote['stockId'], $lote['cantidadConsumida'])) {
+          throw new Exception("Error al ejecutar consumo de stock.");
+        }
+        // Registrar el Detalle de Consumo (USANDO LA CONEXIÓN DE LA TRANSACCIÓN: $this->conn)
+        if (!$this->ordenConsumoStockDAO->registrarDetalle($this->conn, $lastId, $lote['stockId'], $lote['cantidadConsumida'])) {
+          throw new Exception("Error al registrar detalle de consumo.");
+        }
+      }
+
+      $this->conn->commit(); // CONFIRMACIÓN ATÓMICA
+      return $lastId;
+
+    } catch (Exception $e) {
+      $this->conn->rollback(); // DESHACER SI FALLA
+      error_log("Fallo la transacción de registro de orden: " . $e->getMessage());
+      return false;
+    }
   }
 
-  // Modificar una orden
+  // Modificar una orden (La lógica de Stock se maneja en el Controller)
   public function modificarOrden(Orden $orden): bool
   {
     $id = $orden->getId();
@@ -347,13 +366,61 @@ class OrdenDAO
       : null;
   }
 
+  // =============================================================
+  // Eliminar orden (Modificado: Pasa la conexión a StockDAO)
+  // =============================================================
   public function eliminarOrden($id): bool
   {
-    $sql = "DELETE FROM ordenes WHERE id = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("i", $id);
-    $ok = $stmt->execute();
-    $stmt->close();
-    return $ok;
+    $this->conn->begin_transaction();
+    $ok = false;
+
+    try {
+      // 1. Obtener los detalles de consumo de la orden (qué lotes sacó y cuánto)
+      $consumos = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
+
+      if (empty($consumos)) {
+        // Si no hay consumos registrados, simplemente eliminamos la orden.
+        // Esto cubre órdenes antiguas o fallidas.
+        $sql = "DELETE FROM ordenes WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $id);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        if (!$ok) {
+          throw new Exception("Error al eliminar la orden sin detalles de consumo.");
+        }
+        $this->conn->commit();
+        return true;
+      }
+
+      // 2. Devolver la cantidad a CADA LOTE consumido (Rollback Preciso)
+      foreach ($consumos as $consumo) {
+        // USANDO LA CONEXIÓN DE LA TRANSACCIÓN: $this->conn
+        if (!$this->stockDAO->aumentarStockPorLote($this->conn, $consumo['stockId'], $consumo['cantidadConsumida'])) {
+          throw new Exception("Error al devolver stock al lote ID: " . $consumo['stockId']);
+        }
+      }
+
+      // 3. Eliminar la Orden. La FK ON DELETE CASCADE en orden_stock_consumo
+      // se encargará de eliminar los registros de consumo.
+      $sqlDeleteOrden = "DELETE FROM ordenes WHERE id = ?";
+      $stmtDeleteOrden = $this->conn->prepare($sqlDeleteOrden);
+      $stmtDeleteOrden->bind_param("i", $id);
+      $ok = $stmtDeleteOrden->execute();
+      $stmtDeleteOrden->close();
+
+      if (!$ok) {
+        throw new Exception("Error al eliminar la orden.");
+      }
+
+      $this->conn->commit();
+      return true;
+
+    } catch (Exception $e) {
+      $this->conn->rollback();
+      error_log("Fallo la transacción de eliminación de orden: " . $e->getMessage());
+      return false;
+    }
   }
 }
