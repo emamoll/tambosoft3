@@ -116,7 +116,7 @@ class UsuarioDAO
   // Inserta los roles predeterminados si no existen.
   public function insertarRoles()
   {
-    $roles = ['Administrador', 'Gerente', 'Tractorista', 'Administrador de Campos', 'Administrador de Usuarios', 'Administrador de Alimentos'];
+    $roles = ['Administrador', 'Gerente', 'Tractorista', 'Administrador de Usuarios', 'Administrador de Alimentos'];
 
     foreach ($roles as $rol) {
       // 1. Verificamos si el rol ya existe.

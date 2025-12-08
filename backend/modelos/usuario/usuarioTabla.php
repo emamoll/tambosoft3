@@ -35,7 +35,7 @@ class UsuarioCrearTabla
     $conn = $this->db->connect();
 
     // Roles a insertar.
-    $roles = ['Administrador', 'Gerente', 'Tractorista', 'Administrador de Campos', 'Administrador de Usuarios', 'Administrador de Alimentos'];
+    $roles = ['Administrador', 'Gerente', 'Tractorista', 'Administrador de Campos', 'Administrador de Alimentos'];
 
     foreach ($roles as $rol) {
       $stmt = $conn->prepare("INSERT IGNORE INTO roles (nombre) VALUES (?)");

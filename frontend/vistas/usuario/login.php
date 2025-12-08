@@ -76,6 +76,7 @@ try {
     integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
     crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 </head>
 
 <body>
@@ -98,7 +99,9 @@ try {
         </div>
       </div>
       <?php if (isset($error) && $error !== ""): ?>
-        <p class="error-message" style="display:block;"><?= $error ?></p>
+        <div class="alert-error" style="margin-bottom: 15px;">
+          <?= htmlspecialchars($error) ?>
+        </div>
       <?php endif; ?>
       <button type="submit" class="btn-usuario">Ingresar</button>
     </form>

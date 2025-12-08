@@ -34,11 +34,13 @@ class UsuarioController
       return ['tipo' => 'error', 'mensaje' => 'El email ya está registrado.'];
     }
 
+    // GENERACIÓN DE TOKEN
+    $tokenRegistro = bin2hex(random_bytes(32));
+
     // 4. Si no existen, procede con el registro.
     $this->usuarioDAO->verificarRoles();
-    // NOTA: La imagen y el token son placeholders, generalmente 'user.png' y null o vacío en el registro.
-    // Usamos el rolId del formulario.
-    $usuario = new Usuario(null, $username, $email, $hash, $rolId, 'user.png', '');
+    // Se usa $imagen (el nuevo archivo o 'user.png') y el token generado.
+    $usuario = new Usuario(null, $username, $email, $hash, $rolId, $imagen, $tokenRegistro);
     $resultado = $this->usuarioDAO->registrarUsuario($usuario);
 
     // 5. Devuelve el resultado del registro.
@@ -115,28 +117,91 @@ class UsuarioController
 
       if ($accion === 'registrar') {
         // Validación básica (debería ser robusta en JS también)
-        if (empty($_POST['username']) || empty($_POST['email']) || empty($_POST['password']) || empty($_POST['rolId'])) {
+        if (empty($_POST['username']) || empty($_POST['email']) || empty($_POST['password']) || empty($_POST['rolId']) || empty($_POST['password2'])) {
           $res = ['tipo' => 'error', 'mensaje' => 'Todos los campos marcados con * son obligatorios.'];
         } else {
           $username = trim($_POST['username']);
           $email = trim($_POST['email']);
           $password = trim($_POST['password']);
+          $password2 = trim($_POST['password2']);
           $rolId = intval($_POST['rolId']);
+          $token = bin2hex(random_bytes(32));
 
-          // Por defecto la imagen es 'user.png' y el token vacío.
-          $resultadoRegistro = $this->registrarUsuario($username, $email, $password, $rolId, 'user.png', '');
+          // VALIDACIÓN DE SERVIDOR: Comprobar que las contraseñas coincidan
+          if ($password !== $password2) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Las contraseñas no coinciden.'];
+          } else {
 
-          $res = $resultadoRegistro; // Ya tiene el formato ['tipo' => '...', 'mensaje' => '...']
+            // --- INICIO LÓGICA DE SUBIDA DE IMAGEN ---
+            $imagenNombre = 'user.png'; // Valor por defecto
+
+            // RUTA CORREGIDA: Apuntando directamente a 'frontend/img/'
+            $uploadFileDir = '../../../frontend/img/';
+
+            $expectedPath = 'frontend/img/';
+
+            // 1. Verificar si el directorio existe y crearlo si es necesario
+            if (!is_dir($uploadFileDir)) {
+              // Intenta crear el directorio con permisos 0777 (permisivo)
+              if (!mkdir($uploadFileDir, 0777, true)) {
+                $res = ['tipo' => 'error', 'mensaje' => "Error interno: No se pudo crear el directorio de subida de imágenes. Ruta esperada: {$expectedPath}"];
+                goto finish_ajax;
+              }
+            }
+
+            // 2. Verificar si el directorio es escribible
+            if (!is_writable($uploadFileDir)) {
+              $res = ['tipo' => 'error', 'mensaje' => "Error de permiso: El servidor no puede escribir en el directorio. Verifique permisos (chmod 775/777) en la carpeta {$expectedPath}."];
+              goto finish_ajax;
+            }
+
+            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+              $fileTmpPath = $_FILES['imagen']['tmp_name'];
+              $fileName = $_FILES['imagen']['name'];
+              $fileNameCmps = explode(".", $fileName);
+              $fileExtension = strtolower(end($fileNameCmps));
+
+              // Generar un nombre único para evitar colisiones (hash + timestamp)
+              $newFileName = hash('sha256', uniqid(mt_rand(), true)) . '.' . $fileExtension;
+
+              $destPath = $uploadFileDir . $newFileName;
+
+              // Validar la extensión (solo imágenes)
+              $allowedfileExtensions = array('jpg', 'jpeg', 'gif', 'png', 'webp');
+              if (in_array($fileExtension, $allowedfileExtensions)) {
+                // Mover el archivo subido
+                if (move_uploaded_file($fileTmpPath, $destPath)) {
+                  $imagenNombre = $newFileName;
+                } else {
+                  // Error al mover el archivo (generalmente por permisos o ruta).
+                  $res = ['tipo' => 'error', 'mensaje' => "Error al mover la imagen. Verifique los permisos o si la ruta '{$expectedPath}' es correcta."];
+                  goto finish_ajax;
+                }
+              } else {
+                // Extensión no permitida.
+                $res = ['tipo' => 'error', 'mensaje' => 'Formato de imagen no permitido. Solo se permiten JPG, JPEG, GIF, PNG, WEBP.'];
+                goto finish_ajax;
+              }
+            }
+            // --- FIN LÓGICA DE SUBIDA DE IMAGEN ---
+
+
+            // Se pasa el $imagenNombre (el nuevo archivo o 'user.png')
+            $resultadoRegistro = $this->registrarUsuario($username, $email, $password, $rolId, $imagenNombre, $token);
+
+            $res = $resultadoRegistro; // Ya tiene el formato ['tipo' => '...', 'mensaje' => '...']
+          }
         }
-      }
 
-      // Respuesta JSON para AJAX
-      if (ob_get_level()) {
-        ob_clean();
+        finish_ajax:
+        // Respuesta JSON para AJAX
+        if (ob_get_level()) {
+          ob_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($res);
+        exit;
       }
-      header('Content-Type: application/json; charset=utf-8');
-      echo json_encode($res);
-      exit;
     }
   }
 }

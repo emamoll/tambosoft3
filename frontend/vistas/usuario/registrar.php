@@ -29,26 +29,8 @@ $nombreUsuario = $_SESSION['username'] ?? '';
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous">
     </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <style>
-    .alert-success {
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 4px;
-      background-color: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-
-    .alert-error {
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 4px;
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-  </style>
 </head>
 
 <body>
@@ -70,8 +52,8 @@ $nombreUsuario = $_SESSION['username'] ?? '';
       <?php endif; ?>
     </div>
 
-    <form id="registroForm" action="../../../backend/controladores/usuarioController.php" method="POST">
-      <input type="hidden" name="accion" value="registrar">
+    <form id="registroForm" action="../../../backend/controladores/usuarioController.php" method="POST"
+      enctype="multipart/form-data"> <input type="hidden" name="accion" value="registrar">
 
       <div class="form-group">
         <label for="username">Nombre de Usuario *</label>
@@ -92,8 +74,9 @@ $nombreUsuario = $_SESSION['username'] ?? '';
       </div>
 
       <div class="form-group">
-        <label for="password2">Confirmar Contraseña</label>
+        <label for="password2">Confirmar Contraseña *</label>
         <input type="password" class="form-control" id="password2" name="password2" required>
+        <div id="error-password2" class="error-message">El campo es obligatorio</div>
       </div>
 
       <div class="form-group">
@@ -115,7 +98,6 @@ $nombreUsuario = $_SESSION['username'] ?? '';
         <label for="imagen">Imagen (Opcional)</label>
         <div class="custom-file">
           <input type="file" class="custom-file-input" id="imagen" name="imagen">
-          <label class="custom-file-label" for="imagen">Seleccionar archivo</label>
         </div>
       </div>
 
