@@ -25,6 +25,19 @@ $pasturas = $controllerPastura->obtenerPasturas();
 $categorias = $controllerCategoria->obtenerCategorias();
 $campos = $controllerCampo->obtenerCampos();
 
+// --- LÓGICA AGREGADA: Determinar categorías en uso ---
+$categoriasUsadas = [];
+if (is_array($potreros)) {
+  foreach ($potreros as $potrero) {
+    // Asume que $potrero es una instancia de Potrero Modelo
+    $categoriaId = $potrero->getCategoriaId();
+    if ($categoriaId !== null) {
+      $categoriasUsadas[(int) $categoriaId] = true;
+    }
+  }
+}
+// ---------------------------------------------------
+
 function esc($s)
 {
   return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -52,7 +65,6 @@ function esc($s)
   <?php require_once __DIR__ . '../../secciones/header.php'; ?>
   <?php require_once __DIR__ . '../../secciones/navbar.php'; ?>
 
-  <!-- ===== FORMULARIO PRINCIPAL ===== -->
   <div class="form-container form">
     <h2 id="form-title"><i class="fas fa-seedling"></i> Registrar Potrero</h2>
 
@@ -98,7 +110,15 @@ function esc($s)
           <option value="">-- Seleccioná una categoría --</option>
           <?php if (is_array($categorias)): ?>
             <?php foreach ($categorias as $categoria): ?>
-              <option value="<?= esc($categoria->getId()) ?>"><?= esc($categoria->getNombre()) ?></option>
+              <?php $idCategoria = esc($categoria->getId()); ?>
+              <?php
+              // La categoría está en uso si su ID está en el array $categoriasUsadas.
+              // Esta deshabilitación aplica para nuevos registros o para ediciones (el JS deberá re-habilitar la categoría actual para edición).
+              $isDisabled = isset($categoriasUsadas[(int) $idCategoria]) ? 'disabled title="Ya asignada a otro potrero"' : '';
+              ?>
+              <option value="<?= $idCategoria ?>" <?= $isDisabled ?>>
+                <?= esc($categoria->getNombre()) ?>
+              </option>
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
@@ -117,7 +137,6 @@ function esc($s)
     </form>
   </div>
 
-  <!-- ===== TABLA DE POTREROS ===== -->
   <div class="form-container table">
     <h2>Potreros Registrados</h2>
     <div class="table-wrapper">
@@ -138,7 +157,6 @@ function esc($s)
     </div>
   </div>
 
-  <!-- ===== MODAL DE FILTROS (RADIOS) ===== -->
   <div id="filtroModal" class="modal">
     <div class="modal-content">
       <h3>Filtrar Potreros</h3>
@@ -166,7 +184,6 @@ function esc($s)
     </div>
   </div>
 
-  <!-- ===== MODAL CONFIRMACIÓN ===== -->
   <div id="confirmModal" class="modal">
     <div class="modal-content">
       <h3>Confirmar eliminación</h3>
@@ -178,7 +195,6 @@ function esc($s)
     </div>
   </div>
 
-  <!-- ===== MODAL MOVER CATEGORÍA ===== -->
   <div id="moverModal" class="modal">
     <div class="modal-content">
       <h3>Mover Categoría</h3>
@@ -203,5 +219,3 @@ function esc($s)
 </body>
 
 </html>
-
-aca va bien

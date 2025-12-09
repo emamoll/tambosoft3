@@ -24,7 +24,7 @@ class ProveedorCrearTabla
               id INT PRIMARY KEY AUTO_INCREMENT, 
               denominacion VARCHAR(255) NOT NULL UNIQUE, 
               emailP VARCHAR(255) NOT NULL UNIQUE,
-              telefono INT NOT NULL)";
+              telefono VARCHAR(255) NOT NULL)";
 
     $conn->query($sql);
     $conn->close();

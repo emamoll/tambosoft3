@@ -39,6 +39,39 @@ class PotreroDAO
     return $existe;
   }
 
+  // 🔹 NUEVA FUNCIÓN: Verificar si una categoría ya está en uso por otro potrero
+  public function isCategoriaUsed($categoriaId, $potreroId = null): bool
+  {
+    // Si no se proporciona categoría, se asume que no hay restricción.
+    if ($categoriaId === null) {
+      return false;
+    }
+
+    $sql = "SELECT id FROM potreros WHERE categoriaId = ?";
+    $types = "i";
+    $params = [$categoriaId];
+
+    if ($potreroId !== null) {
+      $sql .= " AND id <> ?";
+      $types .= "i";
+      $params[] = $potreroId;
+    }
+
+    $stmt = $this->conn->prepare($sql);
+
+    // Uso de `...$params` para bind_param dinámico
+    if (!empty($params)) {
+      $stmt->bind_param($types, ...$params);
+    }
+
+    $stmt->execute();
+    $stmt->store_result();
+    $existe = $stmt->num_rows > 0;
+    $stmt->close();
+
+    return $existe;
+  }
+
   // 🔹 Registrar potrero
   public function registrarPotrero(Potrero $potrero): bool
   {
@@ -79,7 +112,6 @@ class PotreroDAO
             WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
 
-    // 🎯 CAMBIO CRÍTICO: Usar 's' para categoriaId y cantidadCategoria
     // Tipos: s (nombre), i (pasturaId), s (categoriaId), s (cantidadCategoria), i (campoId), i (id)
     $tipos = "sissii";
 
@@ -137,9 +169,10 @@ class PotreroDAO
     $addInClause($sql, $params, $types, 'categoriaId', 'p.categoriaId');
 
 
-    // Filtro especial: sólo los que tienen categoría asignada
+    // 🛑 MODIFICACIÓN AQUÍ: Se eliminó la condición "AND p.cantidadCategoria > 0"
+    // para que el filtro traiga todos los potreros con categoría asignada.
     if (!empty($filtros['conCategoria'])) {
-      $sql .= " AND p.categoriaId IS NOT NULL AND p.cantidadCategoria > 0"; // Añadido > 0 por si acaso
+      $sql .= " AND p.categoriaId IS NOT NULL";
     }
 
     $sql .= " ORDER BY p.nombre ASC";
@@ -402,3 +435,4 @@ class PotreroDAO
   }
 
 }
+?>

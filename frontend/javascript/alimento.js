@@ -391,8 +391,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const fd = new FormData();
     fd.append("accion", "eliminar");
     fd.append("id", id);
+
     try {
-      const data = await fetchJSON(API, { method: "POST", body: fd });
+      const data = await fetchJSON(API, {
+        method: "POST",
+        body: fd,
+        headers: { "X-Requested-With": "XMLHttpRequest" }, // 👈 IMPORTANTE
+      });
+
       flash(data.tipo, data.mensaje);
       if (data.tipo === "success") {
         await refrescarTabla();

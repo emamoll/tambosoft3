@@ -3,6 +3,26 @@
 require_once __DIR__ . '../../DAOS/alimentoDAO.php';
 require_once __DIR__ . '../../modelos/alimento/alimentoModelo.php';
 
+// Detectar AJAX una sola vez
+$isAjax = (
+  !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+  strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+) || (isset($_GET['ajax']) && $_GET['ajax'] === '1');
+
+// 🚨 CORRECCIÓN CRÍTICA: Limpiar el buffer y preparar encabezados para AJAX desde el inicio
+if (php_sapi_name() !== 'cli' && $isAjax && $_SERVER['REQUEST_METHOD'] === 'POST') {
+  // 1. Limpiar cualquier salida previa (incluyendo BOM, espacios en blanco o notices de includes)
+  while (ob_get_level()) {
+    ob_end_clean();
+  }
+  // 2. Establecer el tipo de contenido antes de cualquier posible output
+  if (!headers_sent()) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+  }
+}
+
+
 class AlimentoController
 {
   private $alimentoDAO;
@@ -44,7 +64,7 @@ class AlimentoController
 
       $data = $this->alimentoDAO->listar($filtros);
 
-      // Limpieza antes de enviar
+      // Limpieza antes de enviar (Mantenemos esta limpieza para el GET 'listar' también)
       while (ob_get_level())
         ob_end_clean();
       header('Content-Type: application/json; charset=utf-8');
@@ -95,11 +115,17 @@ class AlimentoController
             $ok = $this->alimentoDAO->eliminarAlimento($id);
             return $ok
               ? ['tipo' => 'success', 'mensaje' => 'Alimento eliminado correctamente']
-              : ['tipo' => 'error', 'mensaje' => 'No se encontró el alimento o no se pudo eliminar'];
+              : ['tipo' => 'error', 'mensaje' => 'La eliminación falló: el alimento no existe o el ID es incorrecto.'];
           } catch (mysqli_sql_exception $e) {
             if ((int) $e->getCode() === 1451) {
-              return ['tipo' => 'error', 'mensaje' => 'No se puede eliminar el alimento porque está en uso'];
+              return ['tipo' => 'error', 'mensaje' => 'No se puede eliminar el alimento porque está en uso en otra tabla (Stock, Ordenes, Ingresos, etc.).'];
             }
+            // Captura otros errores SQL de mysqli
+            error_log("Error de SQL (mysqli) al intentar eliminar alimento ID {$id}: " . $e->getMessage());
+            return ['tipo' => 'error', 'mensaje' => 'Error grave de DB: ' . $e->getMessage()];
+          } catch (Exception $e) { // 🚨 Captura la excepción lanzada por el DAO si prepare/execute falla
+            // Este mensaje devolverá el error detallado de ejecución/preparación SQL
+            error_log("Excepción al eliminar alimento ID {$id}: " . $e->getMessage());
             return ['tipo' => 'error', 'mensaje' => 'Error al eliminar: ' . $e->getMessage()];
           }
       }
@@ -150,10 +176,6 @@ class AlimentoController
 
 }
 
-$isAjax = (
-  !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-  strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
-) || (isset($_GET['ajax']) && $_GET['ajax'] === '1');
 
 if (php_sapi_name() !== 'cli') {
   $ctrl = new AlimentoController();
@@ -186,20 +208,16 @@ if (php_sapi_name() !== 'cli') {
     exit;
   }
 
+  // 🚨 Usamos la variable $isAjax detectada al inicio
   if ($isAjax && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Limpiar cualquier salida previa (espacios/BOM/notices)
-    while (ob_get_level()) {
-      ob_end_clean();
-    }
-    if (!headers_sent()) {
-      header('Content-Type: application/json; charset=utf-8');
-      header('Cache-Control: no-store');
-    }
+    // La limpieza de buffer y encabezados ya se hizo al inicio del archivo (CORRECCIÓN CRÍTICA)
+
     try {
       $res = $ctrl->procesarFormularios();
+      // Aseguramos que solo el resultado final se imprime como JSON
       echo json_encode($res ?? ['tipo' => 'error', 'mensaje' => 'Sin resultado']);
     } catch (Throwable $e) {
-      // Nunca devolvemos HTML
+      // Capturamos cualquier error en la ejecución de la solicitud
       echo json_encode([
         'tipo' => 'error',
         'mensaje' => 'Excepción en servidor',

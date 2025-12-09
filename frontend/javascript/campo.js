@@ -101,15 +101,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ) {
       tableBody.innerHTML = `
     <tr>
-      <td colspan="5" style="
-        text-align:center;
-        color:#666;
-        font-weight:600;
-        padding:20px;
-        font-size:1.1rem;
-      ">
-        📭 No hay campos registrados.
-      </td>
+      <td colspan="5" style="text-align:center; color:#666;">No hay campos registrados.</td>
     </tr>`;
       return;
     }

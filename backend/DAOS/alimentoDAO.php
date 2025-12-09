@@ -236,12 +236,31 @@ class AlimentoDAO
     return $row ? new Alimento($row['id'], $row['tipoAlimentoId'], $row['nombre']) : null;
   }
 
-  // Eliminar una alimento
+  // 🔹 Eliminar un alimento (CORRECCIÓN V2: Lanza excepciones en fallos de SQL)
   public function eliminarAlimento($id): bool
   {
     $sql = "DELETE FROM alimentos WHERE id = ?";
     $stmt = $this->conn->prepare($sql);
+
+    // 1. Verificar si la preparación falló
+    if ($stmt === false) {
+      throw new Exception("Error de preparación SQL en DELETE: " . $this->conn->error);
+    }
+
     $stmt->bind_param("i", $id);
-    return $stmt->execute();
+
+    $ok = $stmt->execute();
+
+    // 2. Verificar si la ejecución falló (antes de que se maneje como mysqli_sql_exception)
+    if (!$ok && !empty($stmt->error)) {
+      // Lanzamos una excepción genérica para que el controlador capture el mensaje de error del servidor.
+      throw new Exception("Error de ejecución SQL en DELETE: " . $stmt->error);
+    }
+
+    // 3. Devolvemos TRUE solo si la ejecución fue exitosa Y se eliminó al menos 1 fila.
+    $deleted = $ok && $stmt->affected_rows > 0;
+    $stmt->close();
+
+    return $deleted;
   }
 }

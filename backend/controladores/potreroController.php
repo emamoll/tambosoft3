@@ -112,6 +112,8 @@ class PotreroController
             $res = ['tipo' => 'error', 'mensaje' => 'Completá los campos obligatorios.'];
           } elseif ($this->potreroDAO->existeNombre($nombre)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Ya existe un potrero con ese nombre.'];
+          } elseif ($categoriaId !== null && $this->potreroDAO->isCategoriaUsed($categoriaId)) { // Validacion de unicidad
+            $res = ['tipo' => 'error', 'mensaje' => 'La categoría seleccionada ya está asignada a otro potrero y debe ser única.'];
           } else {
             $ok = $this->potreroDAO->registrarPotrero(
               new Potrero(null, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId)
@@ -145,6 +147,8 @@ class PotreroController
             $res = ['tipo' => 'error', 'mensaje' => 'Completá los campos obligatorios.'];
           } elseif ($this->potreroDAO->existeNombre($nombre, $id)) {
             $res = ['tipo' => 'error', 'mensaje' => 'Ya existe un potrero con ese nombre.'];
+          } elseif ($categoriaId !== null && $this->potreroDAO->isCategoriaUsed($categoriaId, $id)) { // Validacion de unicidad
+            $res = ['tipo' => 'error', 'mensaje' => 'La categoría seleccionada ya está asignada a otro potrero y debe ser única.'];
           } else {
             $ok = $this->potreroDAO->modificarPotrero(
               new Potrero($id, $nombre, $pasturaId, $categoriaId, $cantidadCategoria, $campoId)
@@ -255,3 +259,4 @@ if (php_sapi_name() !== 'cli') {
     $ctrl->procesarFormularios();
   }
 }
+?>
