@@ -33,8 +33,8 @@ class StockDAO
     $fechaIngreso = $stock->getFechaIngreso();
 
     $sql = "INSERT INTO stocks 
-             (almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, proveedorId, precio, fechaIngreso)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                    (almacenId, tipoAlimentoId, alimentoId, cantidad, produccionInterna, proveedorId, precio, fechaIngreso)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param(
@@ -55,7 +55,7 @@ class StockDAO
     if ($ok) {
       $lastId = $this->conn->insert_id; // Obtener el último ID insertado
       $stmt->close();
-      return $lastId;  // Retornamos el ID generado por la base de datos
+      return $lastId;   // Retornamos el ID generado por la base de datos
     }
 
     $stmt->close();
@@ -79,8 +79,8 @@ class StockDAO
     $fechaIngreso = $stock->getFechaIngreso();
 
     $sql = "UPDATE stocks
-             SET almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, precio = ?, fechaIngreso = ?
-             WHERE id = ?";
+                    SET almacenId = ?, tipoAlimentoId = ?, alimentoId = ?, cantidad = ?, produccionInterna = ?, proveedorId = ?, precio = ?, fechaIngreso = ?
+                    WHERE id = ?";
 
     $stmt = $this->conn->prepare($sql);
     // CORRECCIÓN: La cadena correcta es "iiiiiidsi" para los 9 parámetros.
@@ -108,26 +108,26 @@ class StockDAO
   public function listar(array $filtros = []): array
   {
     $sql = "
-    SELECT 
-      s.almacenId,
-      alm.nombre AS almacenNombre,
-      s.tipoAlimentoId,
-      tip.tipoAlimento AS tipoAlimentoNombre,
-      s.alimentoId,
-      ali.nombre AS alimentoNombre,
-      s.produccionInterna,
-      s.proveedorId,
-      po.denominacion AS proveedorNombre,
-      SUM(s.cantidad) AS cantidadTotal,
-      MAX(s.precio) AS precio,
-      MAX(s.fechaIngreso) AS ultimaFecha
-    FROM stocks s
-    LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
-    LEFT JOIN almacenes alm ON s.almacenId = alm.id
-    LEFT JOIN alimentos ali ON s.alimentoId = ali.id
-    LEFT JOIN proveedores po ON s.proveedorId = po.id
-    WHERE 1=1
-    ";
+      SELECT 
+         s.almacenId,
+         alm.nombre AS almacenNombre,
+         s.tipoAlimentoId,
+         tip.tipoAlimento AS tipoAlimentoNombre,
+         s.alimentoId,
+         ali.nombre AS alimentoNombre,
+         s.produccionInterna,
+         s.proveedorId,
+         po.denominacion AS proveedorNombre,
+         SUM(s.cantidad) AS cantidadTotal,
+         MAX(s.precio) AS precio,
+         MAX(s.fechaIngreso) AS ultimaFecha
+      FROM stocks s
+      LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
+      LEFT JOIN almacenes alm ON s.almacenId = alm.id
+      LEFT JOIN alimentos ali ON s.alimentoId = ali.id
+      LEFT JOIN proveedores po ON s.proveedorId = po.id
+      WHERE 1=1
+      ";
 
     $params = [];
     $types = "";
@@ -169,16 +169,17 @@ class StockDAO
 
 
     $sql .= "
-    GROUP BY 
-      s.almacenId, alm.nombre,
-      s.tipoAlimentoId, tip.tipoAlimento,
-      s.alimentoId, ali.nombre,
-      s.produccionInterna,
-      s.proveedorId, po.denominacion
-    ORDER BY 
-      s.almacenId, s.tipoAlimentoId, s.alimentoId, 
-      s.produccionInterna, s.proveedorId
-    ";
+      GROUP BY 
+         s.almacenId, alm.nombre,
+         s.tipoAlimentoId, tip.tipoAlimento,
+         s.alimentoId, ali.nombre,
+         s.produccionInterna,
+         s.proveedorId, po.denominacion
+      HAVING SUM(s.cantidad) > 0 
+      ORDER BY 
+         s.almacenId, s.tipoAlimentoId, s.alimentoId, 
+         s.produccionInterna, s.proveedorId
+      ";
 
     // Preparar la consulta y devolver los resultados
     $stmt = $this->conn->prepare($sql);
@@ -230,28 +231,29 @@ class StockDAO
   ): array {
 
     $sql = "SELECT
-        s.id,
-        s.almacenId,
-        alm.nombre AS almacenNombre,
-        s.tipoAlimentoId,
-        tip.tipoAlimento AS tipoAlimentoNombre,
-        s.alimentoId,
-        ali.nombre AS alimentoNombre,
-        s.produccionInterna,
-        s.proveedorId,
-        po.denominacion AS proveedorNombre,
-        s.cantidad,
-        s.precio,
-        s.fechaIngreso
-        FROM stocks s
-        LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
-        LEFT JOIN almacenes alm ON s.almacenId = alm.id
-        LEFT JOIN alimentos ali ON s.alimentoId = ali.id
-        LEFT JOIN proveedores po ON s.proveedorId = po.id
-        WHERE s.almacenId = ?
-          AND s.tipoAlimentoId = ?
-          AND s.alimentoId = ?
-          AND s.produccionInterna = ?";
+            s.id,
+            s.almacenId,
+            alm.nombre AS almacenNombre,
+            s.tipoAlimentoId,
+            tip.tipoAlimento AS tipoAlimentoNombre,
+            s.alimentoId,
+            ali.nombre AS alimentoNombre,
+            s.produccionInterna,
+            s.proveedorId,
+            po.denominacion AS proveedorNombre,
+            s.cantidad,
+            s.precio,
+            s.fechaIngreso
+            FROM stocks s
+            LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
+            LEFT JOIN almacenes alm ON s.almacenId = alm.id
+            LEFT JOIN alimentos ali ON s.alimentoId = ali.id
+            LEFT JOIN proveedores po ON s.proveedorId = po.id
+            WHERE s.almacenId = ?
+               AND s.tipoAlimentoId = ?
+               AND s.alimentoId = ?
+               AND s.produccionInterna = ?
+               AND s.cantidad > 0"; // <-- Este filtro debe mantenerse si el detalle solo muestra stock disponible
 
     $params = [$almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna];
     $types = "iiii";
@@ -297,18 +299,18 @@ class StockDAO
     // Si el proveedor es NULL (producción interna)
     if ($proveedorId === null || $proveedorId === "" || $proveedorId === "0") {
       $sql = "SELECT s.*, 
-                    alm.nombre AS almacenNombre,
-                    tip.tipoAlimento AS tipoAlimentoNombre,
-                    ali.nombre AS alimentoNombre
-                FROM stocks s
-                LEFT JOIN almacenes alm ON s.almacenId = alm.id
-                LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
-                LEFT JOIN alimentos ali ON s.alimentoId = ali.id
-                WHERE s.almacenId = ?
-                  AND s.tipoAlimentoId = ?
-                  AND s.alimentoId = ?
-                  AND s.produccionInterna = ?
-                  AND s.proveedorId IS NULL";
+                              alm.nombre AS almacenNombre,
+                              tip.tipoAlimento AS tipoAlimentoNombre,
+                              ali.nombre AS alimentoNombre
+                        FROM stocks s
+                        LEFT JOIN almacenes alm ON s.almacenId = alm.id
+                        LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
+                        LEFT JOIN alimentos ali ON s.alimentoId = ali.id
+                        WHERE s.almacenId = ?
+                           AND s.tipoAlimentoId = ?
+                           AND s.alimentoId = ?
+                           AND s.produccionInterna = ?
+                           AND s.proveedorId IS NULL";
 
       $stmt = $this->conn->prepare($sql);
       $stmt->bind_param("iiii", $almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna);
@@ -316,20 +318,20 @@ class StockDAO
     } else {
 
       $sql = "SELECT s.*, 
-                    alm.nombre AS almacenNombre,
-                    tip.tipoAlimento AS tipoAlimentoNombre,
-                    ali.nombre AS alimentoNombre,
-                    p.denominacion AS proveedorNombre
-                FROM stocks s
-                LEFT JOIN almacenes alm ON s.almacenId = alm.id
-                LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
-                LEFT JOIN alimentos ali ON s.alimentoId = ali.id
-                LEFT JOIN proveedores p ON s.proveedorId = p.id
-                WHERE s.almacenId = ?
-                  AND s.tipoAlimentoId = ?
-                  AND s.alimentoId = ?
-                  AND s.produccionInterna = ?
-                  AND s.proveedorId = ?";
+                              alm.nombre AS almacenNombre,
+                              tip.tipoAlimento AS tipoAlimentoNombre,
+                              ali.nombre AS alimentoNombre,
+                              p.denominacion AS proveedorNombre
+                        FROM stocks s
+                        LEFT JOIN almacenes alm ON s.almacenId = alm.id
+                        LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
+                        LEFT JOIN alimentos ali ON s.alimentoId = ali.id
+                        LEFT JOIN proveedores p ON s.proveedorId = p.id
+                        WHERE s.almacenId = ?
+                           AND s.tipoAlimentoId = ?
+                           AND s.alimentoId = ?
+                           AND s.produccionInterna = ?
+                           AND s.proveedorId = ?";
 
       $stmt = $this->conn->prepare($sql);
       $stmt->bind_param("iiiii", $almacenId, $tipoAlimentoId, $alimentoId, $produccionInterna, $proveedorId);
@@ -364,8 +366,8 @@ class StockDAO
 
     // 1. Obtener entradas de stock para el alimento, tipo, y ALMACÉN ordenadas por fecha de ingreso (FIFO)
     $sqlSelect = "SELECT id, cantidad FROM stocks 
-                  WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ? AND cantidad > 0
-                  ORDER BY fechaIngreso ASC, id ASC"; // FIFO por fecha, luego por ID
+                           WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ? AND cantidad > 0
+                           ORDER BY fechaIngreso ASC, id ASC"; // FIFO por fecha, luego por ID
     $stmtSelect = $this->conn->prepare($sqlSelect);
     $stmtSelect->bind_param("iii", $alimentoId, $tipoAlimentoId, $almacenId);
     $stmtSelect->execute();
@@ -586,11 +588,11 @@ class StockDAO
     // Caso especial: proveedorId puede ser NULL
     if ($proveedorId === null) {
       $sql = "DELETE FROM stocks 
-                WHERE almacenId = ? 
-                  AND tipoAlimentoId = ? 
-                  AND alimentoId = ? 
-                  AND produccionInterna = ? 
-                  AND proveedorId IS NULL";
+                        WHERE almacenId = ? 
+                           AND tipoAlimentoId = ? 
+                           AND alimentoId = ? 
+                           AND produccionInterna = ? 
+                           AND proveedorId IS NULL";
 
       $stmt = $this->conn->prepare($sql);
       if (!$stmt)
@@ -600,11 +602,11 @@ class StockDAO
 
     } else {
       $sql = "DELETE FROM stocks 
-                WHERE almacenId = ? 
-                  AND tipoAlimentoId = ? 
-                  AND alimentoId = ? 
-                  AND produccionInterna = ? 
-                  AND proveedorId = ?";
+                        WHERE almacenId = ? 
+                           AND tipoAlimentoId = ? 
+                           AND alimentoId = ? 
+                           AND produccionInterna = ? 
+                           AND proveedorId = ?";
 
       $stmt = $this->conn->prepare($sql);
       if (!$stmt)
@@ -694,10 +696,10 @@ class StockDAO
   public function getAlimentosConStockByAlmacenId($almacenId)
   {
     $sql = "SELECT s.tipoAlimentoId, t.tipo as tipoAlimento, s.alimentoId, a.nombre as alimentoNombre, s.cantidad 
-             FROM stocks s 
-             JOIN tiposalimentos t ON s.tipoAlimentoId = t.id
-             JOIN alimentos a ON s.alimentoId = a.id 
-             WHERE s.almacenId = ? AND s.cantidad > 0";
+                    FROM stocks s 
+                    JOIN tiposalimentos t ON s.tipoAlimentoId = t.id
+                    JOIN alimentos a ON s.alimentoId = a.id 
+                    WHERE s.almacenId = ? AND s.cantidad > 0";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("i", $almacenId);
@@ -835,8 +837,8 @@ class StockDAO
   public function getTotalEconomicValue()
   {
     $sql = "SELECT SUM(s.cantidad * s.precio) AS totalValor 
-             FROM stocks s 
-             JOIN alimentos a ON s.alimentoId = a.id";
+                    FROM stocks s 
+                    JOIN alimentos a ON s.alimentoId = a.id";
 
     $result = $this->conn->query($sql);
     $row = $result->fetch_assoc();
@@ -846,11 +848,11 @@ class StockDAO
   public function getStockComprado($almacenId, $tipoAlimentoId, $alimentoId, $proveedorId)
   {
     $sql = "SELECT * FROM stocks 
-             WHERE almacenId = ?
-               AND tipoAlimentoId = ?
-               AND alimentoId = ?
-               AND produccionInterna = 0
-               AND proveedorId = ?";
+                    WHERE almacenId = ?
+                       AND tipoAlimentoId = ?
+                       AND alimentoId = ?
+                       AND produccionInterna = 0
+                       AND proveedorId = ?";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("iiii", $almacenId, $tipoAlimentoId, $alimentoId, $proveedorId);
@@ -878,8 +880,8 @@ class StockDAO
   public function getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId): int
   {
     $sql = "SELECT COALESCE(SUM(cantidad), 0) AS totalStock 
-            FROM stocks 
-            WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ?";
+                  FROM stocks 
+                  WHERE alimentoId = ? AND tipoAlimentoId = ? AND almacenId = ?";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("iii", $alimentoId, $tipoAlimentoId, $almacenId);
     $stmt->execute();
@@ -890,18 +892,19 @@ class StockDAO
   }
 
   // NUEVO: Obtener Alimentos con Stock por Almacén y Tipo (para el filtro en cascada del form)
+  // Se ha eliminado el filtro HAVING para evitar el error de sintaxis y que cargue todos los alimentos.
   public function getAlimentosConStockByAlmacenIdAndTipoId($almacenId, $tipoAlimentoId): array
   {
     $sql = "SELECT 
-            s.alimentoId, 
-            a.nombre AS alimentoNombre, 
-            COALESCE(SUM(s.cantidad), 0) AS totalStock
-          FROM stocks s
-          JOIN alimentos a ON s.alimentoId = a.id
-          WHERE s.almacenId = ?
-            AND s.tipoAlimentoId = ?
-          GROUP BY s.alimentoId, a.nombre
-          ORDER BY a.nombre ASC";
+                  s.alimentoId, 
+                  a.nombre AS alimentoNombre, 
+                  COALESCE(SUM(s.cantidad), 0) AS totalStock
+               FROM stocks s
+               JOIN alimentos a ON s.alimentoId = a.id
+               WHERE s.almacenId = ?
+                  AND s.tipoAlimentoId = ?
+               GROUP BY s.alimentoId, a.nombre
+               ORDER BY a.nombre ASC";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("ii", $almacenId, $tipoAlimentoId);

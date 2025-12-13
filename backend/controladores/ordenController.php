@@ -12,6 +12,26 @@ require_once __DIR__ . '../../DAOS/ordenConsumoStockDAO.php'; // NUEVO REQUIRE
 require_once __DIR__ . '../../modelos/orden/ordenModelo.php';
 require_once __DIR__ . '../../modelos/ordenConsumoStock/ordenConsumoStockModelo.php'; // NUEVO REQUIRE
 
+// Detectar AJAX una sola vez
+$isAjax = (
+  !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+  strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+) || (isset($_GET['ajax']) && $_GET['ajax'] === '1')
+  || ($_SERVER['REQUEST_METHOD'] === 'POST'); // Los POST son tratados como AJAX para la respuesta JSON
+
+// 🚨 CORRECCIÓN CRÍTICA: Limpiar el buffer y preparar encabezados para AJAX desde el inicio
+if (php_sapi_name() !== 'cli' && $isAjax) {
+  // 1. Limpiar cualquier salida previa (BOM, espacios en blanco o notices de includes)
+  while (ob_get_level()) {
+    ob_end_clean();
+  }
+  // 2. Establecer el tipo de contenido antes de cualquier posible output
+  if (!headers_sent()) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+  }
+}
+
 class OrdenController
 {
   private $ordenDAO;
@@ -44,10 +64,7 @@ class OrdenController
   {
     // Manejo de error de conexión
     if ($this->connError !== null) {
-      if (ob_get_level()) {
-        ob_clean();
-      }
-      header('Content-Type: application/json; charset=utf-8');
+      // Si hay error de conexión, se imprime JSON y se sale
       echo json_encode([
         'tipo' => 'error',
         'mensaje' => 'Error de conexión a la base de datos: ' . $this->connError
@@ -70,17 +87,9 @@ class OrdenController
 
         if ($almacenId > 0 && $alimentoId > 0 && $tipoAlimentoId > 0) {
           $totalStock = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId);
-          if (ob_get_level()) {
-            ob_clean();
-          }
-          header('Content-Type: application/json; charset=utf-8');
           echo json_encode(['stock' => $totalStock]);
           exit;
         } else {
-          if (ob_get_level()) {
-            ob_clean();
-          }
-          header('Content-Type: application/json; charset=utf-8');
           echo json_encode(['stock' => 0]);
           exit;
         }
@@ -92,18 +101,11 @@ class OrdenController
         $tipoAlimentoId = intval($_GET['tipoAlimentoId'] ?? 0);
 
         if ($almacenId > 0 && $tipoAlimentoId > 0) {
+          // Si todo está bien, devuelve la lista de alimentos con stock > 0 para ese almacén y tipo.
           $alimentos = $this->stockDAO->getAlimentosConStockByAlmacenIdAndTipoId($almacenId, $tipoAlimentoId);
-          if (ob_get_level()) {
-            ob_clean();
-          }
-          header('Content-Type: application/json; charset=utf-8');
           echo json_encode($alimentos);
           exit;
         } else {
-          if (ob_get_level()) {
-            ob_clean();
-          }
-          header('Content-Type: application/json; charset=utf-8');
           echo json_encode([]);
           exit;
         }
@@ -115,10 +117,6 @@ class OrdenController
 
         $ordenes = $this->obtenerOrden($usuarioIdFiltro > 0 ? $usuarioIdFiltro : null);
 
-        if (ob_get_level()) {
-          ob_clean();
-        }
-        header('Content-Type: application/json; charset=utf-8');
         echo json_encode($ordenes);
         exit;
       }
@@ -151,10 +149,6 @@ class OrdenController
           ];
         }
 
-        if (ob_get_level()) {
-          ob_clean();
-        }
-        header('Content-Type: application/json; charset=utf-8');
         echo json_encode($data);
         exit;
       }
@@ -536,10 +530,7 @@ class OrdenController
           break;
       }
 
-      if (ob_get_level()) {
-        ob_clean();
-      }
-      header('Content-Type: application/json; charset=utf-8');
+      // El resultado de la operación POST
       echo json_encode($res);
       exit;
     }
@@ -741,25 +732,9 @@ class OrdenController
 
 // PUNTO DE ENTRADA PRINCIPAL
 if (php_sapi_name() !== 'cli') {
-  $isAjax = (
-    (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])
-      && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-    ||
-    ($_SERVER['REQUEST_METHOD'] === 'POST')
-    ||
-    ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) // Permitir GET para AJAX
-  );
-
+  global $isAjax;
   $ctrl = new OrdenController();
 
-  if ($isAjax) {
-    ob_start();
-    $ctrl->procesarFormularios();
-    exit;
-  }
-
-  if (isset($_POST['accion'])) {
-    $ctrl->procesarFormularios();
-    exit;
-  }
+  // El procesamiento se realiza dentro de procesarFormularios
+  $ctrl->procesarFormularios();
 }
