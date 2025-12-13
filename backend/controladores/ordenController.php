@@ -95,8 +95,26 @@ class OrdenController
         }
       }
 
+      if ($accion === 'getTiposAlimentoPorAlmacen') {
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        $almacenId = intval($_GET['almacenId'] ?? 0);
+
+        if ($almacenId <= 0) {
+          echo json_encode([]);
+          exit;
+        }
+
+        $tipos = $this->ordenDAO->getTiposAlimentoPorAlmacen($almacenId);
+
+        echo json_encode($tipos);
+        exit;
+      }
+
       // Obtener Alimentos con Stock por Almacén y Tipo (NUEVO para el filtro en cascada del front)
       if ($accion === 'getAlimentosConStock') {
+        header('Content-Type: application/json; charset=utf-8');
         $almacenId = intval($_GET['almacenId'] ?? 0);
         $tipoAlimentoId = intval($_GET['tipoAlimentoId'] ?? 0);
 
@@ -123,6 +141,9 @@ class OrdenController
 
       // Obtener una orden por ID (para editar)
       if ($accion === 'getOrdenById') {
+
+        header('Content-Type: application/json; charset=utf-8');
+        
         $id = intval($_GET['id'] ?? 0);
         $orden = $this->ordenDAO->getOrdenById($id);
 

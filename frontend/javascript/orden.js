@@ -103,6 +103,44 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
+  // FUNCIÓN: CARGAR TIPOS DE ALIMENTO POR ALMACÉN (AJAX)
+  // ----------------------------------------------------
+  async function cargarTiposAlimentoPorAlmacen() {
+    const almacenSeleccionado = almacenId.value;
+
+    // Resetear dependientes
+    tipoAlimentoId.innerHTML =
+      '<option value="">-- Seleccioná Tipo de Alimento --</option>';
+    alimentoId.innerHTML =
+      '<option value="">-- Seleccioná un Alimento --</option>';
+
+    stockDisplay.textContent = "Stock: -";
+    stockDisplay.dataset.stock = 0;
+
+    if (!almacenSeleccionado) return;
+
+    try {
+      const params = new URLSearchParams({
+        action: "getTiposAlimentoPorAlmacen",
+        almacenId: almacenSeleccionado,
+      });
+
+      const tipos = await fetchJSON(`${API}?${params.toString()}`);
+
+      if (Array.isArray(tipos)) {
+        tipos.forEach((t) => {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          opt.textContent = t.tipoAlimento; // 👈 NOMBRE CORRECTO
+          tipoAlimentoId.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      console.error("Error al cargar tipos de alimento:", e);
+    }
+  }
+
+  // ----------------------------------------------------
   // FUNCIÓN: FILTRAR Y CARGAR ALIMENTOS por tipo y ALMACÉN (AJAX)
   // ----------------------------------------------------
   async function cargarAlimentosDisponibles() {
@@ -236,11 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // EVENT LISTENERS PARA FILTRAR ALIMENTO Y MOSTRAR STOCK
   // ----------------------------------------------------
   almacenId.addEventListener("change", () => {
-    // Resetear tipo y alimento para forzar la carga de los disponibles en el nuevo almacén
-    tipoAlimentoId.value = "";
-    alimentoId.value = "";
-    cargarAlimentosDisponibles();
-    obtenerYMostrarStock();
+    cargarTiposAlimentoPorAlmacen();
   });
 
   tipoAlimentoId.addEventListener("change", () => {
@@ -465,28 +499,41 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.textContent = "Modificar";
       cancelarEdicion.style.display = "inline-block";
 
-      // Obtener datos de la orden
       const ordenData = await fetchJSON(`${API}?action=getOrdenById&id=${id}`);
 
-      if (ordenData) {
-        idInput.value = ordenData.id;
-        almacenId.value = ordenData.almacenId;
-        tipoAlimentoId.value = ordenData.tipoAlimentoId;
-
-        // Cargar categoriaId y mostrar el potrero asociado
-        categoriaId.value = ordenData.categoriaId;
-        mostrarPotreroAsignado();
-
-        // Cargar alimentos disponibles para el almacén y tipo. Usamos await
-        await cargarAlimentosDisponibles();
-        alimentoId.value = ordenData.alimentoId;
-
-        cantidad.value = ordenData.cantidad;
-        usuarioId.value = ordenData.usuarioId;
-
-        // Mostrar stock actual (sólo informativo en edición)
-        obtenerYMostrarStock();
+      // 🔐 Protección extra
+      if (!ordenData || ordenData.tipo === "error") {
+        mostrarMensaje("error", "No se pudo cargar la orden para editar.");
+        return;
       }
+
+      // IDs base
+      idInput.value = ordenData.id;
+      almacenId.value = ordenData.almacenId;
+
+      // 1️⃣ cargar tipos según almacén
+      await cargarTiposAlimentoPorAlmacen();
+
+      // 2️⃣ setear tipo alimento
+      tipoAlimentoId.value = ordenData.tipoAlimentoId;
+
+      // 3️⃣ categoría y potrero
+      categoriaId.value = ordenData.categoriaId;
+      mostrarPotreroAsignado();
+
+      // 4️⃣ cargar alimentos según tipo + almacén
+      await cargarAlimentosDisponibles();
+
+      // 5️⃣ setear alimento
+      alimentoId.value = ordenData.alimentoId;
+
+      // resto de campos
+      cantidad.value = ordenData.cantidad;
+      usuarioId.value = ordenData.usuarioId;
+
+      // stock informativo
+      obtenerYMostrarStock();
+
       return;
     }
 

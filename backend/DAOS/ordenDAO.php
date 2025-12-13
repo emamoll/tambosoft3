@@ -457,4 +457,31 @@ class OrdenDAO
       return false;
     }
   }
+
+  public function getTiposAlimentoPorAlmacen($almacenId)
+  {
+    $sql = "
+            SELECT DISTINCT
+                ta.id,
+                ta.tipoAlimento
+            FROM stocks s
+            INNER JOIN alimentos a ON a.id = s.alimentoId
+            INNER JOIN tiposAlimentos ta ON ta.id = a.tipoAlimentoId
+            WHERE s.almacenId = ?
+            ORDER BY ta.tipoAlimento
+        ";
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $almacenId);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+
+    $tipos = [];
+    while ($row = $result->fetch_assoc()) {
+      $tipos[] = $row;
+    }
+
+    return $tipos;
+  }
 }
