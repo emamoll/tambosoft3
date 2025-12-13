@@ -81,6 +81,8 @@ class OrdenController
 
       // Obtener Stock para display (MODIFICADO para incluir almacenId)
       if ($accion === 'getStock') {
+
+        header('Content-Type: application/json; charset=utf-8');
         $almacenId = intval($_GET['almacenId'] ?? 0);
         $alimentoId = intval($_GET['alimentoId'] ?? 0);
         $tipoAlimentoId = intval($_GET['tipoAlimentoId'] ?? 0);
@@ -143,7 +145,7 @@ class OrdenController
       if ($accion === 'getOrdenById') {
 
         header('Content-Type: application/json; charset=utf-8');
-        
+
         $id = intval($_GET['id'] ?? 0);
         $orden = $this->ordenDAO->getOrdenById($id);
 

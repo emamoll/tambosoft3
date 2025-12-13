@@ -1,16 +1,22 @@
 <?php
+
 session_start();
-if (!isset($_SESSION['username']) || !isset($_SESSION['rolId'])) {
-  header('Location: ../usuario/login.php');
+
+// Validar sesión
+if (!isset($_SESSION['usuarioId'])) {
+  echo "<p style='color:red;'>Error: No se pudo obtener el ID del usuario. Inicie sesión nuevamente.</p>";
   exit;
 }
 
-$rolId = $_SESSION['rolId'] ?? 0;
-// Redirigir si no es Tractorista (Rol ID 3) - Mesura de seguretat
-if ($rolId != 3) {
-  header('Location: orden.php');
+// Validar rol Tractorista (Rol ID = 3)
+if (!isset($_SESSION['rolId']) || $_SESSION['rolId'] != 3) {
+  echo "<p style='color:red;'>Acceso denegado. Solo los tractoristas pueden acceder a esta sección.</p>";
   exit;
 }
+
+$usuarioId = (int) $_SESSION['usuarioId'];
+$rolId = (int) $_SESSION['rolId'];
+
 
 // 1. Cargar controladores necesarios
 require_once __DIR__ . '../../../../backend/controladores/ordenController.php';
@@ -20,7 +26,8 @@ $controllerOrden = new OrdenController();
 
 // 3. Obtener datos (solo la tabla necesita datos)
 $alimentos = $controllerOrden->obtenerTodosLosAlimentos(); // Se mantiene para compatibilidad con JS
-$usuarioLogueadoId = $_SESSION['usuarioId'] ?? ($_SESSION['id'] ?? 0); // OBTENEMOS EL ID DEL USUARIO LOGUEADO
+$usuarioLogueadoId = $usuarioId;
+
 
 function esc($s)
 {
@@ -74,16 +81,6 @@ function esc($s)
   <?php require_once __DIR__ . '../../secciones/header.php'; ?>
   <?php require_once __DIR__ . '../../secciones/navbar.php'; ?>
 
-  <script>
-    // ** Pasar los datos del backend a JS **
-    const ALL_ALIMENTOS = <?= json_encode($alimentos) ?>;
-    const ROL_ID = <?= $rolId ?>;
-    const USER_ID = <?= $usuarioLogueadoId ?>; // <--- ID DEL USUARIO AÑADIDO Y DISPONIBLE GLOBALMENTE
-    const ROL_TRACTORISTA = 3;
-    // Se agregan variables vacías para evitar errores de referencia en el JS
-    const categoriaId = null;
-  </script>
-
   <div class="form-container table">
     <h2>Ordenes Pendientes / En Preparación</h2>
     <div id="system-message-container" style="margin-bottom: 15px;"></div>
@@ -119,6 +116,12 @@ function esc($s)
     </div>
   </div>
 
+  <script>
+    window.ALL_ALIMENTOS = <?= json_encode($alimentos) ?>;
+    window.ROL_ID = <?= (int) $rolId ?>;
+    window.USER_ID = <?= (int) $usuarioId ?>;
+    window.ROL_TRACTORISTA = 3;
+  </script>
   <script src="../../javascript/ordenTractorista.js"></script>
 </body>
 

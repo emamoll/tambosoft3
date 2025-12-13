@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
           alimentosConStock.forEach((alimento) => {
             const option = document.createElement("option");
             // Mostrar stock disponible al lado del nombre
-            option.textContent = `${alimento.nombre} (Disp: ${alimento.cantidad})`;
+            option.textContent = `${alimento.nombre}`;
             option.value = alimento.id;
 
             // Asignar dataset de stock para la validación rápida en el submit
@@ -212,46 +212,33 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------
-  // FUNCIÓN: OBTENER Y MOSTRAR STOCK (AJAX)
+  // FUNCIÓN: OBTENER Y MOSTRAR STOCK
   // ----------------------------------------------------
   async function obtenerYMostrarStock() {
-    const almacenSeleccionado = almacenId.value;
-    const alimentoSeleccionado = alimentoId.value;
-    const tipoAlimentoSeleccionado = tipoAlimentoId.value;
-
-    stockDisplay.textContent = "Cargando...";
-    errorStockInsuficiente.style.display = "none";
-
-    // Obtener stock desde el atributo dataset del <option> si existe
     const selectedOption = alimentoId.options[alimentoId.selectedIndex];
-    const stockPrecargado = selectedOption
-      ? selectedOption.dataset.stock
-      : undefined;
 
-    // Solo obtenemos stock directamente del dataset si estamos en modo 'registrar'
-    if (stockPrecargado !== undefined && accionInput.value === "registrar") {
-      stockDisplay.dataset.stock = Number(stockPrecargado);
-      stockDisplay.textContent = `Stock: ${stockPrecargado}`;
+    // 1️⃣ PRIORIDAD ABSOLUTA: usar stock precargado en la LOV
+    if (selectedOption && selectedOption.dataset.stock !== undefined) {
+      const stock = Number(selectedOption.dataset.stock) || 0;
+      stockDisplay.dataset.stock = stock;
+      stockDisplay.textContent = `Stock: ${stock}`;
       return;
     }
 
-    // Si no hay opción seleccionada o estamos en modo edición, hacer la llamada AJAX
-    if (
-      !almacenSeleccionado ||
-      !alimentoSeleccionado ||
-      !tipoAlimentoSeleccionado
-    ) {
+    // 2️⃣ Si no hay alimento seleccionado
+    if (!alimentoId.value || !almacenId.value || !tipoAlimentoId.value) {
       stockDisplay.textContent = "Stock: -";
       stockDisplay.dataset.stock = 0;
       return;
     }
 
+    // 3️⃣ Fallback REAL (raro, casi nunca se usa)
     try {
       const params = new URLSearchParams({
         action: "getStock",
-        almacenId: almacenSeleccionado,
-        alimentoId: alimentoSeleccionado,
-        tipoAlimentoId: tipoAlimentoSeleccionado,
+        almacenId: almacenId.value,
+        alimentoId: alimentoId.value,
+        tipoAlimentoId: tipoAlimentoId.value,
       });
 
       const data = await fetchJSON(`${API}?${params.toString()}`);
@@ -260,12 +247,12 @@ document.addEventListener("DOMContentLoaded", () => {
         stockDisplay.textContent = `Stock: ${data.stock}`;
         stockDisplay.dataset.stock = data.stock;
       } else {
-        stockDisplay.textContent = "Stock: Error";
+        stockDisplay.textContent = "Stock: 0";
         stockDisplay.dataset.stock = 0;
       }
     } catch (e) {
       console.error("Error al obtener stock:", e);
-      stockDisplay.textContent = "Stock: Error";
+      stockDisplay.textContent = "Stock: 0";
       stockDisplay.dataset.stock = 0;
     }
   }
