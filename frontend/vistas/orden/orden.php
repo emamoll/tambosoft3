@@ -182,7 +182,7 @@ function esc($s)
         <div id="error-motivo" class="error-message" style="display:none;">
           El motivo es obligatorio
         </div>
-      </div>      
+      </div>
 
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
@@ -210,9 +210,8 @@ function esc($s)
             <th>Alimento</th>
             <th>Cantidad</th>
             <th>Tractorista</th>
-            <th>Estado</th>
-            <th>Fecha Creación</th>
-            <th>Hora Creación</th>
+            <th class="estado">Estado</th>
+            <th class="fecha">Fecha y Hora</th>
             <th>Acciones</th>
           </tr>
         </thead>

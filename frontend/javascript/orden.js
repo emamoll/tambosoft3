@@ -301,21 +301,63 @@ document.addEventListener("DOMContentLoaded", () => {
 
       tableBody.innerHTML = "";
 
-      // Colspan ajustado a 9 (8 columnas de datos + 1 de Acciones)
-      // Columnas: Categoria(Potrero), Almacén, Alimento(Tipo), Cantidad, Tractorista, Estado, Fecha, Hora, Acciones (9 columnas)
       if (!Array.isArray(data) || data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No hay ordenes registradas.</td></tr>`;
+        tableBody.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align:center;">
+            No hay órdenes registradas.
+          </td>
+        </tr>`;
         return;
       }
 
       data.forEach((o) => {
         const tr = document.createElement("tr");
 
-        // Determinar el color de fondo para el estado
+        // 🎨 estado
         const estadoColor = o.estadoColor || "#ccc";
-        const estadoStyle = `background-color: ${estadoColor}; color: white; border-radius: 4px; padding: 2px 5px;`;
+        const estadoStyle = `
+        background-color:${estadoColor};
+        color:white;
+        border-radius:4px;
+        padding:2px 5px;
+      `;
 
-        // Generar las celdas en el nuevo orden
+        let accionesHtml = "";
+
+        // ✏️ MODIFICAR → solo Pendiente
+        if (parseInt(o.estadoId) === 1) {
+          accionesHtml += `
+          <button
+            type="button"
+            class="btn-icon edit js-editar"
+            data-id="${o.id}"
+            title="Modificar orden"
+          >✏️</button>`;
+        }
+
+        // 🗑️ ELIMINAR → siempre permitido para admin
+        if (parseInt(o.estadoId) === 1) {
+          accionesHtml += `
+          <button
+            type="button"
+            class="btn-icon delete js-eliminar"
+            data-id="${o.id}"
+            title="Eliminar orden"
+          >🗑️</button>`;
+        }
+
+        // 📋 VER AUDITORÍA → solo si existe
+        if (o.tieneAuditoria == 1) {
+          accionesHtml += `
+          <button
+            type="button"
+            class="btn-icon info js-ver-auditoria"
+            data-id="${o.id}"
+            title="Ver historial de orden"
+          >📋</button>`;
+        }
+
         tr.innerHTML = `
         <td>${o.almacenNombre}</td>
         <td>${o.categoriaNombre} (${o.potreroNombre})</td>
@@ -323,25 +365,10 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${o.cantidad}</td>
         <td>${o.usuarioNombre}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
-        <td>${o.fechaCreacion}</td>
-        <td>${o.horaCreacion}</td>
+        <td>${o.fechaCreacion} - ${o.horaCreacion}</td>
         <td>
           <div class="table-actions">
-            <button type="button" class="btn-icon edit js-editar" data-id="${
-              o.id
-            }" title="Modificar">✏️</button>
-            <button type="button" class="btn-icon delete js-eliminar" data-id="${
-              o.id
-            }" title="Eliminar">🗑️</button>
-            ${
-              o.tieneAuditoria == 1
-                ? `<button 
-            type="button" 
-            class="btn-icon info js-ver-auditoria" 
-            data-id="${o.id}" 
-            title="Ver modificaciones">📋</button>`
-                : ""
-            }
+            ${accionesHtml}
           </div>
         </td>
       `;

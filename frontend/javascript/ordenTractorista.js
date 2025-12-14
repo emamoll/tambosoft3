@@ -135,13 +135,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let accionesHtml = "";
 
-        // Botón Modificar (solo visual)
-        accionesHtml += `<button type="button" class="btn-icon edit js-modificar-placeholder" data-id="${o.id}" title="Ver/Modificar">✏️</button>`;
+        // ⏳ pasar a En preparación (solo Pendiente)
+        if (parseInt(o.estadoId) === 1) {
+          accionesHtml += `<button  type="button"  class="btn-icon prepare js-preparar"  data-id="${o.id}"  data-estado-id="2"  title="Iniciar preparación">⏳</button>`;
+        }
 
-        // Botón En Preparación (solo si está Pendiente - estadoId = 1)
-        if (o.estadoId == 1) {
-          // Estado 2 = En preparación
-          accionesHtml += `<button type="button" class="btn-icon prepare js-preparar" data-id="${o.id}" data-estado-id="2" title="Marcar En Preparación">⏱️</button>`;
+        // ✏️ modificar
+        if (parseInt(o.estadoId) === 1) {
+          accionesHtml += `<button  type="button"  class="btn-icon edit js-modificar-placeholder"  data-id="${o.id}"  title="Modificar orden">✏️</button>`;
+        }
+
+        // ❌ cancelar (Pendiente, En preparación, Transportando)
+        if ([1, 2, 3].includes(parseInt(o.estadoId))) {
+          accionesHtml += `<button  type="button"  class="btn-icon delete js-cancelar"  data-id="${o.id}"  title="Cancelar orden">❌</button>`;
         }
 
         // Generar las celdas en el orden simplificado
@@ -150,10 +156,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${o.categoriaNombre} (${o.potreroNombre})</td>
         <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>
         <td>${o.cantidad}</td>
-        <td>${o.usuarioNombre}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
-        <td>${o.fechaCreacion}</td>
-        <td>${o.horaCreacion}</td>
+        <td class="fecha">${o.fechaCreacion} ${o.horaCreacion}</td>
         <td>
           <div class="table-actions">
             ${accionesHtml}
@@ -187,7 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const nuevoEstadoId = btn.dataset.estadoId;
 
       // Mostrar modal de confirmación
-      confirmText.textContent = `¿Seguro que deseas pasar la orden #${id} a estado "En preparación"?`;
+      confirmText.textContent = `¿Desea comenzar a preparar la orden #${id}?`;
       confirmYes.dataset.ordenId = id;
       confirmYes.dataset.nuevoEstadoId = nuevoEstadoId;
       confirmYes.dataset.action = "cambiarEstado";
@@ -198,6 +202,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // MODIFICAR PLACEHOLDER
     if (btn.classList.contains("js-modificar-placeholder")) {
       abrirModalModificar(id);
+      return;
+    }
+
+    if (btn.classList.contains("js-cancelar")) {
+      document.getElementById("cancelOrdenId").value = id;
+      document.getElementById("cancelMotivo").value = "";
+      document.getElementById("error-cancelMotivo").style.display = "none";
+      document.getElementById("modalCancelarOrden").style.display = "flex";
       return;
     }
   });
@@ -331,6 +343,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
   confirmNo.addEventListener("click", () => {
     modal.style.display = "none";
+  });
+
+  const modalCancelar = document.getElementById("modalCancelarOrden");
+  const btnConfirmarCancelar = document.getElementById("btnConfirmarCancelar");
+  const btnCerrarCancelar = document.getElementById("btnCerrarCancelar");
+
+  btnConfirmarCancelar.addEventListener("click", async () => {
+    const ordenId = document.getElementById("cancelOrdenId").value;
+    const motivo = document.getElementById("cancelMotivo").value.trim();
+
+    document.getElementById("error-cancelMotivo").style.display = "none";
+
+    if (!motivo) {
+      document.getElementById("error-cancelMotivo").style.display = "block";
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("accion", "cancelar");
+    fd.append("id", ordenId);
+    fd.append("motivo", motivo);
+
+    const res = await fetchJSON(API, {
+      method: "POST",
+      body: fd,
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+
+    if (res.tipo === "success") {
+      mostrarMensaje("success", res.mensaje);
+      modalCancelar.style.display = "none";
+      refrescarTabla();
+    } else {
+      mostrarMensaje("error", res.mensaje);
+    }
+  });
+
+  btnCerrarCancelar.addEventListener("click", () => {
+    modalCancelar.style.display = "none";
   });
 
   // ------------------------------

@@ -92,10 +92,10 @@ function esc($s)
             <th>Categoría (Potrero)</th>
             <th>Alimento</th>
             <th>Cantidad</th>
-            <th>Tractorista</th>
-            <th>Estado</th>
-            <th>Fecha Creacion (dd/mm/yy)</th>
-            <th>Hora Creacion (HH:mm)</th>
+            <td class="estado">
+              <span style="${estadoStyle}">Estado</span>
+            </td>
+            <th>Fecha y Hora</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -150,6 +150,28 @@ function esc($s)
       </div>
     </div>
   </div>
+
+  <div id="modalCancelarOrden" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+      <h3>Cancelar Orden</h3>
+
+      <input type="hidden" id="cancelOrdenId">
+
+      <div class="form-group">
+        <label>Motivo de la cancelación</label>
+        <textarea id="cancelMotivo" class="form-control" rows="3"></textarea>
+        <small class="error-message" id="error-cancelMotivo" style="display:none;color:red;">
+          El motivo es obligatorio
+        </small>
+      </div>
+
+      <div class="modal-actions" style="margin-top:15px;">
+        <button id="btnConfirmarCancelar" class="btn btn-danger">Cancelar Orden</button>
+        <button id="btnCerrarCancelar" class="btn btn-cancel">Volver</button>
+      </div>
+    </div>
+  </div>
+
 
   <script>
     window.ALL_ALIMENTOS = <?= json_encode($alimentos) ?>;

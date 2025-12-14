@@ -555,5 +555,80 @@ class OrdenDAO
     return $ordenes;
   }
 
+  public function obtenerEstadoIdPorDescripcion(string $descripcion): ?int
+  {
+    $sql = "SELECT id FROM estados WHERE descripcion = ? LIMIT 1";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("s", $descripcion);
+    $stmt->execute();
+    $res = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $res ? (int) $res['id'] : null;
+  }
+
+  public function cancelarOrden(int $ordenId, int $estadoCanceladaId): bool
+  {
+    $conn = $this->conn;
+    $conn->begin_transaction();
+
+    try {
+      // 1️⃣ Obtener consumos de stock de la orden
+      $sql = "
+      SELECT stockId, cantidadConsumida
+      FROM ordenConsumoStock
+      WHERE ordenId = ?
+      ORDER BY id DESC
+    ";
+
+      $stmt = $conn->prepare($sql);
+      $stmt->bind_param("i", $ordenId);
+      $stmt->execute();
+      $result = $stmt->get_result();
+
+      // 2️⃣ Devolver stock lote por lote (rollback real)
+      while ($row = $result->fetch_assoc()) {
+        $ok = $this->stockDAO->aumentarStockPorLote(
+          $conn,
+          (int) $row['stockId'],
+          (int) $row['cantidadConsumida']
+        );
+
+        if (!$ok) {
+          throw new Exception("Error devolviendo stock del lote {$row['stockId']}");
+        }
+      }
+      $stmt->close();
+
+      // 3️⃣ Eliminar detalle de consumos
+      $sql = "DELETE FROM ordenConsumoStock WHERE ordenId = ?";
+      $stmt = $conn->prepare($sql);
+      $stmt->bind_param("i", $ordenId);
+      if (!$stmt->execute()) {
+        throw new Exception("Error limpiando consumos de la orden");
+      }
+      $stmt->close();
+
+      // 4️⃣ Cambiar estado a Cancelada (SIN borrar orden)
+      $sql = "UPDATE ordenes SET estadoId = ? WHERE id = ?";
+      $stmt = $conn->prepare($sql);
+      $stmt->bind_param("ii", $estadoCanceladaId, $ordenId);
+
+      if (!$stmt->execute()) {
+        throw new Exception("Error actualizando estado de la orden");
+      }
+      $stmt->close();
+
+      // 5️⃣ Commit
+      $conn->commit();
+      return true;
+
+    } catch (Exception $e) {
+      $conn->rollback();
+      error_log("CancelarOrden error: " . $e->getMessage());
+      return false;
+    }
+  }
+
 
 }

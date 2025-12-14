@@ -655,12 +655,53 @@ class OrdenController
           }
           break;
 
-        // case 'obtenerAuditoriaOrden':
-        //   $ordenId = intval($_GET['id'] ?? 0);
-        //   echo json_encode(
-        //     $this->ordenAuditoriaDAO->listarAuditoriaPorOrden($ordenId)
-        //   );
-        //   exit;
+        case 'cancelar':
+          $ordenId = (int) ($_POST['id'] ?? 0);
+          $motivo = trim($_POST['motivo'] ?? '');
+          $usuarioId = $_SESSION['usuarioId'] ?? 0;
+
+          if ($ordenId <= 0 || !$usuarioId || $motivo === '') {
+            echo json_encode([
+              'tipo' => 'error',
+              'mensaje' => 'Debe indicar un motivo para cancelar la orden.'
+            ]);
+            exit;
+          }
+
+          $estadoCanceladaId = $this->ordenDAO
+            ->obtenerEstadoIdPorDescripcion('Cancelada');
+
+          if (!$estadoCanceladaId) {
+            echo json_encode([
+              'tipo' => 'error',
+              'mensaje' => 'No se pudo determinar el estado Cancelada.'
+            ]);
+            exit;
+          }
+
+          $ok = $this->ordenDAO->cancelarOrden($ordenId, $estadoCanceladaId);
+
+          if ($ok) {
+            $this->registrarAuditoria(
+              $ordenId,
+              $usuarioId,
+              'CANCELACION',
+              $motivo,
+              null,
+              null
+            );
+
+            echo json_encode([
+              'tipo' => 'success',
+              'mensaje' => 'Orden cancelada correctamente.'
+            ]);
+          } else {
+            echo json_encode([
+              'tipo' => 'error',
+              'mensaje' => 'No se pudo cancelar la orden.'
+            ]);
+          }
+          exit;
 
         default:
           break;

@@ -106,8 +106,9 @@
 .table-modern th,
 .table-modern td {
   padding: 12px 16px;
-  text-align: left;
+  text-align: center; /* ✅ centrado general */
   border-bottom: 1px solid #e0e0e0;
+  vertical-align: middle;
 }
 
 .table-modern thead th {
@@ -128,6 +129,21 @@
 
 .table-modern tbody td {
   vertical-align: middle;
+}
+
+.table-modern th.estado,
+.table-modern td.estado {
+  min-width: 150px; /* ajustable */
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap; /* evita salto de línea */
+}
+
+.table-modern th.fecha,
+.table-modern td.fecha {
+  min-width: 180px; /* ajustable */
+  text-align: center;
+  white-space: nowrap; /* evita salto de línea */
 }
 
 /* #tablaStockPrincipal th:first-child,
