@@ -502,3 +502,11 @@ textarea.campo-input {
   resize: vertical;
   min-height: 70px;
 }
+
+.btn-icon.success {
+  color: #1AEB40; /* verde Entregada */
+}
+
+.btn-icon.success:hover {
+  color: #14c936;
+}

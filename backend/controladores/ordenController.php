@@ -272,7 +272,17 @@ class OrdenController
           $estadoActual = $ordenActual->getEstadoId();
 
           // Requisito: Solo de Pendiente (1) a En preparación (2)
-          if ($estadoActual == 1 && $nuevoEstadoId == 2) {
+          // Transiciones permitidas
+          $transicionesValidas = [
+            1 => [2], // Pendiente → En preparación
+            2 => [3], // En preparación → Transportando
+            3 => [4], // Transportando → Entregada
+          ];
+
+          if (
+            isset($transicionesValidas[$estadoActual]) &&
+            in_array($nuevoEstadoId, $transicionesValidas[$estadoActual])
+          ) {
             $ok = $this->ordenDAO->actualizarEstadoOrden($id, $nuevoEstadoId);
 
             if ($ok) {
@@ -280,16 +290,17 @@ class OrdenController
                 $id,
                 $_SESSION['usuarioId'],
                 'CAMBIO_ESTADO',
-                'Cambio de estado a En preparación'
+                "Cambio de estado a {$nuevoEstadoId}"
               );
             }
 
             $res = $ok
-              ? ['tipo' => 'success', 'mensaje' => 'Estado actualizado a "En preparación" correctamente.']
-              : ['tipo' => 'error', 'mensaje' => 'Error al actualizar el estado de la orden.'];
+              ? ['tipo' => 'success', 'mensaje' => 'Estado actualizado correctamente.']
+              : ['tipo' => 'error', 'mensaje' => 'Error al actualizar el estado.'];
           } else {
-            $res = ['tipo' => 'error', 'mensaje' => 'Transición de estado no permitida. Solo de Pendiente a En preparación.'];
+            $res = ['tipo' => 'error', 'mensaje' => 'Transición de estado no permitida.'];
           }
+
           break;
 
         case 'registrar':

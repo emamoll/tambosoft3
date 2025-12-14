@@ -137,7 +137,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // ⏳ pasar a En preparación (solo Pendiente)
         if (parseInt(o.estadoId) === 1) {
-          accionesHtml += `<button  type="button"  class="btn-icon prepare js-preparar"  data-id="${o.id}"  data-estado-id="2"  title="Iniciar preparación">⏳</button>`;
+          accionesHtml += `<button  type="button"  class="btn-icon prepare js-preparar"  data-id="${o.id}"  data-estado-id="2"  title="Preparar orden">⏳</button>`;
+        }
+
+        // 🚚 pasar a Transportando (solo En preparación)
+        if (parseInt(o.estadoId) === 2) {
+          accionesHtml += `<button type="button" class="btn-icon move js-transportar" data-id="${o.id}" data-estado-id="3" title="Transportar orden">🚜</button>`;
+        }
+
+        // ✅ entregar (solo Transportando)
+        if (parseInt(o.estadoId) === 3) {
+          accionesHtml += `<button type="button" class="btn-icon success js-entregar" data-id="${o.id}" data-estado-id="4" title="Marcar como Entregada">✅</button>`;
         }
 
         // ✏️ modificar
@@ -157,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>
         <td>${o.cantidad}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
-        <td class="fecha">${o.fechaCreacion} ${o.horaCreacion}</td>
+        <td class="fecha">${o.fechaActualizacion} ${o.horaActualizacion}</td>
         <td>
           <div class="table-actions">
             ${accionesHtml}
@@ -210,6 +220,31 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("cancelMotivo").value = "";
       document.getElementById("error-cancelMotivo").style.display = "none";
       document.getElementById("modalCancelarOrden").style.display = "flex";
+      return;
+    }
+
+    if (btn.classList.contains("js-transportar")) {
+      const nuevoEstadoId = btn.dataset.estadoId;
+
+      confirmText.textContent = `¿Desea comenzar a transportar la orden #${id}?`;
+
+      confirmYes.dataset.ordenId = id;
+      confirmYes.dataset.nuevoEstadoId = nuevoEstadoId;
+      confirmYes.dataset.action = "cambiarEstado";
+
+      modal.style.display = "flex";
+      return;
+    }
+
+    // ✅ ENTREGAR ORDEN (Transportando → Entregada)
+    if (btn.classList.contains("js-entregar")) {
+      confirmText.textContent = `¿Desea entregar la orden #${id}?`;
+
+      confirmYes.dataset.ordenId = id;
+      confirmYes.dataset.nuevoEstadoId = 4;
+      confirmYes.dataset.action = "cambiarEstado";
+
+      modal.style.display = "flex";
       return;
     }
   });

@@ -498,8 +498,8 @@ class OrdenDAO
           o.estadoId,
           o.categoriaId,
 
-          DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
-          TIME_FORMAT(o.horaCreacion, '%H:%i') AS horaCreacion,
+          DATE_FORMAT(o.fechaActualizacion, '%d/%m/%y') AS fechaActualizacion,
+          TIME_FORMAT(o.horaActualizacion, '%H:%i') AS horaActualizacion,
 
           p.nombre AS potreroNombre,
           al.nombre AS almacenNombre,
