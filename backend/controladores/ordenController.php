@@ -587,7 +587,7 @@ class OrdenController
               $id,
               $_SESSION['usuarioId'],
               'MODIFICACION',
-              'Modificación de orden',
+              $motivo ?: 'Modificación de orden',
               $cantidadOriginal,
               $cantidadNueva
             );

@@ -141,6 +141,9 @@ function esc($s)
         </small>
       </div>
 
+      <div id="modal-error-stock" class="error-message" style="display:none; margin-bottom:10px;">
+      </div>
+
       <div class="modal-actions" style="margin-top:15px;">
         <button id="btnConfirmarModificar" class="btn btn-primary">Guardar</button>
         <button id="btnCancelarModificar" class="btn btn-cancel">Cancelar</button>

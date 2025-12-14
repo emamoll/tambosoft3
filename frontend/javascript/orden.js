@@ -21,6 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const usuarioId = document.getElementById("usuarioId");
   const btnCerrarAuditoria = document.getElementById("btnCerrarAuditoria");
   const modalAuditoria = document.getElementById("modalAuditoriaOrden");
+  const grupoMotivo = document.getElementById("grupoMotivo");
+  const motivoInput = document.getElementById("motivo");
 
   // Elemento para mostrar el potrero
   const potreroAsignadoDisplay = document.getElementById(
@@ -360,6 +362,8 @@ document.addEventListener("DOMContentLoaded", () => {
     submitBtn.textContent = "Registrar";
     cancelarEdicion.style.display = "none";
     document.getElementById("form-title").textContent = "Registrar Orden";
+    grupoMotivo.style.display = "none";
+    motivoInput.value = "";
 
     idInput.value = "";
     form.reset();
@@ -500,6 +504,8 @@ document.addEventListener("DOMContentLoaded", () => {
       accionInput.value = "modificar";
       submitBtn.textContent = "Modificar";
       cancelarEdicion.style.display = "inline-block";
+      grupoMotivo.style.display = "block";
+      motivoInput.value = "";
 
       const ordenData = await fetchJSON(`${API}?action=getOrdenById&id=${id}`);
 
@@ -611,14 +617,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     data.forEach((a) => {
+      const fechaObj = new Date(a.fecha);
+
+      const fechaFormateada =
+        String(fechaObj.getDate()).padStart(2, "0") +
+        "/" +
+        String(fechaObj.getMonth() + 1).padStart(2, "0") +
+        "/" +
+        String(fechaObj.getFullYear()).slice(-2) +
+        " " +
+        String(fechaObj.getHours()).padStart(2, "0") +
+        ":" +
+        String(fechaObj.getMinutes()).padStart(2, "0");
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
-      <td>${a.fechaCreacion}</td>
-      <td>${a.usuarioNombre}</td>
-      <td>${a.cantidadAnterior ?? "-"}</td>
-      <td>${a.cantidadNueva ?? "-"}</td>
-      <td>${a.motivo || "-"}</td>
-    `;
+    <td>${fechaFormateada}</td>
+    <td>${a.usuarioNombre}</td>
+    <td>${a.cantidadAnterior ?? "-"}</td>
+    <td>${a.cantidadNueva ?? "-"}</td>
+    <td>${a.motivo || "-"}</td>
+  `;
       auditoriaBody.appendChild(tr);
     });
   }

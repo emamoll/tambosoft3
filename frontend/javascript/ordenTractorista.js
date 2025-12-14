@@ -252,11 +252,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!ok) return;
 
+    const errorStockModal = document.getElementById("modal-error-stock");
+
+    // limpiar antes
+    errorStockModal.style.display = "none";
+    errorStockModal.textContent = "";
+
     if (cantidad > parseInt(modCantidad.max)) {
-      mostrarMensaje(
-        "error",
-        `La cantidad no puede superar el máximo permitido (${modCantidad.max}).`
-      );
+      errorStockModal.textContent = `Stock insuficiente. Máximo permitido: ${modCantidad.max}`;
+      errorStockModal.style.display = "block";
       return;
     }
 
@@ -279,6 +283,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       mostrarMensaje("error", res.mensaje);
     }
+  });
+
+  modCantidad.addEventListener("input", () => {
+    document.getElementById("modal-error-stock").style.display = "none";
   });
 
   btnCancelarModificar.addEventListener("click", () => {

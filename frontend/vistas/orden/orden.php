@@ -175,6 +175,15 @@ function esc($s)
         <div id="error-usuarioId" class="error-message" style="display:none;">El tractorista es obligatorio</div>
       </div>
 
+      <div class="form-group" id="grupoMotivo" style="display:none;">
+        <label for="motivo">Motivo de la modificación *</label>
+        <textarea id="motivo" name="motivo" class="campo-input" rows="3"
+          placeholder="Ej: Corrección de cantidad por error de carga"></textarea>
+        <div id="error-motivo" class="error-message" style="display:none;">
+          El motivo es obligatorio
+        </div>
+      </div>      
+
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
 
@@ -225,14 +234,14 @@ function esc($s)
   </div>
 
   <div id="modalAuditoriaOrden" class="modal">
-    <div class="modal-content" style="max-width:600px;">
+    <div class="modal-content" style="max-width:800px;">
       <h3>Historial de modificaciones</h3>
 
       <table class="table-modern" style="margin-top:15px;">
         <thead>
           <tr>
             <th>Fecha</th>
-            <th>Tractorista</th>
+            <th>Usuario</th>
             <th>Cantidad anterior</th>
             <th>Cantidad nueva</th>
             <th>Motivo</th>

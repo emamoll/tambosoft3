@@ -64,12 +64,12 @@ class OrdenAuditoriaDAO
       oa.motivo,
       oa.cantidadAnterior,
       oa.cantidadNueva,
-      oa.fechaCreacion,
+      oa.fecha,
       u.username AS usuarioNombre
     FROM ordenAuditoria oa
     INNER JOIN usuarios u ON u.id = oa.usuarioId
     WHERE oa.ordenId = ?
-    ORDER BY oa.fechaCreacion DESC
+    ORDER BY oa.fecha DESC
   ";
 
     $stmt = $this->conn->prepare($sql);
