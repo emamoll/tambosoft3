@@ -38,6 +38,9 @@ require_once __DIR__ . '../../../../backend/controladores/categoriaController.ph
 require_once __DIR__ . '../../../../backend/controladores/potreroController.php';
 require_once __DIR__ . '../../../../backend/controladores/pasturaController.php';
 require_once __DIR__ . '../../../../backend/controladores/stockController.php';
+require_once __DIR__ . '../../../../backend/controladores/ordenController.php';
+require_once __DIR__ . '../../../../backend/controladores/proveedorController.php';
+require_once __DIR__ . '../../../../backend/controladores/usuarioController.php';
 require_once __DIR__ . '../../../../backend/servicios/databaseFactory.php'; // Necesario para DatabaseFactory::createDatabaseConnection
 
 try {

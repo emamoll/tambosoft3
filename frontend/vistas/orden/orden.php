@@ -224,6 +224,35 @@ function esc($s)
     </div>
   </div>
 
+  <div id="modalAuditoriaOrden" class="modal">
+    <div class="modal-content" style="max-width:600px;">
+      <h3>Historial de modificaciones</h3>
+
+      <table class="table-modern" style="margin-top:15px;">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tractorista</th>
+            <th>Cantidad anterior</th>
+            <th>Cantidad nueva</th>
+            <th>Motivo</th>
+          </tr>
+        </thead>
+        <tbody id="auditoriaBody">
+          <tr>
+            <td colspan="5" style="text-align:center;">Cargando...</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="modal-actions" style="margin-top:15px;">
+        <button id="btnCerrarAuditoria" class="btn btn-cancel">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="../../javascript/orden.js"></script>
 </body>
 

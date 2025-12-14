@@ -19,6 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const alimentoId = document.getElementById("alimentoId");
   const cantidad = document.getElementById("cantidad");
   const usuarioId = document.getElementById("usuarioId");
+  const btnCerrarAuditoria = document.getElementById("btnCerrarAuditoria");
+  const modalAuditoria = document.getElementById("modalAuditoriaOrden");
 
   // Elemento para mostrar el potrero
   const potreroAsignadoDisplay = document.getElementById(
@@ -323,8 +325,21 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${o.horaCreacion}</td>
         <td>
           <div class="table-actions">
-            <button type="button" class="btn-icon edit js-editar" data-id="${o.id}" title="Modificar">✏️</button>
-            <button type="button" class="btn-icon delete js-eliminar" data-id="${o.id}" title="Eliminar">🗑️</button>
+            <button type="button" class="btn-icon edit js-editar" data-id="${
+              o.id
+            }" title="Modificar">✏️</button>
+            <button type="button" class="btn-icon delete js-eliminar" data-id="${
+              o.id
+            }" title="Eliminar">🗑️</button>
+            ${
+              o.tieneAuditoria == 1
+                ? `<button 
+            type="button" 
+            class="btn-icon info js-ver-auditoria" 
+            data-id="${o.id}" 
+            title="Ver modificaciones">📋</button>`
+                : ""
+            }
           </div>
         </td>
       `;
@@ -488,39 +503,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const ordenData = await fetchJSON(`${API}?action=getOrdenById&id=${id}`);
 
-      // 🔐 Protección extra
       if (!ordenData || ordenData.tipo === "error") {
         mostrarMensaje("error", "No se pudo cargar la orden para editar.");
         return;
       }
 
-      // IDs base
       idInput.value = ordenData.id;
       almacenId.value = ordenData.almacenId;
 
-      // 1️⃣ cargar tipos según almacén
       await cargarTiposAlimentoPorAlmacen();
-
-      // 2️⃣ setear tipo alimento
       tipoAlimentoId.value = ordenData.tipoAlimentoId;
 
-      // 3️⃣ categoría y potrero
       categoriaId.value = ordenData.categoriaId;
       mostrarPotreroAsignado();
 
-      // 4️⃣ cargar alimentos según tipo + almacén
       await cargarAlimentosDisponibles();
-
-      // 5️⃣ setear alimento
       alimentoId.value = ordenData.alimentoId;
 
-      // resto de campos
       cantidad.value = ordenData.cantidad;
       usuarioId.value = ordenData.usuarioId;
 
-      // stock informativo
       obtenerYMostrarStock();
+      return;
+    }
 
+    // VER AUDITORÍA
+    if (btn.classList.contains("js-ver-auditoria")) {
+      abrirModalAuditoria(id);
       return;
     }
 
@@ -569,6 +578,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
   confirmNo.addEventListener("click", () => {
     modal.style.display = "none";
+  });
+
+  async function abrirModalAuditoria(ordenId) {
+    const modalAuditoria = document.getElementById("modalAuditoriaOrden");
+    const auditoriaBody = document.getElementById("auditoriaBody");
+
+    auditoriaBody.innerHTML = `
+    <tr>
+      <td colspan="5" style="text-align:center;">Cargando...</td>
+    </tr>
+  `;
+
+    modalAuditoria.style.display = "flex";
+
+    const data = await fetchJSON(
+      `${API}?action=obtenerAuditoriaOrden&id=${ordenId}`,
+      { headers: { "X-Requested-With": "XMLHttpRequest" } }
+    );
+
+    auditoriaBody.innerHTML = "";
+
+    if (!Array.isArray(data) || data.length === 0) {
+      auditoriaBody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center;">
+          No hay modificaciones registradas.
+        </td>
+      </tr>
+    `;
+      return;
+    }
+
+    data.forEach((a) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+      <td>${a.fechaCreacion}</td>
+      <td>${a.usuarioNombre}</td>
+      <td>${a.cantidadAnterior ?? "-"}</td>
+      <td>${a.cantidadNueva ?? "-"}</td>
+      <td>${a.motivo || "-"}</td>
+    `;
+      auditoriaBody.appendChild(tr);
+    });
+  }
+
+  btnCerrarAuditoria.addEventListener("click", () => {
+    modalAuditoria.style.display = "none";
   });
 
   // ------------------------------

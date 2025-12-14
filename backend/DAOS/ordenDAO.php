@@ -484,4 +484,76 @@ class OrdenDAO
 
     return $tipos;
   }
+
+  public function listarOrdenes(?int $usuarioId = null): array
+  {
+    $sql = "SELECT 
+          o.id,
+          o.potreroId,
+          o.almacenId,
+          o.tipoAlimentoId,
+          o.alimentoId,
+          o.cantidad,
+          o.usuarioId,
+          o.estadoId,
+          o.categoriaId,
+
+          DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
+          TIME_FORMAT(o.horaCreacion, '%H:%i') AS horaCreacion,
+
+          p.nombre AS potreroNombre,
+          al.nombre AS almacenNombre,
+          ta.tipoAlimento AS tipoAlimentoNombre,
+          a.nombre AS alimentoNombre,
+          u.username AS usuarioNombre,
+          e.descripcion AS estadoDescripcion,
+          e.colores AS estadoColor,
+          c.nombre AS categoriaNombre,
+
+          EXISTS (
+            SELECT 1
+            FROM ordenAuditoria oa
+            WHERE oa.ordenId = o.id
+          ) AS tieneAuditoria
+
+        FROM ordenes o
+        LEFT JOIN potreros p ON o.potreroId = p.id
+        LEFT JOIN almacenes al ON o.almacenId = al.id
+        LEFT JOIN tiposAlimentos ta ON o.tipoAlimentoId = ta.id
+        LEFT JOIN alimentos a ON o.alimentoId = a.id
+        LEFT JOIN usuarios u ON o.usuarioId = u.id
+        LEFT JOIN estados e ON o.estadoId = e.id
+        LEFT JOIN categorias c ON o.categoriaId = c.id
+        WHERE 1=1";
+
+    $params = [];
+    $types = '';
+
+    if ($usuarioId !== null && $usuarioId > 0) {
+      $sql .= " AND o.usuarioId = ?";
+      $params[] = $usuarioId;
+      $types .= 'i';
+    }
+
+    $sql .= " ORDER BY o.fechaCreacion DESC, o.horaCreacion DESC";
+
+    if (!empty($params)) {
+      $stmt = $this->conn->prepare($sql);
+      $stmt->bind_param($types, ...$params);
+      $stmt->execute();
+      $result = $stmt->get_result();
+      $stmt->close();
+    } else {
+      $result = $this->conn->query($sql);
+    }
+
+    $ordenes = [];
+    while ($row = $result->fetch_assoc()) {
+      $ordenes[] = $row;
+    }
+
+    return $ordenes;
+  }
+
+
 }

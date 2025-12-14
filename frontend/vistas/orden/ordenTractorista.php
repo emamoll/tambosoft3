@@ -88,9 +88,9 @@ function esc($s)
       <table id="tablaOrdenPrincipal" class="table-modern" aria-label="Listado de Ordenes">
         <thead>
           <tr>
+            <th>Campo Origen</th>
             <th>Categoría (Potrero)</th>
-            <th>Almacén</th>
-            <th>Alimento (Tipo)</th>
+            <th>Alimento</th>
             <th>Cantidad</th>
             <th>Tractorista</th>
             <th>Estado</th>
@@ -112,6 +112,38 @@ function esc($s)
       <div class="modal-actions">
         <button id="confirmYes" class="btn btn-danger">Confirmar</button>
         <button id="confirmNo" class="btn btn-cancel" style="background:#777; color:white">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalModificarOrden" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <h3>Modificar Orden</h3>
+
+      <input type="hidden" id="modOrdenId">
+
+      <div class="form-group">
+        <label>Cantidad</label>
+        <input type="number" id="modCantidad" class="form-control" min="1">
+        <small class="error-message" id="error-modCantidad" style="display:none;color:red;">
+          La cantidad debe ser mayor a 0
+        </small>
+      </div>
+      <div class="form-group">
+        <small id="info-stock" style="color:#555;"></small>
+      </div>
+
+      <div class="form-group">
+        <label>Motivo de la modificación</label>
+        <textarea id="modMotivo" class="form-control" rows="3"></textarea>
+        <small class="error-message" id="error-modMotivo" style="display:none;color:red;">
+          El motivo es obligatorio
+        </small>
+      </div>
+
+      <div class="modal-actions" style="margin-top:15px;">
+        <button id="btnConfirmarModificar" class="btn btn-primary">Guardar</button>
+        <button id="btnCancelarModificar" class="btn btn-cancel">Cancelar</button>
       </div>
     </div>
   </div>

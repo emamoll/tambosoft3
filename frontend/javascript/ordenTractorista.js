@@ -22,6 +22,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
   const confirmText = document.getElementById("confirmText");
+  const modalModificar = document.getElementById("modalModificarOrden");
+  const modOrdenId = document.getElementById("modOrdenId");
+  const modCantidad = document.getElementById("modCantidad");
+  const modMotivo = document.getElementById("modMotivo");
+  const btnConfirmarModificar = document.getElementById(
+    "btnConfirmarModificar"
+  );
+  const btnCancelarModificar = document.getElementById("btnCancelarModificar");
 
   // ----------------------------------------------------
   // HELPER PARA LLAMAR AL BACKEND Y ASEGURAR JSON
@@ -138,9 +146,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Generar las celdas en el orden simplificado
         tr.innerHTML = `
-        <td>${o.categoriaNombre} (${o.potreroNombre})</td>
         <td>${o.almacenNombre}</td>
-        <td>${o.alimentoNombre} (${o.tipoAlimentoNombre})</td>
+        <td>${o.categoriaNombre} (${o.potreroNombre})</td>
+        <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>
         <td>${o.cantidad}</td>
         <td>${o.usuarioNombre}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
@@ -189,12 +197,92 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // MODIFICAR PLACEHOLDER
     if (btn.classList.contains("js-modificar-placeholder")) {
+      abrirModalModificar(id);
+      return;
+    }
+  });
+
+  async function abrirModalModificar(ordenId) {
+    document.getElementById("error-modCantidad").style.display = "none";
+    document.getElementById("error-modMotivo").style.display = "none";
+
+    const data = await fetchJSON(`${API}?action=getOrdenById&id=${ordenId}`, {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+
+    if (!data || data.tipo === "error") {
+      mostrarMensaje("error", "No se pudo cargar la orden.");
+      return;
+    }
+
+    modOrdenId.value = data.id;
+    modCantidad.value = data.cantidad;
+
+    // 🔒 límite duro
+    modCantidad.max = data.maxCantidad;
+
+    // 📦 info de stock visible
+    document.getElementById(
+      "info-stock"
+    ).textContent = `Stock disponible: ${data.stockDisponible}`;
+
+    modMotivo.value = "";
+    modalModificar.style.display = "flex";
+  }
+
+  btnConfirmarModificar.addEventListener("click", async () => {
+    const ordenId = parseInt(modOrdenId.value);
+    const cantidad = parseInt(modCantidad.value);
+    const motivo = modMotivo.value.trim();
+
+    let ok = true;
+
+    document.getElementById("error-modCantidad").style.display = "none";
+    document.getElementById("error-modMotivo").style.display = "none";
+
+    if (!cantidad || cantidad <= 0) {
+      document.getElementById("error-modCantidad").style.display = "block";
+      ok = false;
+    }
+
+    if (!motivo) {
+      document.getElementById("error-modMotivo").style.display = "block";
+      ok = false;
+    }
+
+    if (!ok) return;
+
+    if (cantidad > parseInt(modCantidad.max)) {
       mostrarMensaje(
-        "info",
-        `Solo puedes cambiar el estado de las órdenes. Para modificar la cantidad o el alimento, contacta al administrador.`
+        "error",
+        `La cantidad no puede superar el máximo permitido (${modCantidad.max}).`
       );
       return;
     }
+
+    const fd = new FormData();
+    fd.append("accion", "modificar");
+    fd.append("id", ordenId);
+    fd.append("cantidad", cantidad);
+    fd.append("motivo", motivo);
+
+    const res = await fetchJSON(API, {
+      method: "POST",
+      body: fd,
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+
+    if (res.tipo === "success") {
+      mostrarMensaje("success", res.mensaje);
+      modalModificar.style.display = "none";
+      refrescarTabla();
+    } else {
+      mostrarMensaje("error", res.mensaje);
+    }
+  });
+
+  btnCancelarModificar.addEventListener("click", () => {
+    modalModificar.style.display = "none";
   });
 
   // ------------------------------

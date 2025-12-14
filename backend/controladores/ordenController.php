@@ -1,4 +1,7 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
 
 date_default_timezone_set('America/Argentina/Buenos_Aires'); // FIJADO ZONA HORARIA A ARGENTINA
 
@@ -8,6 +11,7 @@ require_once __DIR__ . '../../DAOS/stockDAO.php';
 require_once __DIR__ . '../../DAOS/potreroDAO.php';
 require_once __DIR__ . '../../DAOS/usuarioDAO.php';
 require_once __DIR__ . '../../DAOS/almacenDAO.php';
+require_once __DIR__ . '../../DAOS/ordenAuditoriaDAO.php';
 require_once __DIR__ . '../../DAOS/ordenConsumoStockDAO.php'; // NUEVO REQUIRE
 require_once __DIR__ . '../../modelos/orden/ordenModelo.php';
 require_once __DIR__ . '../../modelos/ordenConsumoStock/ordenConsumoStockModelo.php'; // NUEVO REQUIRE
@@ -40,6 +44,7 @@ class OrdenController
   private $potreroDAO;
   private $usuarioDAO;
   private $almacenDAO;
+  private $ordenAuditoriaDAO;
   private $ordenConsumoStockDAO; // NUEVA PROPIEDAD
   private $connError = null;
 
@@ -52,12 +57,36 @@ class OrdenController
       $this->potreroDAO = new PotreroDAO();
       $this->usuarioDAO = new UsuarioDAO();
       $this->almacenDAO = new AlmacenDAO();
+      $this->ordenAuditoriaDAO = new OrdenAuditoriaDAO();
       $this->ordenConsumoStockDAO = new OrdenConsumoStockDAO(); // INICIALIZACIÓN
 
     } catch (Exception $e) {
       $this->ordenDAO = null;
       $this->connError = $e->getMessage();
     }
+  }
+
+  // Auditorias
+  private function registrarAuditoria(
+    int $ordenId,
+    int $usuarioId,
+    string $accion,
+    string $motivo = '',
+    ?int $cantidadAnterior = null,
+    ?int $cantidadNueva = null
+  ): void {
+    $auditoria = new OrdenAuditoria(
+      null,
+      $ordenId,
+      $usuarioId,
+      $accion,
+      $motivo,
+      $cantidadAnterior,
+      $cantidadNueva,
+      null // fecha la maneja la BD
+    );
+
+    $this->ordenAuditoriaDAO->registrarAuditoria($auditoria);
   }
 
   public function procesarFormularios()
@@ -135,7 +164,9 @@ class OrdenController
       if ($accion === 'obtenerOrden') {
         $usuarioIdFiltro = intval($_GET['usuarioId'] ?? 0); // Captura el ID del usuario si se envía
 
-        $ordenes = $this->obtenerOrden($usuarioIdFiltro > 0 ? $usuarioIdFiltro : null);
+        $ordenes = $this->ordenDAO->listarOrdenes(
+          $usuarioIdFiltro > 0 ? $usuarioIdFiltro : null
+        );
 
         echo json_encode($ordenes);
         exit;
@@ -154,7 +185,15 @@ class OrdenController
           // Ahora el modelo Orden tiene categoriaId. Lo usamos directamente.
           $categoriaId = $orden->getCategoriaId();
 
-          // Creamos el array manualmente usando los getters del modelo Orden.
+          $stockDisponible = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen(
+            $orden->getAlimentoId(),
+            $orden->getTipoAlimentoId(),
+            $orden->getAlmacenId()
+          );
+
+          // clave: lo que ya consumió la orden también cuenta
+          $maxCantidad = $stockDisponible + $orden->getCantidad();
+
           $data = [
             'id' => $orden->getId(),
             'potreroId' => $orden->getPotreroId(),
@@ -164,15 +203,27 @@ class OrdenController
             'cantidad' => $orden->getCantidad(),
             'usuarioId' => $orden->getUsuarioId(),
             'estadoId' => $orden->getEstadoId(),
-            'fechaCreacion' => $orden->getFechaCreacion(),
-            'fechaActualizacion' => $orden->getFechaActualizacion(),
-            'horaCreacion' => $orden->getHoraCreacion(),
-            'horaActualizacion' => $orden->getHoraActualizacion(),
-            'categoriaId' => $categoriaId, // Ahora viene del modelo
+            'categoriaId' => $categoriaId,
+            'stockDisponible' => $stockDisponible,
+            'maxCantidad' => $maxCantidad
           ];
         }
 
         echo json_encode($data);
+        exit;
+      }
+
+      if ($accion === 'obtenerAuditoriaOrden') {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $ordenId = intval($_GET['id'] ?? 0);
+        if ($ordenId <= 0) {
+          echo json_encode([]);
+          exit;
+        }
+
+        $aud = $this->ordenAuditoriaDAO->listarAuditoriaPorOrden($ordenId);
+        echo json_encode($aud);
         exit;
       }
 
@@ -201,6 +252,7 @@ class OrdenController
       $alimentoId = trim($data['alimentoId'] ?? '');
       $cantidad = intval($data['cantidad'] ?? 0);
       $usuarioIdForm = intval($data['usuarioId'] ?? 0);
+      $motivo = trim($data['motivo'] ?? '');
 
       $res = ['tipo' => 'error', 'mensaje' => 'Acción no válida'];
 
@@ -222,6 +274,15 @@ class OrdenController
           // Requisito: Solo de Pendiente (1) a En preparación (2)
           if ($estadoActual == 1 && $nuevoEstadoId == 2) {
             $ok = $this->ordenDAO->actualizarEstadoOrden($id, $nuevoEstadoId);
+
+            if ($ok) {
+              $this->registrarAuditoria(
+                $id,
+                $_SESSION['usuarioId'],
+                'CAMBIO_ESTADO',
+                'Cambio de estado a En preparación'
+              );
+            }
 
             $res = $ok
               ? ['tipo' => 'success', 'mensaje' => 'Estado actualizado a "En preparación" correctamente.']
@@ -316,143 +377,161 @@ class OrdenController
           break;
 
         case 'modificar':
-          // LÓGICA REESCRITA PARA ROLLBACK/AVANCE PRECISO
+
+          // ===============================
+          // 0. Validaciones básicas
+          // ===============================
           if (!$id) {
             $res = ['tipo' => 'error', 'mensaje' => 'ID inválido.'];
             break;
           }
 
-          // El tractorista es obligatorio en la modificación también
-          if ($usuarioIdForm == 0) {
-            $res = ['tipo' => 'error', 'mensaje' => 'El campo Tractorista es obligatorio.'];
-            break;
-          }
-
-          // 1. Obtener el PotreroId asociado a la Categoria seleccionada
-          $potreroDetails = $this->potreroDAO->getPotreroDetailsByCategoriaId(intval($categoriaIdForm));
-          $potreroIdNuevo = $potreroDetails ? $potreroDetails['potreroId'] : 0;
-          $categoriaIdNueva = intval($categoriaIdForm);
-
-
-          if (empty($categoriaIdForm) || $potreroIdNuevo == 0 || empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || $cantidad <= 0) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Categoría (con potrero asignado), Almacén, Tipo Alimento, Alimento y Cantidad (debe ser mayor a 0).'];
-            break;
-          }
-
-          $almacenId = intval($almacenId);
-          $tipoAlimentoId = intval($tipoAlimentoId);
-          $alimentoId = intval($alimentoId);
-          $cantidadNueva = intval($cantidad);
-          $usuarioIdNuevo = intval($usuarioIdForm); // Aseguramos que sea int
-
-
+          // Obtener orden actual (SIEMPRE)
           $ordenActual = $this->ordenDAO->getOrdenById($id);
           if (!$ordenActual) {
             $res = ['tipo' => 'error', 'mensaje' => 'Orden no encontrada para modificar.'];
             break;
           }
 
+          // ===============================
+          // 1. Resolver usuario según rol
+          // ===============================
+          if (isset($_SESSION['rolId']) && $_SESSION['rolId'] == 3) {
+            // 🚜 Tractorista: se fuerza el usuario logueado
+            $usuarioIdNuevo = (int) $_SESSION['usuarioId'];
+          } else {
+            // 👨‍💼 Admin
+            $usuarioIdNuevo = (int) $usuarioIdForm;
+          }
+
+          if ($usuarioIdNuevo <= 0) {
+            $res = ['tipo' => 'error', 'mensaje' => 'El campo Tractorista es obligatorio.'];
+            break;
+          }
+
+          // ===============================
+          // 2. Resolver estructura (según rol)
+          // ===============================
+          if (isset($_SESSION['rolId']) && $_SESSION['rolId'] == 3) {
+            // 🚜 Tractorista → estructura INMUTABLE
+            $categoriaIdNueva = $ordenActual->getCategoriaId();
+            $potreroIdNuevo = $ordenActual->getPotreroId();
+            $almacenId = $ordenActual->getAlmacenId();
+            $tipoAlimentoId = $ordenActual->getTipoAlimentoId();
+            $alimentoId = $ordenActual->getAlimentoId();
+          } else {
+            // 👨‍💼 Admin
+            $categoriaIdNueva = (int) $categoriaIdForm;
+            $potreroDetails = $this->potreroDAO->getPotreroDetailsByCategoriaId($categoriaIdNueva);
+            $potreroIdNuevo = $potreroDetails ? (int) $potreroDetails['potreroId'] : 0;
+
+            $almacenId = (int) $almacenId;
+            $tipoAlimentoId = (int) $tipoAlimentoId;
+            $alimentoId = (int) $alimentoId;
+
+            if ($categoriaIdNueva <= 0 || $potreroIdNuevo <= 0 || $almacenId <= 0 || $tipoAlimentoId <= 0 || $alimentoId <= 0) {
+              $res = ['tipo' => 'error', 'mensaje' => 'Datos estructurales inválidos.'];
+              break;
+            }
+          }
+
+          // ===============================
+          // 3. Validar cantidad
+          // ===============================
+          $cantidadNueva = (int) $cantidad;
+          if ($cantidadNueva <= 0) {
+            $res = ['tipo' => 'error', 'mensaje' => 'La cantidad debe ser mayor a 0.'];
+            break;
+          }
+
+          // ===============================
+          // 4. Validar stock máximo permitido
+          // ===============================
+          $stockDisponible = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen(
+            $ordenActual->getAlimentoId(),
+            $ordenActual->getTipoAlimentoId(),
+            $ordenActual->getAlmacenId()
+          );
+
+          $maxPermitido = $stockDisponible + $ordenActual->getCantidad();
+
+          if ($cantidadNueva > $maxPermitido) {
+            $res = [
+              'tipo' => 'error',
+              'mensaje' => "Cantidad supera el stock disponible. Máximo permitido: {$maxPermitido}"
+            ];
+            break;
+          }
+
+          // ===============================
+          // 5. Datos originales
+          // ===============================
           $cantidadOriginal = $ordenActual->getCantidad();
-          $almacenOriginal = $ordenActual->getAlmacenId();
-          $alimentoOriginal = $ordenActual->getAlimentoId();
-          $tipoAlimentoOriginal = $ordenActual->getTipoAlimentoId();
-          $potreroOriginal = $ordenActual->getPotreroId();
-          $categoriaOriginal = $ordenActual->getCategoriaId(); // OBTENEMOS EL ID DE LA CATEGORÍA ORIGINAL
 
-
-          // 1. Verificar si el almacén, tipo o alimento han cambiado (no permitido)
-          if ($almacenOriginal != $almacenId || $alimentoOriginal != $alimentoId || $tipoAlimentoOriginal != $tipoAlimentoId) {
-            $res = ['tipo' => 'error', 'mensaje' => 'No se permite cambiar el almacén, tipo o alimento en la modificación de la orden para garantizar la integridad del stock. Por favor, elimine y registre una nueva orden.'];
-            break;
-          }
-
-          // 2. Verificar si el potrero (a través de la categoría) ha cambiado (no permitido)
-          // Se verifica tanto el potrero como la categoría.
-          if ($potreroOriginal != $potreroIdNuevo || $categoriaOriginal != $categoriaIdNueva) {
-            $res = ['tipo' => 'error', 'mensaje' => 'No se permite cambiar la Categoría/Potrero en la modificación de la orden. Por favor, elimine y registre una nueva orden.'];
-            break;
-          }
-
-          // Iniciar Transacción y obtener la conexión para pasarla a los DAOs auxiliares
+          // ===============================
+          // 6. Transacción de stock
+          // ===============================
           $conn = $this->ordenDAO->getConn();
           $conn->begin_transaction();
-          $stockAfectado = true;
 
           try {
             $diferenciaCantidad = $cantidadOriginal - $cantidadNueva;
             $nuevosConsumos = [];
 
-            if ($diferenciaCantidad > 0) { // La cantidad se redujo (Rollback parcial)
-              $cantidadDevuelta = $diferenciaCantidad;
+            // -------- REDUCCIÓN (rollback parcial) --------
+            if ($diferenciaCantidad > 0) {
+              $cantidadPendiente = $diferenciaCantidad;
+              $consumos = array_reverse($this->ordenConsumoStockDAO->getConsumoByOrdenId($id));
 
-              // A. Recuperar lotes consumidos por la orden
-              $consumosOriginales = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
-
-              // B. Aplicar el Rollback LIFO (se revierte el FIFO)
-              $cantidadPendienteDevolver = $cantidadDevuelta;
-
-              // Se revierte el array para ir del lote más nuevo al más antiguo consumido
-              $consumosInversos = array_reverse($consumosOriginales);
-
-              $errorStock = false;
-
-              foreach ($consumosInversos as $consumo) {
-                if ($cantidadPendienteDevolver <= 0) {
+              foreach ($consumos as $consumo) {
+                if ($cantidadPendiente <= 0)
                   break;
+
+                $devuelve = min($cantidadPendiente, $consumo['cantidadConsumida']);
+
+                if (!$this->stockDAO->aumentarStockPorLote($conn, $consumo['stockId'], $devuelve)) {
+                  throw new Exception('Error devolviendo stock.');
                 }
 
-                $cantidadDevolverEsteLote = min($cantidadPendienteDevolver, $consumo['cantidadConsumida']);
+                $restante = $consumo['cantidadConsumida'] - $devuelve;
+                $cantidadPendiente -= $devuelve;
 
-                // Rollback: Devolver el stock al lote exacto (PASANDO $conn)
-                if (!$this->stockDAO->aumentarStockPorLote($conn, $consumo['stockId'], $cantidadDevolverEsteLote)) {
-                  $errorStock = true;
-                  break;
-                }
-
-                $cantidadConsumidaNueva = $consumo['cantidadConsumida'] - $cantidadDevolverEsteLote;
-                $cantidadPendienteDevolver -= $cantidadDevolverEsteLote;
-
-                // Guardar el nuevo consumo restante para el detalle
-                if ($cantidadConsumidaNueva > 0) {
+                if ($restante > 0) {
                   $nuevosConsumos[] = [
                     'stockId' => $consumo['stockId'],
-                    'cantidadConsumida' => $cantidadConsumidaNueva
+                    'cantidadConsumida' => $restante
                   ];
                 }
               }
-              // Volver a ordenar para que queden como en la base de datos (FIFO)
+
               $nuevosConsumos = array_reverse($nuevosConsumos);
+            }
 
-              if ($errorStock) {
-                throw new Exception('Error de DB al devolver el stock.');
+            // -------- AUMENTO (consumo FIFO) --------
+            elseif ($diferenciaCantidad < 0) {
+              $faltante = abs($diferenciaCantidad);
+              $lotes = $this->stockDAO->calcularReduccionFIFO(
+                $alimentoId,
+                $tipoAlimentoId,
+                $faltante,
+                $almacenId
+              );
+
+              if (empty($lotes)) {
+                throw new Exception('Stock insuficiente para el aumento solicitado.');
               }
 
-            } elseif ($diferenciaCantidad < 0) { // La cantidad se aumentó (requiere más stock)
-              $cantidadRequeridaAdicional = abs($diferenciaCantidad);
+              $nuevosConsumos = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
 
-              // 2. Verificar y obtener lotes para el stock adicional (FIFO)
-              $lotesAdicionales = $this->stockDAO->calcularReduccionFIFO($alimentoId, $tipoAlimentoId, $cantidadRequeridaAdicional, $almacenId);
-
-              if (empty($lotesAdicionales)) {
-                $stockDisponible = $this->stockDAO->getTotalStockByAlimentoIdAndTipoAndAlmacen($alimentoId, $tipoAlimentoId, $almacenId);
-                throw new Exception("Stock insuficiente en el almacén para el aumento solicitado. Solo hay {$stockDisponible} unidades disponibles para retirar.");
-              }
-
-              // 3. Ejecutar la reducción y combinar los consumos
-              $consumosOriginales = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
-              $nuevosConsumos = $consumosOriginales;
-
-              foreach ($lotesAdicionales as $lote) {
-                // Ejecutar la Reducción en stocks (PASANDO $conn)
+              foreach ($lotes as $lote) {
                 if (!$this->stockDAO->ejecutarConsumo($conn, $lote['stockId'], $lote['cantidadConsumida'])) {
-                  throw new Exception("Error al ejecutar consumo de stock adicional.");
+                  throw new Exception('Error consumiendo stock adicional.');
                 }
 
-                // Intentar fusionar el consumo si el stockId ya existe (puede pasar si un lote se consumió parcialmente)
                 $found = false;
-                foreach ($nuevosConsumos as $key => $nConsumo) {
-                  if ($nConsumo['stockId'] == $lote['stockId']) {
-                    $nuevosConsumos[$key]['cantidadConsumida'] += $lote['cantidadConsumida'];
+                foreach ($nuevosConsumos as &$nc) {
+                  if ($nc['stockId'] == $lote['stockId']) {
+                    $nc['cantidadConsumida'] += $lote['cantidadConsumida'];
                     $found = true;
                     break;
                   }
@@ -461,63 +540,82 @@ class OrdenController
                   $nuevosConsumos[] = $lote;
                 }
               }
-
-            } else {
-              // No hay cambio en la cantidad
-              $nuevosConsumos = $this->ordenConsumoStockDAO->getConsumoByOrdenId($id);
             }
 
-            // 4. Actualizar la tabla de OrdenConsumoStock (solo si hubo cambio en cantidad)
+            // -------- Persistir consumos --------
             if ($diferenciaCantidad != 0) {
-              // A. Eliminar viejos registros de consumo (PASANDO $conn)
               if (!$this->ordenConsumoStockDAO->eliminarConsumoByOrdenId($conn, $id)) {
-                throw new Exception('Error al limpiar registros de consumo antiguos.');
+                throw new Exception('Error limpiando consumos.');
               }
-              // B. Insertar nuevos registros de consumo (PASANDO $conn)
-              foreach ($nuevosConsumos as $lote) {
-                // Solo insertamos si la cantidad consumida es > 0
-                if ($lote['cantidadConsumida'] > 0) {
-                  if (!$this->ordenConsumoStockDAO->registrarDetalle($conn, $id, $lote['stockId'], $lote['cantidadConsumida'])) {
-                    throw new Exception('Error al registrar nuevos detalles de consumo.');
+
+              foreach ($nuevosConsumos as $l) {
+                if ($l['cantidadConsumida'] > 0) {
+                  if (!$this->ordenConsumoStockDAO->registrarDetalle($conn, $id, $l['stockId'], $l['cantidadConsumida'])) {
+                    throw new Exception('Error registrando detalle.');
                   }
                 }
               }
             }
 
-            // 5. Modificación de la Orden en la DB (metadata)
+            // ===============================
+            // 7. Actualizar orden
+            // ===============================
             $ordenModificada = new Orden(
               $id,
-              $potreroIdNuevo, // Usamos el potreroId asociado a la categoría
+              $potreroIdNuevo,
               $almacenId,
               $tipoAlimentoId,
               $alimentoId,
               $cantidadNueva,
-              $usuarioIdNuevo, // Se permite cambiar el tractorista
+              $usuarioIdNuevo,
               $ordenActual->getEstadoId(),
-              $categoriaIdNueva, // NUEVO CAMPO
+              $categoriaIdNueva,
               $ordenActual->getFechaCreacion(),
               date('Y-m-d'),
               $ordenActual->getHoraCreacion(),
               date('H:i:s')
             );
 
-            // La modificación de la orden principal NO es transaccional, pero es la última operación.
-            $ok = $this->ordenDAO->modificarOrden($ordenModificada);
-
-            if (!$ok) {
-              throw new Exception('Error al modificar la orden (DB error).');
+            if (!$this->ordenDAO->modificarOrden($ordenModificada)) {
+              throw new Exception('Error al modificar la orden.');
             }
 
             $conn->commit();
-            $res = ['tipo' => 'success', 'mensaje' => 'Orden modificada correctamente y stock ajustado.'];
+
+            // Auditoría
+            $this->registrarAuditoria(
+              $id,
+              $_SESSION['usuarioId'],
+              'MODIFICACION',
+              'Modificación de orden',
+              $cantidadOriginal,
+              $cantidadNueva
+            );
+
+            // Registrar auditoría adicional solo para el administrador si la orden fue modificada
+            if (isset($_SESSION['rolId']) && $_SESSION['rolId'] != 3) {
+              $res = [
+                'tipo' => 'success',
+                'mensaje' => 'Orden modificada correctamente y stock ajustado.',
+                'auditoria' => [
+                  'cantidadAnterior' => $cantidadOriginal,
+                  'cantidadNueva' => $cantidadNueva,
+                  'tractoristaModificador' => $_SESSION['usuarioId'], // ID del usuario que hizo la modificación
+                  'motivo' => $motivo // El motivo de la modificación
+                ]
+              ];
+            } else {
+              $res = ['tipo' => 'success', 'mensaje' => 'Orden modificada correctamente y stock ajustado.'];
+            }
 
           } catch (Exception $e) {
             $conn->rollback();
-            // Se devuelve un mensaje de error detallado
-            $res = ['tipo' => 'error', 'mensaje' => 'Error de base de datos al actualizar el stock. La orden no fue modificada. Detalle: ' . $e->getMessage()];
+            $res = ['tipo' => 'error', 'mensaje' => $e->getMessage()];
           }
 
           break;
+
+
 
         case 'eliminar':
           // 1. Obtener la orden
@@ -535,6 +633,14 @@ class OrdenController
           // 2. El DAO ahora maneja la devolución precisa de stock y la eliminación de la orden en una sola transacción.
           try {
             $ok = $this->ordenDAO->eliminarOrden($id);
+            if ($ok) {
+              $this->registrarAuditoria(
+                $id,
+                $_SESSION['usuarioId'],
+                'CANCELACION',
+                'Orden cancelada por el usuario'
+              );
+            }
             $res = $ok
               ? ['tipo' => 'success', 'mensaje' => 'Orden eliminada correctamente y stock devuelto.']
               : ['tipo' => 'error', 'mensaje' => 'Error de transacción al eliminar la orden.'];
@@ -549,6 +655,13 @@ class OrdenController
           }
           break;
 
+        // case 'obtenerAuditoriaOrden':
+        //   $ordenId = intval($_GET['id'] ?? 0);
+        //   echo json_encode(
+        //     $this->ordenAuditoriaDAO->listarAuditoriaPorOrden($ordenId)
+        //   );
+        //   exit;
+
         default:
           break;
       }
@@ -562,73 +675,6 @@ class OrdenController
   // ================
   // MÉTODOS DE APOYO
   // ================
-  public function obtenerOrden(?int $usuarioId = null) // MODIFICADO: Acepta ID de usuario opcional
-  {
-    if ($this->connError !== null) {
-      return [];
-    }
-
-    $conn = $this->ordenDAO->getConn();
-
-    $sql = "SELECT 
-                o.id, o.potreroId, o.almacenId, o.tipoAlimentoId, o.alimentoId, o.cantidad, o.usuarioId, o.estadoId, o.categoriaId,
-                DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
-                TIME_FORMAT(o.horaCreacion, '%H:%i') AS horaCreacion, /* FORMATO DE HORA MODIFICADO */
-                p.nombre AS potreroNombre,
-                al.nombre AS almacenNombre,
-                ta.tipoAlimento AS tipoAlimentoNombre,
-                a.nombre AS alimentoNombre,
-                u.username AS usuarioNombre,
-                e.descripcion AS estadoDescripcion,
-                e.colores AS estadoColor,
-                c.nombre AS categoriaNombre
-            FROM ordenes o
-            LEFT JOIN potreros p ON o.potreroId = p.id
-            LEFT JOIN almacenes al ON o.almacenId = al.id
-            LEFT JOIN tiposAlimentos ta ON o.tipoAlimentoId = ta.id
-            LEFT JOIN alimentos a ON o.alimentoId = a.id
-            LEFT JOIN usuarios u ON o.usuarioId = u.id
-            LEFT JOIN estados e ON o.estadoId = e.id
-            LEFT JOIN categorias c ON o.categoriaId = c.id
-            LEFT JOIN campos ca ON p.campoId = ca.id
-            WHERE 1=1";
-
-    $params = [];
-    $types = '';
-
-    // LÓGICA DE FILTRADO AÑADIDA
-    if ($usuarioId !== null && $usuarioId > 0) {
-      $sql .= " AND o.usuarioId = ?";
-      $params[] = $usuarioId;
-      $types .= 'i';
-    }
-
-    $sql .= " ORDER BY o.fechaCreacion DESC, o.horaCreacion DESC";
-
-    // Preparar y ejecutar la consulta (necesario si hay parámetros)
-    if (!empty($params)) {
-      $stmt = $conn->prepare($sql);
-      if ($stmt === false) {
-        error_log("Error preparando consulta en obtenerOrden: " . $conn->error);
-        return [];
-      }
-      $stmt->bind_param($types, ...$params);
-      $stmt->execute();
-      $result = $stmt->get_result();
-      $stmt->close();
-    } else {
-      $result = $conn->query($sql);
-    }
-
-    $ordenes = [];
-    if ($result) {
-      while ($row = $result->fetch_assoc()) {
-        $ordenes[] = $row;
-      }
-    }
-
-    return $ordenes;
-  }
 
   // Nuevo método para obtener categorías con potrero asignado para el SELECT del form
   public function obtenerCategoriasConPotrero()
