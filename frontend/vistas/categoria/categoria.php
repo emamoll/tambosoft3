@@ -49,7 +49,7 @@ $categorias = $controller->obtenerCategorias();
 
       <div class="form-group">
         <label for="cantidad">Cantidad *</label>
-        <input type="text" id="cantidad" name="cantidad" required>
+        <input type="number" id="cantidad" name="cantidad" required>
         <span class="error-message" id="error-cantidad">La cantidad es obligatoria</span>
       </div>
 

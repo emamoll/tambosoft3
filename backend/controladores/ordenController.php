@@ -172,6 +172,12 @@ class OrdenController
         exit;
       }
 
+      // El método listarOrdenesParaFiltro contendrá toda la lógica de obtención y echo json_encode
+      if ($accion === 'obtenerOrdenesFiltradas') {
+        $this->listarOrdenesParaFiltro();
+        exit;
+      }
+
       // Obtener una orden por ID (para editar)
       if ($accion === 'getOrdenById') {
 
@@ -723,6 +729,79 @@ class OrdenController
       exit;
     }
   }
+
+  public function listarOrdenesParaFiltro()
+  {
+    // Mapeo de códigos de estado del frontend (P, A, F, C) a IDs de la tabla `estados` (1, 2, 3, 4, 5)
+    // IDs: 1=Pendiente, 2=En preparación, 3=Transportando, 4=Entregada, 5=Cancelada
+    $estadoMap = [
+      'P' => [1],    // Pendiente
+      'A' => [2],    // Asignada/En Curso -> Mapeo a 'En preparación' (separado)
+      'T' => [3],    // Transportando (se incluye este código por si el usuario actualiza el frontend)
+      'F' => [4],    // Finalizada = Entregada
+      'C' => [5],    // Cancelada
+    ];
+
+    // 1. Recopilar todos los posibles filtros de la URL
+    $filtros = [
+      'almacenId' => $_GET['almacenId'] ?? [],
+      'categoriaId' => $_GET['categoriaId'] ?? [],
+      'tipoAlimentoId' => $_GET['tipoAlimentoId'] ?? [],
+      'alimentoId' => $_GET['alimentoId'] ?? [],
+      'usuarioId' => $_GET['usuarioId'] ?? [],
+      'estado' => $_GET['estado'] ?? [],
+      'fechaMin' => $_GET['fechaMin'] ?? null,
+      'fechaMax' => $_GET['fechaMax'] ?? null,
+    ];
+
+    // 2. Limpiar y mapear filtros
+    $filtrosFinales = [];
+    $estadoIds = [];
+
+    foreach ($filtros as $key => $value) {
+      if (is_array($value)) {
+        // Filtrar valores nulos, vacíos o que sean arrays vacíos del frontend.
+        $value = array_filter($value, function ($v) {
+          return $v !== null && $v !== '';
+        });
+
+        if (!empty($value)) {
+          if ($key === 'estado') {
+            // Aplicar el mapeo de estados
+            foreach ($value as $code) {
+              if (isset($estadoMap[$code])) {
+                $estadoIds = array_merge($estadoIds, $estadoMap[$code]);
+              }
+            }
+          } else {
+            // Otros filtros (IDs de select/checkboxes) se pasan como enteros
+            $filtrosFinales[$key] = array_map('intval', $value);
+          }
+        }
+      } elseif ($value !== null && $value !== '') {
+        $filtrosFinales[$key] = $value;
+      }
+    }
+
+    // 3. Añadir IDs de estado mapeados (limpiando duplicados)
+    if (!empty($estadoIds)) {
+      // La nueva función del DAO espera la clave 'estadoId'
+      $filtrosFinales['estadoId'] = array_unique($estadoIds);
+    }
+
+    // 4. Llamar al DAO
+    if (empty($filtrosFinales)) {
+      // Si no hay filtros, usar la función original
+      $ordenes = $this->ordenDAO->listarOrdenes(null);
+    } else {
+      // Llamar al nuevo método del DAO con los filtros
+      $ordenes = $this->ordenDAO->listarOrdenesFiltradas($filtrosFinales);
+    }
+
+    echo json_encode($ordenes);
+    exit;
+  }
+
 
   // ================
   // MÉTODOS DE APOYO

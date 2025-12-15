@@ -167,6 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>
         <td>${o.cantidad}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
+        <td>${o.fechaCreacion} - ${o.horaCreacion}</td>  
         <td class="fecha">${o.fechaActualizacion} ${o.horaActualizacion}</td>
         <td>
           <div class="table-actions">

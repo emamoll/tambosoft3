@@ -498,8 +498,10 @@ class OrdenDAO
           o.estadoId,
           o.categoriaId,
 
-          DATE_FORMAT(o.fechaActualizacion, '%d/%m/%y') AS fechaActualizacion,
-          TIME_FORMAT(o.horaActualizacion, '%H:%i') AS horaActualizacion,
+            DATE_FORMAT(o.fechaActualizacion, '%d/%m/%y') AS fechaActualizacion,
+            DATE_FORMAT(o.fechaCreacion, '%d-%m-%y') AS fechaCreacion,
+            TIME_FORMAT(o.horaActualizacion, '%H:%i') AS horaActualizacion,
+            TIME_FORMAT(o.horaCreacion, '%H:%i') AS horaCreacion,
 
           p.nombre AS potreroNombre,
           al.nombre AS almacenNombre,
@@ -552,6 +554,117 @@ class OrdenDAO
       $ordenes[] = $row;
     }
 
+    return $ordenes;
+  }
+
+  public function listarOrdenesFiltradas(array $filtros): array
+  {
+    $sql = "SELECT 
+            o.id,
+            o.potreroId,
+            o.almacenId,
+            o.tipoAlimentoId,
+            o.alimentoId,
+            o.cantidad,
+            o.usuarioId,
+            o.estadoId,
+            o.categoriaId,
+
+            DATE_FORMAT(o.fechaActualizacion, '%d/%m/%y') AS fechaActualizacion,
+            TIME_FORMAT(o.horaActualizacion, '%H:%i') AS horaActualizacion,
+
+            p.nombre AS potreroNombre,
+            al.nombre AS almacenNombre,
+            ta.tipoAlimento AS tipoAlimentoNombre,
+            a.nombre AS alimentoNombre,
+            u.username AS usuarioNombre,
+            e.descripcion AS estadoDescripcion,
+            e.colores AS estadoColor,
+            c.nombre AS categoriaNombre,
+
+            EXISTS (
+                SELECT 1
+                FROM ordenAuditoria oa
+                WHERE oa.ordenId = o.id
+            ) AS tieneAuditoria
+
+            FROM ordenes o
+            LEFT JOIN potreros p ON o.potreroId = p.id
+            LEFT JOIN almacenes al ON o.almacenId = al.id
+            LEFT JOIN tiposAlimentos ta ON o.tipoAlimentoId = ta.id
+            LEFT JOIN alimentos a ON o.alimentoId = a.id
+            LEFT JOIN usuarios u ON o.usuarioId = u.id
+            LEFT JOIN estados e ON o.estadoId = e.id
+            LEFT JOIN categorias c ON o.categoriaId = c.id
+            WHERE 1=1";
+
+    $params = [];
+    $types = '';
+
+    // Mapeo de filtros de array a columnas de la BD
+    $arrayFiltros = [
+      'almacenId' => 'o.almacenId',
+      'categoriaId' => 'o.categoriaId',
+      'tipoAlimentoId' => 'o.tipoAlimentoId',
+      'alimentoId' => 'o.alimentoId',
+      'usuarioId' => 'o.usuarioId',
+      'estadoId' => 'o.estadoId', // Filtrar por ID de estado (ya mapeado en Controller)
+    ];
+
+    foreach ($arrayFiltros as $key => $column) {
+      if (isset($filtros[$key]) && is_array($filtros[$key]) && !empty($filtros[$key])) {
+        $placeholders = implode(',', array_fill(0, count($filtros[$key]), '?'));
+        $sql .= " AND {$column} IN ({$placeholders})";
+
+        foreach ($filtros[$key] as $value) {
+          $params[] = $value;
+          $types .= 'i';
+        }
+      }
+    }
+
+    // Filtros de Fecha (o.fechaCreacion)
+    $fechaMin = $filtros['fechaMin'] ?? null;
+    $fechaMax = $filtros['fechaMax'] ?? null;
+
+    // Se usa 'fechaCreacion' del registro de la orden
+    if (!empty($fechaMin) && !empty($fechaMax)) {
+      $sql .= " AND o.fechaCreacion BETWEEN ? AND ?";
+      $params[] = $fechaMin;
+      $params[] = $fechaMax;
+      $types .= 'ss';
+    } elseif (!empty($fechaMin)) {
+      $sql .= " AND o.fechaCreacion >= ?";
+      $params[] = $fechaMin;
+      $types .= 's';
+    } elseif (!empty($fechaMax)) {
+      $sql .= " AND o.fechaCreacion <= ?";
+      $params[] = $fechaMax;
+      $types .= 's';
+    }
+
+    $sql .= " ORDER BY o.fechaCreacion DESC, o.horaCreacion DESC";
+
+    if (!empty($params)) {
+      $stmt = $this->conn->prepare($sql);
+      if (!$stmt) {
+        error_log("Error de preparación SQL: " . $this->conn->error . " | SQL: " . $sql);
+        return [];
+      }
+      $stmt->bind_param($types, ...$params);
+      $stmt->execute();
+      $result = $stmt->get_result();
+      $stmt->close();
+    } else {
+      $result = $this->conn->query($sql);
+    }
+
+    $ordenes = [];
+    if ($result) {
+      while ($row = $result->fetch_assoc()) {
+        $ordenes[] = $row;
+      }
+    }
     return $ordenes;
   }
 

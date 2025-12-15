@@ -25,6 +25,25 @@ function esc($s)
   // Función de escape (asegura que los datos sean seguros para HTML)
   return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 }
+
+$alimentos_para_js = [];
+if (is_array($alimentos)) {
+  foreach ($alimentos as $alimento) {
+    // Asumiendo que $alimento es un array asociativo
+    $alimentos_para_js[] = [
+      'id' => $alimento['id'],
+      'nombre' => $alimento['nombre'],
+      'tipoAlimentoId' => $alimento['tipoAlimentoId'] ?? null // Asegurando que exista la clave
+    ];
+  }
+}
+
+// Convertir las listas a JSON para usarlas en JavaScript
+$almacenes_json = json_encode($almacenes);
+$categorias_json = json_encode($categorias);
+$tiposAlimentos_json = json_encode($tiposAlimentos);
+$alimentos_json = json_encode($alimentos_para_js);
+$tractoristas_json = json_encode($tractoristas);
 ?>
 
 <!DOCTYPE html>
@@ -186,6 +205,8 @@ function esc($s)
 
       <div class="form-group" style="display:flex; gap:10px; align-items:center;">
         <button type="submit" id="submitBtn" class="btn-usuario">Registrar</button>
+        <button type="button" id="abrirFiltros" class="btn-usuario">Filtrar</button>
+        <div id="resumenFiltros" style="margin-left:auto; font-size:.9rem; color:#084a83;"></div>
 
         <button type="button" id="cancelarEdicion" class="btn-usuario" style="display:none; background:#888;">
           Cancelar edición
@@ -194,10 +215,7 @@ function esc($s)
     </form>
   </div>
 
-  <script>
-    // ** Pasar los datos del backend a JS **
-    const ALL_ALIMENTOS = <?= json_encode($alimentos) ?>;
-  </script>
+
 
   <div class="form-container table">
     <h2>Ordenes Registradas</h2>
@@ -212,6 +230,7 @@ function esc($s)
             <th>Tractorista</th>
             <th class="estado">Estado</th>
             <th class="fecha">Fecha y Hora</th>
+            <th class="fecha">Fecha y Hora Act.</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -261,6 +280,126 @@ function esc($s)
     </div>
   </div>
 
+  <div id="filtroModal" class="modal">
+    <div class="modal-content">
+      <h3>Filtrar Órdenes</h3>
+
+      <div class="filtro-grupo">
+        <h4>Campo Origen</h4>
+        <div id="filtroAlmacenGroup" class="radio-group">
+          <?php if (is_array($almacenes)): ?>
+            <?php foreach ($almacenes as $almacen): ?>
+              <label class="radio-card">
+                <input type="checkbox" name="filtro_almacenId" value="<?= esc($almacen['id']) ?>" />
+                <span class="radio-label"><?= esc($almacen['nombre']) ?></span>
+              </label>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <h4>Categoría (Potrero)</h4>
+        <div id="filtroCategoriaGroup" class="radio-group">
+          <?php if (is_array($categorias)): ?>
+            <?php foreach ($categorias as $categoria): ?>
+              <label class="radio-card">
+                <input type="checkbox" name="filtro_categoriaId" value="<?= esc($categoria['id']) ?>" />
+                <span class="radio-label"><?= esc($categoria['nombre']) ?> (<?= esc($categoria['potreroNombre']) ?>)</span>
+              </label>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <h4>Tipo de Alimento</h4>
+        <div id="filtroTipoAlimentoGroup" class="radio-group">
+          <?php if (is_array($tiposAlimentos)): ?>
+            <?php foreach ($tiposAlimentos as $tipo): ?>
+              <label class="radio-card">
+                <input type="checkbox" name="filtro_tipoAlimentoId" value="<?= esc($tipo['id']) ?>" />
+                <span class="radio-label"><?= esc($tipo['tipoAlimento']) ?></span>
+              </label>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <h4>Alimento</h4>
+        <div id="filtroAlimentoGroup" class="radio-group">
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <h4>Tractorista</h4>
+        <div id="filtroTractoristaGroup" class="radio-group">
+          <?php if (is_array($tractoristas)): ?>
+            <?php foreach ($tractoristas as $tractorista): ?>
+              <label class="radio-card">
+                <input type="checkbox" name="filtro_usuarioId" value="<?= esc($tractorista['id']) ?>" />
+                <span class="radio-label"><?= esc($tractorista['username']) ?></span>
+              </label>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <h4>Estado</h4>
+        <div id="filtroEstadoGroup" class="radio-group">
+          <label class="radio-card">
+            <input type="checkbox" name="filtro_estado" value="P" />
+            <span class="radio-label">Pendiente</span>
+          </label>
+          <label class="radio-card">
+            <input type="checkbox" name="filtro_estado" value="A" />
+            <span class="radio-label">En preparación</span>
+          </label>
+          <label class="radio-card">
+            <input type="checkbox" name="filtro_estado" value="T" />
+            <span class="radio-label">Transportando</span>
+          </label>
+          <label class="radio-card">
+            <input type="checkbox" name="filtro_estado" value="F" />
+            <span class="radio-label">Entregada</span>
+          </label>
+          <label class="radio-card">
+            <input type="checkbox" name="filtro_estado" value="C" />
+            <span class="radio-label">Cancelada</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="filtro-grupo">
+        <h4>Fecha de Carga</h4>
+        <div id="filtroFechaGroup">
+          <label for="filtroFechaMin">Mínima:</label>
+          <input type="date" id="filtroFechaMin" name="filtroFechaMin" />
+          <label for="filtroFechaMax">Máxima:</label>
+          <input type="date" id="filtroFechaMax" name="filtroFechaMax" />
+        </div>
+      </div>
+
+      <div class="modal-actions" style="display:flex; gap:10px;">
+        <button id="aplicarFiltros" class="btn-usuario">Aplicar</button>
+        <button id="limpiarFiltros" class="btn btn-secondary">Limpiar</button>
+        <button id="cerrarFiltros" class="btn btn-cancel" style="background:#777; color:white">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    // ** Pasar los datos del backend a JS **
+    // ¡CRÍTICO: Define TODAS las variables necesarias para orden.js!
+    const ALL_ALMACENES = <?= json_encode($almacenes) ?>;
+    const ALL_CATEGORIAS = <?= json_encode($categorias) ?>;
+    const ALL_TIPOS_ALIMENTOS = <?= json_encode($tiposAlimentos) ?>;
+    const ALL_ALIMENTOS = <?= json_encode($alimentos_para_js) ?>;
+    const ALL_TRACTORISTAS = <?= json_encode($tractoristas) ?>;
+  </script>
   <script src="../../javascript/orden.js"></script>
 </body>
 

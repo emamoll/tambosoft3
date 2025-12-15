@@ -95,7 +95,8 @@ function esc($s)
             <td class="estado">
               <span style="${estadoStyle}">Estado</span>
             </td>
-            <th>Fecha y Hora</th>
+            <th class="fecha">Fecha y Hora</th>
+            <th class="fecha">Fecha y Hora Act.</th>
             <th>Acciones</th>
           </tr>
         </thead>

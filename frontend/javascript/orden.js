@@ -1,7 +1,6 @@
 let currentFiltros = {}; // Variable global para almacenar el estado actual de los filtros
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("orden.js cargado correctamente");
 
   const API = "../../../backend/controladores/ordenController.php";
 
@@ -47,6 +46,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
   const confirmText = document.getElementById("confirmText");
+
+  // --- MODAL FILTRO ---
+  const filtroModal = document.getElementById("filtroModal");
+  const cerrarFiltrosBtn = document.getElementById("cerrarFiltros");
+  const abrirFiltrosBtn = document.getElementById("abrirFiltros");
+  const aplicarFiltrosBtn = document.getElementById("aplicarFiltros");
+  const limpiarFiltrosBtn = document.getElementById("limpiarFiltros");
+
+  // --- RESUMEN FILTROS ---
+  const resumenFiltros = document.getElementById("resumenFiltros");
+
   // ----------------------------------------------------
   // HELPER PARA LLAMAR AL BACKEND Y ASEGURAR JSON
   // ----------------------------------------------------
@@ -76,6 +86,202 @@ document.addEventListener("DOMContentLoaded", () => {
         mensaje: "Error al procesar la respuesta del servidor.",
       };
     }
+  }
+
+  // ----------------------------------------------------
+  // HELPERS PARA LOVs (mapas id → texto)
+  // ----------------------------------------------------
+  function buildLovMap(arr, idKey, nameKey) {
+    const map = {};
+    if (typeof arr !== "undefined" && Array.isArray(arr)) {
+      arr.forEach((item) => {
+        const id = item[idKey];
+        let name = item[nameKey];
+
+        // Caso especial para Categoría, incluir Potrero
+        if (idKey === "id" && nameKey === "nombre" && item.potreroNombre) {
+          name += ` (${item.potreroNombre})`;
+        }
+
+        if (id) map[String(id)] = name.trim();
+      });
+    }
+    return map;
+  }
+
+  const LOVS = {
+    // Estas variables globales se definen en orden.php
+    almacen: buildLovMap(
+      typeof ALL_ALMACENES !== "undefined" ? ALL_ALMACENES : [],
+      "id",
+      "nombre"
+    ),
+    categoria: buildLovMap(
+      typeof ALL_CATEGORIAS !== "undefined" ? ALL_CATEGORIAS : [],
+      "id",
+      "nombre"
+    ),
+    tipoAlimento: buildLovMap(
+      typeof ALL_TIPOS_ALIMENTOS !== "undefined" ? ALL_TIPOS_ALIMENTOS : [],
+      "id",
+      "tipoAlimento"
+    ),
+    alimento: buildLovMap(
+      typeof ALL_ALIMENTOS !== "undefined" ? ALL_ALIMENTOS : [],
+      "id",
+      "nombre"
+    ),
+    tractorista: buildLovMap(
+      typeof ALL_TRACTORISTAS !== "undefined" ? ALL_TRACTORISTAS : [],
+      "id",
+      "username"
+    ),
+    estado: {
+      P: "Pendiente", // ID 1
+      A: "En preparación", // ID 2
+      T: "Transportando", // ID 3
+      F: "Entregada", // ID 4
+      C: "Cancelada", // ID 5
+    },
+  };
+
+  // ----------------------------------------------------
+  // FUNCIÓN: PINTAR RESUMEN DE FILTROS
+  // ----------------------------------------------------
+  function pintarResumenFiltros() {
+    if (!resumenFiltros) return;
+
+    const partes = [];
+    const cf = currentFiltros || {};
+
+    
+    // 1. Campo Origen (almacenId)
+    if (Array.isArray(cf.almacenId) && cf.almacenId.length) {
+      const nombres = cf.almacenId.map((id) => LOVS.almacen[String(id)] || id);
+      
+      partes.push(`Campo: ${nombres.join(", ")}`);
+    }
+
+    // 2. Categoría (categoriaId)
+    if (Array.isArray(cf.categoriaId) && cf.categoriaId.length) {
+      const nombres = cf.categoriaId.map(
+        (id) => LOVS.categoria[String(id)] || id
+      );
+      
+      partes.push(`Categoría: ${nombres.join(", ")}`);
+    }
+
+    // 3. Tipo de alimento (tipoAlimentoId)
+    if (Array.isArray(cf.tipoAlimentoId) && cf.tipoAlimentoId.length) {
+      const nombres = cf.tipoAlimentoId.map(
+        (id) => LOVS.tipoAlimento[String(id)] || id
+      );
+
+      partes.push(`Tipo: ${nombres.join(", ")}`);
+    }
+
+    // 4. Alimento (alimentoId)
+    if (Array.isArray(cf.alimentoId) && cf.alimentoId.length) {
+      const nombres = cf.alimentoId.map(
+        (id) => LOVS.alimento[String(id)] || id
+      );
+      
+      partes.push(`Alimento: ${nombres.join(", ")}`);
+    }
+
+    // 5. Tractorista (usuarioId)
+    if (Array.isArray(cf.usuarioId) && cf.usuarioId.length) {
+      const nombres = cf.usuarioId.map(
+        (id) => LOVS.tractorista[String(id)] || id
+      );
+      
+      partes.push(`Tractorista: ${nombres.join(", ")}`);
+    }
+
+    // 6. Estado (estado)
+    if (Array.isArray(cf.estado) && cf.estado.length) {
+      const nombres = cf.estado.map((v) => LOVS.estado[String(v)] || v);
+      partes.push(`Estado: ${nombres.join(", ")}`);
+    }
+
+    // 7. Fechas (fechaMin/Max)
+    if (cf.fechaMin || cf.fechaMax) {
+      if (cf.fechaMin && cf.fechaMax) {
+        partes.push(`Fecha: ${cf.fechaMin} a ${cf.fechaMax}`);
+      } else if (cf.fechaMin) {
+        partes.push(`Fecha desde: ${cf.fechaMin}`);
+      } else if (cf.fechaMax) {
+        partes.push(`Fecha hasta: ${cf.fechaMax}`);
+      }
+    }
+
+    // Actualizar el div de filtros con el resumen de los filtros seleccionados
+    resumenFiltros.textContent = partes.length
+      ? `Filtros aplicados → ${partes.join(" · ")}`
+      : "";
+  }
+
+  // ----------------------------------------------------
+  // FUNCIÓN: LLENAR FILTROS (ALIMENTOS Y REMARCAR SELECCIONES)
+  // ----------------------------------------------------
+  function llenarFiltros() {
+    const filtroAlimentoGroup = document.getElementById("filtroAlimentoGroup");
+
+    // Limpia SOLO el grupo de alimentos que se genera por JS
+    if (filtroAlimentoGroup) filtroAlimentoGroup.innerHTML = "";
+
+    // ------------------------------------------
+    // 1) LLENAR ALIMENTOS
+    // ------------------------------------------
+    if (typeof ALL_ALIMENTOS !== "undefined" && filtroAlimentoGroup) {
+      ALL_ALIMENTOS.forEach((a) => {
+        const option = document.createElement("label");
+        option.classList.add("radio-card");
+        option.innerHTML = `
+          <input type="checkbox" name="filtro_alimentoId" value="${a.id}">
+          <span class="radio-label">${a.nombre}</span>
+        `;
+        filtroAlimentoGroup.appendChild(option);
+      });
+    }
+
+    // ======================================================
+    // 2) REMARCAR FILTROS ANTERIORES
+    // ======================================================
+    const grupos = {
+      almacenId: "filtro_almacenId",
+      categoriaId: "filtro_categoriaId",
+      tipoAlimentoId: "filtro_tipoAlimentoId",
+      alimentoId: "filtro_alimentoId",
+      usuarioId: "filtro_usuarioId",
+      estado: "filtro_estado",
+    };
+
+    Object.keys(grupos).forEach((key) => {
+      const name = grupos[key];
+      const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+
+      checkboxes.forEach((checkbox) => {
+        if (
+          currentFiltros[key] &&
+          Array.isArray(currentFiltros[key]) &&
+          currentFiltros[key].includes(checkbox.value)
+        ) {
+          checkbox.checked = true;
+        } else {
+          checkbox.checked = false; // Asegurar que los no seleccionados estén desmarcados
+        }
+      });
+    });
+
+    // ------------------------------------------
+    // 3) REMARCAR FECHAS
+    // ------------------------------------------
+    const fMin = document.getElementById("filtroFechaMin");
+    const fMax = document.getElementById("filtroFechaMax");
+
+    if (fMin) fMin.value = currentFiltros.fechaMin || "";
+    if (fMax) fMax.value = currentFiltros.fechaMax || "";
   }
 
   // ----------------------------------------------------
@@ -114,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Resetear dependientes
     tipoAlimentoId.innerHTML =
-      '<option value="">-- Seleccioná Tipo de Alimento --</option>';
+      '<option value="">-- Seleccioná un Tipo de Alimento --</option>';
     alimentoId.innerHTML =
       '<option value="">-- Seleccioná un Alimento --</option>';
 
@@ -285,13 +491,44 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ----------------------------------------------------
-  // FUNCIÓN: REFRESCAR TABLA (LISTAR ORDENES)
+  // FUNCIÓN: REFRESCAR TABLA (LISTAR ORDENES) - MODIFICADA PARA FILTROS
   // ----------------------------------------------------
-  async function refrescarTabla() {
-    console.log("Listando ordenes...");
+  async function refrescarTabla(filtros = {}) {
 
     try {
-      const resp = await fetch(`${API}?action=obtenerOrden`, {
+      const params = new URLSearchParams();
+      let action = "obtenerOrden"; // Acción por defecto (la original)
+      let hasFilters = false;
+
+      // Construir parámetros de filtro
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          if (value.length > 0) {
+            hasFilters = true;
+            value.forEach((v) => {
+              if (v !== null && v !== undefined && v !== "") {
+                params.append(key + "[]", v);
+              }
+            });
+          }
+        } else if (value !== null && value !== undefined && value !== "") {
+          hasFilters = true;
+          params.append(key, value);
+        }
+      });
+
+      if (hasFilters) {
+        // Si hay filtros, usamos la nueva acción
+        action = "obtenerOrdenesFiltradas";
+      }
+
+      // Añadir la acción al inicio de los parámetros
+      params.set("action", action);
+
+      const queryString = params.toString();
+      const url = `${API}?${queryString}`;
+
+      const resp = await fetch(url, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
@@ -365,6 +602,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${o.cantidad}</td>
         <td>${o.usuarioNombre}</td>
         <td><span style="${estadoStyle}">${o.estadoDescripcion}</span></td>
+        <td>${o.fechaCreacion} - ${o.horaCreacion}</td>     
         <td>${o.fechaActualizacion} - ${o.horaActualizacion}</td>
         <td>
           <div class="table-actions">
@@ -469,6 +707,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Validación de motivo si es modificar
+    if (accionInput.value === "modificar" && ok) {
+      if (!motivoInput.value.trim()) {
+        mostrarError("error-motivo");
+      }
+    }
+
     if (!ok) {
       // Mostrar mensaje global SÓLO si la validación interna falló
       mostrarMensaje("error", "Por favor, corrija los errores del formulario.");
@@ -486,7 +731,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (data.tipo === "success") {
         mostrarMensaje(data.tipo, data.mensaje);
-        await refrescarTabla();
+        // Usar currentFiltros para refrescar la tabla
+        await refrescarTabla(currentFiltros);
         setRegistrarMode();
       } else {
         // Mapeo de errores del backend para que aparezcan bajo el campo correcto
@@ -501,6 +747,9 @@ document.addEventListener("DOMContentLoaded", () => {
           data.mensaje.includes("Tractorista es obligatorio")
         ) {
           mostrarError("error-usuarioId");
+        }
+        if (data.mensaje && data.mensaje.includes("motivo")) {
+          mostrarError("error-motivo");
         }
         // Mostrar mensaje principal del sistema, que también contiene los errores de stock/DB
         mostrarMensaje(data.tipo, data.mensaje);
@@ -595,7 +844,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (res.tipo === "success") {
         mostrarMensaje(res.tipo, res.mensaje);
-        await refrescarTabla();
+        // Usar currentFiltros para refrescar la tabla
+        await refrescarTabla(currentFiltros);
         // Si se elimina una orden, resetear el modo de registro.
         setRegistrarMode();
       } else {
@@ -667,10 +917,89 @@ document.addEventListener("DOMContentLoaded", () => {
   `;
       auditoriaBody.appendChild(tr);
     });
+    
   }
 
   btnCerrarAuditoria.addEventListener("click", () => {
     modalAuditoria.style.display = "none";
+  });
+
+  // ----------------------------------------------------
+  // EVENT LISTENERS PARA FILTROS
+  // ----------------------------------------------------
+
+  // 1. Abrir modal
+  abrirFiltrosBtn.addEventListener("click", () => {
+    llenarFiltros();
+    filtroModal.style.display = "flex";
+  });
+
+  // 2. Cerrar modal
+  if (cerrarFiltrosBtn) {
+    cerrarFiltrosBtn.addEventListener("click", () => {
+      filtroModal.style.display = "none";
+    });
+  }
+
+  // 3. Aplicar filtros
+  aplicarFiltrosBtn.addEventListener("click", () => {
+    const filtrosSeleccionados = {
+      almacenId: Array.from(
+        document.querySelectorAll('input[name="filtro_almacenId"]:checked')
+      ).map((input) => input.value),
+      categoriaId: Array.from(
+        document.querySelectorAll('input[name="filtro_categoriaId"]:checked')
+      ).map((input) => input.value),
+      tipoAlimentoId: Array.from(
+        document.querySelectorAll('input[name="filtro_tipoAlimentoId"]:checked')
+      ).map((input) => input.value),
+      alimentoId: Array.from(
+        document.querySelectorAll('input[name="filtro_alimentoId"]:checked')
+      ).map((input) => input.value),
+      usuarioId: Array.from(
+        document.querySelectorAll('input[name="filtro_usuarioId"]:checked')
+      ).map((input) => input.value),
+      estado: Array.from(
+        document.querySelectorAll('input[name="filtro_estado"]:checked')
+      ).map((input) => input.value),
+      fechaMin: document.getElementById("filtroFechaMin").value,
+      fechaMax: document.getElementById("filtroFechaMax").value,
+    };
+
+    const filtrosParaEnvio = {};
+    currentFiltros = {}; // Reinicia el estado guardado
+
+    for (const key in filtrosSeleccionados) {
+      if (Array.isArray(filtrosSeleccionados[key])) {
+        if (filtrosSeleccionados[key].length > 0) {
+          filtrosParaEnvio[key] = filtrosSeleccionados[key];
+          currentFiltros[key] = filtrosSeleccionados[key];
+        }
+      } else if (filtrosSeleccionados[key]) {
+        filtrosParaEnvio[key] = filtrosSeleccionados[key];
+        currentFiltros[key] = filtrosSeleccionados[key];
+      }
+    }
+
+    refrescarTabla(filtrosParaEnvio);
+    pintarResumenFiltros();
+    filtroModal.style.display = "none";
+  });
+
+  // 4. Limpiar filtros
+  limpiarFiltrosBtn.addEventListener("click", () => {
+    document
+      .querySelectorAll("#filtroModal input[type=checkbox]")
+      .forEach((checkbox) => (checkbox.checked = false));
+
+    const fechaMinInput = document.getElementById("filtroFechaMin");
+    const fechaMaxInput = document.getElementById("filtroFechaMax");
+    if (fechaMinInput) fechaMinInput.value = "";
+    if (fechaMaxInput) fechaMaxInput.value = "";
+
+    currentFiltros = {};
+    refrescarTabla({});
+    pintarResumenFiltros();
   });
 
   // ------------------------------
@@ -686,5 +1015,6 @@ document.addEventListener("DOMContentLoaded", () => {
   mostrarPotreroAsignado();
 
   setRegistrarMode();
-  refrescarTabla();
+  pintarResumenFiltros(); // Pintar el resumen al inicio
+  refrescarTabla(currentFiltros); // Usar filtros vacíos inicialmente
 });
