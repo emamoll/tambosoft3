@@ -88,6 +88,7 @@ function esc($s)
       <table id="tablaOrdenPrincipal" class="table-modern" aria-label="Listado de Ordenes">
         <thead>
           <tr>
+            <th>#</th>
             <th>Campo Origen</th>
             <th>Categoría (Potrero)</th>
             <th>Alimento</th>

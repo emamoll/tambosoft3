@@ -79,7 +79,7 @@
 
 /* ===== TABLA ===== */
 .form-container.table {
-  max-width: 75%;
+  max-width: 80%;
   margin: 40px auto;
 }
 
@@ -504,11 +504,143 @@ textarea.campo-input {
 }
 
 .btn-icon.success {
-  color: #1AEB40; /* verde Entregada */
+  color: #1aeb40; /* verde Entregada */
 }
 
 .btn-icon.success:hover {
   color: #14c936;
 }
 
+.bg-modificacion {
+  /* Fondo para las filas donde se modificó la cantidad o el tractorista (Modificación) */
+  background-color: #f7f7e9; /* Amarillo/Crema muy suave */
+}
+.bg-cancelacion {
+  /* Fondo para las filas donde se canceló la orden (Cancelación/Eliminación) */
+  background-color: #fceceb; /* Rojo/Rosa muy suave */
+}
+.bg-modificacion:hover,
+.bg-cancelacion:hover {
+  /* Asegurar que el hover siga siendo visible */
+  background-color: #eaeaea;
+}
 
+:root {
+  --color-verde-claro: #90ee90; /* Verde más claro para la línea */
+  --color-verde-fuerte: #28a745; /* Verde para el estado activo y puntos pasados */
+  --color-base-gris: #ddd;
+  --circle-size: 20px;
+}
+
+.timeline-container {
+  padding: 30px 20px 0;
+  overflow-x: auto;
+}
+
+.timeline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  padding-bottom: 30px;
+  min-width: 650px;
+}
+
+/* 1. Línea base (gris) */
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  height: 6px; /* Mantener el grosor de la línea */
+  background-color: var(--color-base-gris);
+  z-index: 1;
+  left: calc(
+    var(--circle-size) / 1
+  ); /* Ajuste para que la línea comience desde el centro del primer punto */
+  right: calc(
+    var(--circle-size) / 1
+  ); /* Ajuste para que la línea termine en el centro del último punto */
+}
+
+/* 2. Línea de avance (VERDE CLARO) */
+.timeline-progress {
+  position: absolute;
+  top: 10px;
+  height: 6px; /* Mantener el grosor de la línea de progreso */
+  background-color: var(--color-verde-claro);
+  z-index: 2;
+  transition: width 0.6s ease-in-out;
+  left: calc(var(--circle-size) / 2); /* Alineación con el primer punto */
+}
+
+.timeline-item {
+  position: relative;
+  text-align: center;
+  z-index: 3;
+  width: 25%;
+  flex-shrink: 0;
+}
+
+/* 3. Círculos base (gris por defecto) */
+.timeline-circle {
+  width: 30px; /* Aumentar el tamaño de los puntos */
+  height: 30px;
+  border-radius: 50%;
+  background-color: var(--color-base-gris);
+  border: 3px solid #fff;
+  margin: 0 auto;
+  display: block;
+  position: relative;
+  top: -12px; /* Ajustar la posición para que los puntos estén centrados */
+  transition: background-color 0.3s, box-shadow 0.3s, width 0.3s, height 0.3s,
+    top 0.3s;
+}
+
+/* 4. Estados que ya pasaron (PUNTOS VERDES) */
+.timeline-item.passed .timeline-circle {
+  background-color: var(--color-verde-fuerte);
+}
+
+/* 5. Estado actual (Círculo grande, Verde Fuerte y con Icono) */
+.timeline-item.active .timeline-circle {
+  width: 50px;
+  height: 50px;
+  /* top: 10px; */
+  background-color: var(--color-verde-fuerte);
+  border-color: #fff;
+  box-shadow: 0 0 0 5px rgba(40, 167, 69, 0.5);
+}
+
+/* 6. Ícono del TRACTOR (SÓLO en el estado ACTIVO) */
+.timeline-item.active .timeline-circle::after {
+  /* AJUSTE CLAVE: Hacemos el emoji más grande (ej: 22px) */
+  content: "🚜";
+  font-size: 50px; /* ¡Tractor más grande! */
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  line-height: 1;
+}
+
+/* 7. Etiqueta (etiqueta más ABAJO) */
+.timeline-label {
+  font-size: 0.9em;
+  font-weight: bold;
+  color: #333;
+  white-space: nowrap;
+  position: relative;
+  top: 25px; /* Mover abajo de la línea */
+}
+
+.table-actions {
+  display: flex; /* Permite usar justify-content */
+  justify-content: center; /* Centra horizontalmente los botones */
+  gap: 5px; /* Opcional: añade un poco de espacio entre los botones */
+}
+
+/* 🚨 Opcional: También centrar el texto de la cabecera 'Acciones' */
+#tablaOrdenPrincipal th:last-child {
+  text-align: center;
+}

@@ -1,7 +1,6 @@
 let currentFiltros = {}; // Variable global para almacenar el estado actual de los filtros
 
 document.addEventListener("DOMContentLoaded", () => {
-
   const API = "../../../backend/controladores/ordenController.php";
 
   // --- FORM ---
@@ -22,6 +21,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalAuditoria = document.getElementById("modalAuditoriaOrden");
   const grupoMotivo = document.getElementById("grupoMotivo");
   const motivoInput = document.getElementById("motivo");
+  const modalSeguimiento = document.getElementById("modalSeguimientoOrden");
+  const btnCerrarSeguimiento = document.getElementById("btnCerrarSeguimiento");
+  const timelineContainer = document.getElementById("timelineContainer");
+  const seguimientoOrdenIdDisplay =
+    document.getElementById("seguimientoOrdenId");
 
   // Elemento para mostrar el potrero
   const potreroAsignadoDisplay = document.getElementById(
@@ -154,11 +158,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const partes = [];
     const cf = currentFiltros || {};
 
-    
     // 1. Campo Origen (almacenId)
     if (Array.isArray(cf.almacenId) && cf.almacenId.length) {
       const nombres = cf.almacenId.map((id) => LOVS.almacen[String(id)] || id);
-      
+
       partes.push(`Campo: ${nombres.join(", ")}`);
     }
 
@@ -167,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const nombres = cf.categoriaId.map(
         (id) => LOVS.categoria[String(id)] || id
       );
-      
+
       partes.push(`Categoría: ${nombres.join(", ")}`);
     }
 
@@ -185,7 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const nombres = cf.alimentoId.map(
         (id) => LOVS.alimento[String(id)] || id
       );
-      
+
       partes.push(`Alimento: ${nombres.join(", ")}`);
     }
 
@@ -194,7 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const nombres = cf.usuarioId.map(
         (id) => LOVS.tractorista[String(id)] || id
       );
-      
+
       partes.push(`Tractorista: ${nombres.join(", ")}`);
     }
 
@@ -494,7 +497,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // FUNCIÓN: REFRESCAR TABLA (LISTAR ORDENES) - MODIFICADA PARA FILTROS
   // ----------------------------------------------------
   async function refrescarTabla(filtros = {}) {
-
     try {
       const params = new URLSearchParams();
       let action = "obtenerOrden"; // Acción por defecto (la original)
@@ -573,6 +575,16 @@ document.addEventListener("DOMContentLoaded", () => {
           >✏️</button>`;
         }
 
+        if (parseInt(o.estadoId) !== 5) {
+          accionesHtml += `
+          <button
+            type="button"
+            class="btn-icon track js-ver-seguimiento"
+            data-id="${o.id}"
+            title="Ver seguimiento de orden"
+          >📈</button>`;
+        }
+
         // 🗑️ ELIMINAR → siempre permitido para admin
         if (parseInt(o.estadoId) === 1) {
           accionesHtml += `
@@ -596,6 +608,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         tr.innerHTML = `
+        <td>${o.id}</td>
         <td>${o.almacenNombre}</td>
         <td>${o.categoriaNombre} (${o.potreroNombre})</td>
         <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>
@@ -815,6 +828,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    if (btn.classList.contains("js-ver-seguimiento")) {
+      abrirModalSeguimiento(id);
+      return;
+    }
+
     // ELIMINAR ORDEN
     if (btn.classList.contains("js-eliminar")) {
       confirmText.textContent = `¿Seguro que deseas eliminar la orden #${id}?`;
@@ -869,7 +887,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     auditoriaBody.innerHTML = `
     <tr>
-      <td colspan="5" style="text-align:center;">Cargando...</td>
+      <td colspan="6" style="text-align:center;">Cargando...</td>
     </tr>
   `;
 
@@ -882,10 +900,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     auditoriaBody.innerHTML = "";
 
-    if (!Array.isArray(data) || data.length === 0) {
+    const filteredData = data.filter((a) => a.accion !== "CAMBIO_ESTADO");
+
+    if (!Array.isArray(filteredData) || filteredData.length === 0) {
       auditoriaBody.innerHTML = `
       <tr>
-        <td colspan="5" style="text-align:center;">
+        <td colspan="6" style="text-align:center;">
           No hay modificaciones registradas.
         </td>
       </tr>
@@ -893,7 +913,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    data.forEach((a) => {
+    filteredData.forEach((a) => {
       const fechaObj = new Date(a.fecha);
 
       const fechaFormateada =
@@ -907,17 +927,32 @@ document.addEventListener("DOMContentLoaded", () => {
         ":" +
         String(fechaObj.getMinutes()).padStart(2, "0");
 
+      // 🚨 Diferenciación por acción
+      let accionDisplay = "";
+      let rowClass = "";
+
+      if (a.accion === "MODIFICACION") {
+        accionDisplay = "Modificación";
+        rowClass = "bg-modificacion"; // Se define en CSS (Paso 3)
+      } else if (a.accion === "CANCELACION") {
+        accionDisplay = "Cancelación";
+        rowClass = "bg-cancelacion"; // Se define en CSS (Paso 3)
+      } else {
+        // Esto no debería pasar si el filtro funciona, pero es un fallback
+        accionDisplay = a.accion;
+      }
+
       const tr = document.createElement("tr");
+      tr.classList.add(rowClass); // Aplicar la clase de estilo
       tr.innerHTML = `
     <td>${fechaFormateada}</td>
     <td>${a.usuarioNombre}</td>
-    <td>${a.cantidadAnterior ?? "-"}</td>
+    <td>${accionDisplay}</td> <td>${a.cantidadAnterior ?? "-"}</td>
     <td>${a.cantidadNueva ?? "-"}</td>
     <td>${a.motivo || "-"}</td>
   `;
       auditoriaBody.appendChild(tr);
     });
-    
   }
 
   btnCerrarAuditoria.addEventListener("click", () => {
@@ -1001,6 +1036,219 @@ document.addEventListener("DOMContentLoaded", () => {
     refrescarTabla({});
     pintarResumenFiltros();
   });
+
+  const ESTADOS_SEGUIMIENTO = [
+    { id: 1, codigo: "P", descripcion: "Pendiente" },
+    { id: 2, codigo: "A", descripcion: "En preparación" },
+    { id: 3, codigo: "T", descripcion: "Transportando" },
+    { id: 4, codigo: "F", descripcion: "Entregada" },
+    // El estado Cancelada (5) no se incluye en la línea de tiempo normal,
+    // pero si la orden está cancelada, lo indicaremos.
+  ];
+
+  function renderizarTimeline(estadoActualId) {
+    const ordenId = parseInt(seguimientoOrdenIdDisplay.textContent); // Obtenemos el ID aquí
+
+    const estadoActualIndex = ESTADOS_SEGUIMIENTO.findIndex(
+      (e) => e.id === estadoActualId
+    );
+
+    // Si es un estado final (Entregada o Cancelada), la línea debe ir hasta el final.
+    const isFinalizada = estadoActualId === 4;
+    const isCancelada = estadoActualId === 5;
+
+    // 1. Manejo de Cancelada
+    if (isCancelada) {
+      timelineContainer.innerHTML = `
+            <p id="timelineMessage" style="text-align:center; color:red; font-weight:bold;">
+                🔴 Esta orden ha sido Cancelada y no sigue el flujo normal de entrega.
+            </p>
+        `;
+      return;
+    }
+
+    // 2. Calcular Progreso (ancho de la línea celeste -> AHORA VERDE)
+    let progressWidth = 0;
+
+    // Total de estados (Pendiente, En preparación, Transportando, Entregada) = 4
+    const totalEstados = ESTADOS_SEGUIMIENTO.length;
+    // Total de segmentos de la línea = totalEstados - 1 = 3 (P->A, A->T, T->F)
+    const totalSegments = totalEstados - 1;
+
+    if (estadoActualIndex >= 0) {
+      // progressIndex es el índice del estado actual.
+      let progressIndex = estadoActualIndex;
+
+      // Si está en Pendiente (index 0), progressWidth debe ser 0.
+      // Si está en En preparación (index 1), progressWidth debe ser 1/3 * 100 = 33.33%.
+      // Si está en Entregada (index 3), progressWidth debe ser 3/3 * 100 = 100%.
+
+      // Si ya está Entregada (index 3, id 4), la línea debe ir al 100%
+      if (isFinalizada) {
+        progressIndex = totalSegments;
+      }
+
+      // Fórmula: (Índice / Total de segmentos) * 100
+      progressWidth = (progressIndex / totalSegments) * 100;
+
+      // Para que la línea NO pinte más allá del círculo, restamos un valor pequeño
+      // y lo ajustamos en el CSS. Aquí usaremos el cálculo exacto de segmento.
+    }
+
+    // 3. Renderizar Estructura HTML
+    let timelineHtml = `<div class="timeline"><div class="timeline-progress" style="width: ${progressWidth}%;"></div>`;
+
+    ESTADOS_SEGUIMIENTO.forEach((estado, index) => {
+      const isPassed = index < estadoActualIndex || isFinalizada;
+      const isActive = estado.id === estadoActualId;
+      const isNext = estado.id === estadoActualId + 1;
+
+      let itemClass = "timeline-item";
+      if (isPassed) itemClass += " passed";
+      if (isActive) itemClass += " active";
+
+      // Permitir que solo el siguiente estado sea interactivo (cursor pointer)
+      const isClickable = isNext;
+      const circleCursorStyle = isClickable
+        ? "cursor: pointer;"
+        : "cursor: default;";
+
+      timelineHtml += `
+            <div class="${itemClass}" data-estado-id="${estado.id}" title="${estado.descripcion}">
+                <span class="timeline-circle" style="${circleCursorStyle}"></span>
+                <span class="timeline-label">${estado.descripcion}</span>
+            </div>
+        `;
+    });
+
+    timelineHtml += `</div>`;
+    timelineContainer.innerHTML = timelineHtml;
+
+    // 4. Agregar listeners para cambiar estado (SOLO AL SIGUIENTE)
+    document.querySelectorAll(".timeline-circle").forEach((circle) => {
+      const nuevoEstadoId = parseInt(circle.parentElement.dataset.estadoId);
+
+      const isNext = nuevoEstadoId === estadoActualId + 1;
+
+      // La única transición válida es al siguiente estado
+      if (isNext) {
+        circle.addEventListener("click", function () {
+          cambiarEstadoOrden(ordenId, nuevoEstadoId);
+        });
+      }
+      // Opcional: Permitir al Admin hacer clic en el estado actual para refrescar
+      else if (nuevoEstadoId === estadoActualId) {
+        circle.addEventListener("click", function () {
+          abrirModalSeguimiento(ordenId);
+        });
+      }
+    });
+  }
+
+  async function abrirModalSeguimiento(ordenId) {
+    seguimientoOrdenIdDisplay.textContent = ordenId;
+    timelineContainer.innerHTML = `<p id="timelineMessage" style="text-align:center;">Cargando seguimiento...</p>`;
+    modalSeguimiento.style.display = "flex";
+
+    try {
+      // Asumiendo que crearás un endpoint GET en el Controller para esto
+      const data = await fetchJSON(
+        `${API}?action=getOrdenEstado&id=${ordenId}`,
+        { headers: { "X-Requested-With": "XMLHttpRequest" } }
+      );
+
+      if (data && data.estadoId) {
+        renderizarTimeline(data.estadoId);
+      } else {
+        timelineContainer.innerHTML = `<p style="color:red; text-align:center;">Error: No se pudo obtener el estado de la orden.</p>`;
+      }
+    } catch (e) {
+      console.error("Error al cargar estado de orden:", e);
+      timelineContainer.innerHTML = `<p style="color:red; text-align:center;">Error de comunicación con el servidor.</p>`;
+    }
+  }
+
+  btnCerrarSeguimiento.addEventListener("click", () => {
+    modalSeguimiento.style.display = "none";
+  });
+
+  async function cambiarEstadoOrden(ordenId, nuevoEstadoId) {
+    // 1. Obtener estado actual (para validar transición)
+    const data = await fetchJSON(`${API}?action=getOrdenEstado&id=${ordenId}`, {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+
+    if (!data || !data.estadoId) {
+      mostrarMensaje("error", "Error al obtener estado actual de la orden.");
+      return;
+    }
+
+    const estadoActualId = data.estadoId;
+    const nuevoEstadoObj = ESTADOS_SEGUIMIENTO.find(
+      (e) => e.id === nuevoEstadoId
+    );
+
+    let mensajeError = null;
+
+    // Validación de transición: el Admin SÓLO puede avanzar al estado siguiente,
+    // o al estado Entregada (4) si está en Transportando (3).
+    // Opcionalmente: Permitir al Admin volver a Pendiente (1) desde Cancelada (5) o Entregada (4).
+
+    // Si intenta pasar a un estado anterior
+    if (nuevoEstadoId < estadoActualId) {
+      mensajeError =
+        "No se permite retroceder el estado desde la línea de seguimiento.";
+    }
+    // Si intenta saltar más de un estado (ej: Pendiente (1) a Transportando (3))
+    else if (nuevoEstadoId > estadoActualId + 1 && nuevoEstadoId !== 5) {
+      // 5 es Cancelada
+      mensajeError = "Solo puede avanzar al estado inmediatamente siguiente.";
+    }
+    // Si intenta cambiar si ya está Entregada o Cancelada
+    else if (estadoActualId === 4 || estadoActualId === 5) {
+      mensajeError = `La orden ya está ${
+        estadoActualId === 4 ? "Entregada" : "Cancelada"
+      } y no se puede modificar su estado.`;
+    }
+
+    if (mensajeError) {
+      mostrarMensaje("error", mensajeError);
+      return;
+    }
+
+    // 2. Confirmación de usuario
+    const confirmMessage = `¿Seguro que desea cambiar la orden #${ordenId} al estado: ${nuevoEstadoObj.descripcion}?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    // 3. Envío al backend
+    const fd = new FormData();
+    fd.append("accion", "cambiarEstado");
+    fd.append("id", ordenId);
+    fd.append("nuevoEstadoId", nuevoEstadoId);
+
+    try {
+      const res = await fetchJSON(API, {
+        method: "POST",
+        body: fd,
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+
+      if (res.tipo === "success") {
+        mostrarMensaje(res.tipo, res.mensaje);
+        // Refrescar la línea de tiempo y la tabla principal
+        await abrirModalSeguimiento(ordenId); // Refresca la modal
+        await refrescarTabla(currentFiltros); // Refresca la tabla
+      } else {
+        mostrarMensaje(res.tipo, res.mensaje);
+      }
+    } catch (err) {
+      console.error("Error al cambiar el estado:", err);
+      mostrarMensaje("error", "Error al procesar el cambio de estado.");
+    }
+  }
 
   // ------------------------------
   // INICIAR

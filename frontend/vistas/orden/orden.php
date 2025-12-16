@@ -223,6 +223,7 @@ $tractoristas_json = json_encode($tractoristas);
       <table id="tablaOrdenPrincipal" class="table-modern" aria-label="Listado de Ordenes">
         <thead>
           <tr>
+            <th>#</th>
             <th>Campo Origen</th>
             <th>Categoría (Potrero)</th>
             <th>Alimento</th>
@@ -260,6 +261,7 @@ $tractoristas_json = json_encode($tractoristas);
           <tr>
             <th>Fecha</th>
             <th>Usuario</th>
+            <th>Acción</th>
             <th>Cantidad anterior</th>
             <th>Cantidad nueva</th>
             <th>Motivo</th>
@@ -273,7 +275,7 @@ $tractoristas_json = json_encode($tractoristas);
       </table>
 
       <div class="modal-actions" style="margin-top:15px;">
-        <button id="btnCerrarAuditoria" class="btn btn-cancel">
+        <button id="btnCerrarAuditoria" class="btn btn-cancel" style="background:#777; color:white">
           Cerrar
         </button>
       </div>
@@ -386,6 +388,22 @@ $tractoristas_json = json_encode($tractoristas);
         <button id="aplicarFiltros" class="btn-usuario">Aplicar</button>
         <button id="limpiarFiltros" class="btn btn-secondary">Limpiar</button>
         <button id="cerrarFiltros" class="btn btn-cancel" style="background:#777; color:white">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalSeguimientoOrden" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+      <h3>Seguimiento de Orden #<span id="seguimientoOrdenId"></span></h3>
+
+      <div id="timelineContainer" class="timeline-container">
+        <p id="timelineMessage" style="text-align:center;">Cargando seguimiento...</p>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 25px;">
+        <button id="btnCerrarSeguimiento" class="btn btn-cancel"  style="background:#777; color:white">
+          Cerrar
+        </button>
       </div>
     </div>
   </div>

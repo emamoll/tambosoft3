@@ -162,6 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Generar las celdas en el orden simplificado
         tr.innerHTML = `
+        <td>${o.id}</td>
         <td>${o.almacenNombre}</td>
         <td>${o.categoriaNombre} (${o.potreroNombre})</td>
         <td>${o.tipoAlimentoNombre} ${o.alimentoNombre}</td>

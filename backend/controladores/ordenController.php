@@ -233,6 +233,20 @@ class OrdenController
         exit;
       }
 
+      // 🚨 AGREGAR AQUÍ: Endpoint para el seguimiento de la orden
+      if ($accion === 'getOrdenEstado') {
+        header('Content-Type: application/json; charset=utf-8');
+        $id = intval($_GET['id'] ?? 0);
+        $orden = $this->ordenDAO->getOrdenById($id);
+
+        if ($orden) {
+          echo json_encode(['estadoId' => $orden->getEstadoId()]);
+        } else {
+          echo json_encode(['estadoId' => 0]);
+        }
+        exit;
+      }
+
     }
 
     // ===============================
@@ -301,7 +315,7 @@ class OrdenController
             }
 
             $res = $ok
-              ? ['tipo' => 'success', 'mensaje' => 'Estado actualizado correctamente.']
+              ? ['tipo' => 'success', 'mensaje' => 'Orden actualizada correctamente.']
               : ['tipo' => 'error', 'mensaje' => 'Error al actualizar el estado.'];
           } else {
             $res = ['tipo' => 'error', 'mensaje' => 'Transición de estado no permitida.'];
@@ -385,10 +399,10 @@ class OrdenController
               ];
             } else {
               // El error de DB se maneja dentro del DAO
-              $res = ['tipo' => 'error', 'mensaje' => 'Error al registrar la orden y/o reducir el stock (error de transacción DB).'];
+              $res = ['tipo' => 'error', 'mensaje' => 'Error al registrar la orden..'];
             }
           } else {
-            $res = ['tipo' => 'success', 'mensaje' => 'Orden registrada correctamente y stock reducido.'];
+            $res = ['tipo' => 'success', 'mensaje' => 'Orden registrada correctamente.'];
           }
 
           break;
@@ -613,7 +627,7 @@ class OrdenController
             if (isset($_SESSION['rolId']) && $_SESSION['rolId'] != 3) {
               $res = [
                 'tipo' => 'success',
-                'mensaje' => 'Orden modificada correctamente y stock ajustado.',
+                'mensaje' => 'Orden modificada correctamente.',
                 'auditoria' => [
                   'cantidadAnterior' => $cantidadOriginal,
                   'cantidadNueva' => $cantidadNueva,
@@ -622,7 +636,7 @@ class OrdenController
                 ]
               ];
             } else {
-              $res = ['tipo' => 'success', 'mensaje' => 'Orden modificada correctamente y stock ajustado.'];
+              $res = ['tipo' => 'success', 'mensaje' => 'Orden modificada correctamente.'];
             }
 
           } catch (Exception $e) {
@@ -631,7 +645,6 @@ class OrdenController
           }
 
           break;
-
 
 
         case 'eliminar':
