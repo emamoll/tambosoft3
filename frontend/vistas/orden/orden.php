@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['username']) || !isset($_SESSION['rolId'])) {
+if (!isset($_SESSION['username']) || !isset($_SESSION['rolId']) || $_SESSION['rolId'] != 1) {
   header('Location: ../usuario/login.php');
   exit;
 }
@@ -241,6 +241,13 @@ $tractoristas_json = json_encode($tractoristas);
     </div>
   </div>
 
+  <div style="text-align: center; margin-bottom:20px;">
+    <a id="btnGenerarPDF" href="../../../backend/reportes/reporteOrden.php" target="_blank" class="btn-usuario"
+      style="text-decoration:none; padding-bottom:20px; padding: 10px 15px; margin-left: 10px;">
+      <i class="fa-solid fa-file-pdf"></i> Reporte PDF
+    </a>
+  </div>
+
   <div id="confirmModal" class="modal">
     <div class="modal-content" style="max-width: 420px; text-align: center; padding: 25px 35px;">
       <h3>Confirmar eliminación</h3>
@@ -401,7 +408,7 @@ $tractoristas_json = json_encode($tractoristas);
       </div>
 
       <div class="modal-actions" style="margin-top: 25px;">
-        <button id="btnCerrarSeguimiento" class="btn btn-cancel"  style="background:#777; color:white">
+        <button id="btnCerrarSeguimiento" class="btn btn-cancel" style="background:#777; color:white">
           Cerrar
         </button>
       </div>

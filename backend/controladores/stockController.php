@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Argentina/Cordoba');
 
 require_once __DIR__ . '../../DAOS/stockDAO.php';
 require_once __DIR__ . '../../modelos/stock/stockModelo.php';
@@ -295,11 +296,12 @@ class StockController
             empty($tipoAlimentoId) ||
             empty($alimentoId) ||
             empty($cantidad) ||
-            empty($fechaIngreso)
+            empty($fechaIngreso) ||
+            empty($precio) // El precio ahora se valida siempre aquí
           ) {
             $res = [
               'tipo' => 'error',
-              'mensaje' => 'Debés completar Campo, Tipo Alimento, Alimento, Cantidad y Fecha de Ingreso.'
+              'mensaje' => 'Debés completar Campo, Tipo Alimento, Alimento, Cantidad, Precio y Fecha de Ingreso.'
             ];
             break;
           }
@@ -308,20 +310,22 @@ class StockController
           $tipoAlimentoId = intval($tipoAlimentoId);
           $alimentoId = intval($alimentoId);
           $cantidad = intval($cantidad);
+          $precio = floatval($precio);
 
           if ($produccionInternaInt === 1) {
+            // Producción interna: proveedorId debe ser NULL
             $proveedorId = null;
-            $precio = null;
           } else {
-            if (empty($proveedorId) || empty($precio)) {
+            // Producción comprada: proveedorId es obligatorio
+            if (empty($proveedorId)) {
               $res = [
                 'tipo' => 'error',
-                'mensaje' => 'Para producción comprada, Proveedor y Precio son obligatorios.'
+                'mensaje' => 'Para producción comprada, Proveedor es obligatorio.'
               ];
               break;
             }
+            // El precio ya está validado arriba, solo casteamos el proveedor.
             $proveedorId = intval($proveedorId);
-            $precio = floatval($precio);
           }
 
           $this->ingresoDAO->registrarIngreso(new Ingreso(
@@ -364,27 +368,29 @@ class StockController
             break;
           }
 
-          if (empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || empty($cantidad) || empty($fechaIngreso)) {
-            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Campo, Tipo Alimento, Alimento, Cantidad y Fecha de Ingreso.'];
+          // Se valida que todos los campos obligatorios, incluyendo precio, estén llenos.
+          // NOTA: Se ha corregido la sintaxis de empty() en la condición:
+          if (empty($almacenId) || empty($tipoAlimentoId) || empty($alimentoId) || empty($cantidad) || empty($fechaIngreso) || empty($precio)) {
+            $res = ['tipo' => 'error', 'mensaje' => 'Error: Debés completar Campo, Tipo Alimento, Alimento, Cantidad, Precio y Fecha de Ingreso.'];
             break;
-          }
-
-          if ($produccionInternaInt === 1) {
-            $proveedorId = null;
-            $precio = null;
-          } else {
-            if (empty($proveedorId) || empty($precio)) {
-              $res = ['tipo' => 'error', 'mensaje' => 'Error: Para producción comprada, Proveedor y Precio son obligatorios.'];
-              break;
-            }
-            $proveedorId = intval($proveedorId);
-            $precio = floatval($precio);
           }
 
           $almacenId = intval($almacenId);
           $tipoAlimentoId = intval($tipoAlimentoId);
           $alimentoId = intval($alimentoId);
           $cantidad = intval($cantidad);
+          $precio = floatval($precio);
+
+          if ($produccionInternaInt === 1) {
+            $proveedorId = null;
+          } else {
+            // Producción comprada: proveedorId es obligatorio
+            if (empty($proveedorId)) {
+              $res = ['tipo' => 'error', 'mensaje' => 'Error: Para producción comprada, Proveedor es obligatorio.'];
+              break;
+            }
+            $proveedorId = intval($proveedorId);
+          }
 
           $this->ingresoDAO->modificarIngreso(
             new Ingreso(
@@ -440,25 +446,6 @@ class StockController
           }
           break;
 
-        case 'exportPdf':
-
-          require_once __DIR__ . '../reportes/reporteStockPDF.php';
-
-          // Leer filtros que vengan desde JS
-          $filtros = $_POST;
-
-          // Obtener datos desde el DAO (tu mismo método del listado)
-          $datos = $this->stockDAO->listar($filtros);
-
-          $logoPath = __DIR__ . '/../../public/img/logo.png'; // AJUSTÁ
-
-          $pdf = ReporteStockPDF::generar($datos, $logoPath);
-
-          header("Content-Type: application/pdf");
-          header("Content-Disposition: attachment; filename=reporte_stock.pdf");
-
-          echo $pdf;
-          exit;
       }
 
       if (ob_get_level()) {
@@ -468,6 +455,15 @@ class StockController
       echo json_encode($res);
       exit;
     }
+  }
+
+  public function listarStock(array $filtros = []): array
+  {
+    if ($this->connError !== null) {
+      return [];
+    }
+
+    return $this->stockDAO->listar($filtros);
   }
 
   // ================

@@ -82,7 +82,7 @@ function esc($s)
   <?php require_once __DIR__ . '../../secciones/navbar.php'; ?>
 
   <div class="form-container table">
-    <h2>Ordenes Pendientes / En Preparación</h2>
+    <h2>Ordenes por hacer</h2>
     <div id="system-message-container" style="margin-bottom: 15px;"></div>
     <div class="table-wrapper">
       <table id="tablaOrdenPrincipal" class="table-modern" aria-label="Listado de Ordenes">

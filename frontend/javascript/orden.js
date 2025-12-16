@@ -1019,6 +1019,7 @@ document.addEventListener("DOMContentLoaded", () => {
     refrescarTabla(filtrosParaEnvio);
     pintarResumenFiltros();
     filtroModal.style.display = "none";
+    actualizarLinkPDF();
   });
 
   // 4. Limpiar filtros
@@ -1035,6 +1036,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentFiltros = {};
     refrescarTabla({});
     pintarResumenFiltros();
+    actualizarLinkPDF();
   });
 
   const ESTADOS_SEGUIMIENTO = [
@@ -1248,6 +1250,34 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error al cambiar el estado:", err);
       mostrarMensaje("error", "Error al procesar el cambio de estado.");
     }
+  }
+
+  function buildPdfQueryString(filtros = {}) {
+    const params = new URLSearchParams();
+
+    Object.entries(filtros).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((v) => {
+          if (v !== null && v !== undefined && v !== "") {
+            params.append(key + "[]", v);
+          }
+        });
+      } else if (value !== null && value !== undefined && value !== "") {
+        params.append(key, value);
+      }
+    });
+
+    return params.toString();
+  }
+
+  function actualizarLinkPDF() {
+    const pdfLink = document.getElementById("btnGenerarPDF");
+    if (!pdfLink) return;
+
+    const basePath = "../../../backend/reportes/reporteOrden.php";
+    const qs = buildPdfQueryString(currentFiltros);
+
+    pdfLink.href = qs ? `${basePath}?${qs}` : basePath;
   }
 
   // ------------------------------

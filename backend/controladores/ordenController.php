@@ -815,6 +815,61 @@ class OrdenController
     exit;
   }
 
+  public function obtenerOrdenesDetalladas(array $filtros): array
+  {
+    if ($this->connError !== null) {
+      return [];
+    }
+
+    // Mapeo de códigos de estado del frontend (P, A, F, C) a IDs de la tabla `estados` (1, 2, 3, 4, 5)
+    $estadoMap = [
+      'P' => [1],    // Pendiente
+      'A' => [2],    // En preparación
+      'T' => [3],    // Transportando
+      'F' => [4],    // Entregada
+      'C' => [5],    // Cancelada
+    ];
+
+    $filtrosFinales = [];
+    $estadoIds = [];
+
+    // Lógica de limpieza y mapeo de filtros (similar a listarOrdenesParaFiltro)
+    foreach ($filtros as $key => $value) {
+      if (is_array($value)) {
+        $value = array_filter($value, fn($v) => $v !== null && $v !== '');
+
+        if (!empty($value)) {
+          if ($key === 'estado') {
+            foreach ($value as $code) {
+              if (isset($estadoMap[$code])) {
+                $estadoIds = array_merge($estadoIds, $estadoMap[$code]);
+              }
+            }
+          } else {
+            $filtrosFinales[$key] = array_map('intval', $value);
+          }
+        }
+      } elseif ($key === 'fechaMin' || $key === 'fechaMax') {
+        if ($value !== null && $value !== '') {
+          $filtrosFinales[$key] = $value;
+        }
+      }
+    }
+
+    // Añadir IDs de estado mapeados
+    if (!empty($estadoIds)) {
+      $filtrosFinales['estadoId'] = array_unique($estadoIds);
+    }
+
+    // Si no hay filtros complejos, usar la función simple (puede ser solo listarOrdenes)
+    if (empty($filtrosFinales)) {
+      return $this->ordenDAO->listarOrdenes(null);
+    } else {
+      // Llama a la función del DAO que ya maneja todos los JOIN y formatos de fecha/hora para el reporte
+      return $this->ordenDAO->listarOrdenesFiltradas($filtrosFinales);
+    }
+  }
+
 
   // ================
   // MÉTODOS DE APOYO

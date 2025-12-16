@@ -192,19 +192,21 @@ document.addEventListener("DOMContentLoaded", () => {
   function toggleProveedorPrecioFields() {
     const isPropia = produccionInternaCheck.checked;
 
-    if (isPropia) {
-      // Ocultar y limpiar campos de proveedor/precio
-      if (proveedorGroup) proveedorGroup.style.display = "none";
-      if (precioGroup) precioGroup.style.display = "none";
+    // 1. El grupo de Precio siempre debe estar visible (se mantiene)
+    if (precioGroup) precioGroup.style.display = "block";
 
+    if (isPropia) {
+      // 2. Si es Producción Propia (isPropia = true), oculta y limpia el campo de Proveedor.
+      if (proveedorGroup) proveedorGroup.style.display = "none";
       proveedorId.value = "";
-      precio.value = "";
+
+      // NOTA: El precio ya no se limpia porque es obligatorio.
     } else {
-      // Mostrar campos
+      // 3. Si es Compra (isPropia = false), muestra el campo de Proveedor.
       if (proveedorGroup) proveedorGroup.style.display = "block";
-      if (precioGroup) precioGroup.style.display = "block";
     }
 
+    // 4. Limpia los mensajes de error asociados a estos campos al hacer toggle.
     const provErr = document.getElementById("error-proveedorId");
     const precErr = document.getElementById("error-precio");
     if (provErr) provErr.style.display = "none";
@@ -389,6 +391,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function formatDateDDMMAA(dateString) {
+    if (!dateString) return "";
+    // Espera formato YYYY-MM-DD
+    const parts = dateString.split("-");
+    if (parts.length === 3) {
+      const year = parts[0].slice(2); // Obtiene solo los dos últimos dígitos
+      const month = parts[1];
+      const day = parts[2];
+      return `${day}/${month}/${year}`;
+    }
+    return dateString; // Devuelve la cadena original si el formato es inesperado
+  }
+
   // ------------------------------
   // CARGAR DETALLE EN MODAL
   // ------------------------------
@@ -428,7 +443,8 @@ document.addEventListener("DOMContentLoaded", () => {
       data.forEach((r) => {
         const esPropia = String(r.produccionInterna) === "1";
         const proveedorTexto = !esPropia ? r.proveedorNombre || "—" : "—";
-        const precioTexto = !esPropia ? r.precio ?? "—" : "—";
+        const precioTexto = r.precio ? r.precio : "—";
+        const fechaFormateada = formatDateDDMMAA(r.fechaIngreso);
 
         const tr = document.createElement("tr");
 
@@ -441,7 +457,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${esPropia ? "Prod. Interna" : "Proveedor"}</td>
         <td>${proveedorTexto}</td>
         <td>${precioTexto}</td>
-        <td>${r.fechaIngreso}</td>
+        <td>${fechaFormateada}</td>
         <td>
           <div class="table-actions">
             <button type="button" class="btn-icon edit detalle-edit" data-id="${
@@ -747,6 +763,7 @@ document.addEventListener("DOMContentLoaded", () => {
     refrescarTabla(filtrosParaEnvio);
     pintarResumenFiltros();
     filtroModal.style.display = "none";
+    actualizarLinkPDF();
   });
 
   // ----------------------------------------------------
@@ -765,6 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentFiltros = {};
     refrescarTabla({});
     pintarResumenFiltros();
+    actualizarLinkPDF();
   });
 
   // ------------------------------
@@ -795,14 +813,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!cantidad.value.trim() || !Number.isInteger(cant) || cant <= 0)
       mostrarError("error-cantidad");
 
+    if (!cantidad.value.trim() || !Number.isInteger(cant) || cant <= 0)
+      mostrarError("error-cantidad");
+
+    // >> MOVIDO: Validación de precio fuera de la condición de producción
+    const prec = Number(precio.value);
+    if (!precio.value.trim() || isNaN(prec) || prec < 0)
+      mostrarError("error-precio");
+
     if (!fechaIngreso.value.trim()) mostrarError("error-fecha");
 
     if (!esPropia) {
+      // Ahora solo se valida el proveedor aquí.
       if (!proveedorId.value.trim()) mostrarError("error-proveedorId");
-
-      const prec = Number(precio.value);
-      if (!precio.value.trim() || isNaN(prec) || prec < 0)
-        mostrarError("error-precio");
     }
 
     if (!ok) return;
@@ -882,10 +905,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  const btnExportPdf = document.getElementById("btnExportPdf");
-  if (btnExportPdf) {
-    btnExportPdf.addEventListener("click", exportarPDF);
+  function buildPdfQueryString(filtros = {}) {
+    const params = new URLSearchParams();
+
+    Object.entries(filtros).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((v) => {
+          if (v !== null && v !== undefined && v !== "") {
+            params.append(key + "[]", v);
+          }
+        });
+      } else if (value !== null && value !== undefined && value !== "") {
+        params.append(key, value);
+      }
+    });
+
+    return params.toString();
   }
+
+  function actualizarLinkPDF() {
+    const btn = document.getElementById("btnGenerarPDF");
+    if (!btn) return;
+
+    const base = "../../../backend/reportes/reporteStock.php";
+    const qs = buildPdfQueryString(currentFiltros);
+
+    btn.href = qs ? `${base}?${qs}` : base;
+  }
+  
 
   // ------------------------------
   // INICIAR
@@ -893,4 +940,5 @@ document.addEventListener("DOMContentLoaded", () => {
   setRegistrarMode();
   pintarResumenFiltros();
   refrescarTabla();
+  actualizarLinkPDF();
 });

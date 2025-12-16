@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Argentina/Cordoba');
 session_start();
 if (!isset($_SESSION['username']) || !isset($_SESSION['rolId'])) {
   header('Location: ../usuario/login.php');
@@ -91,7 +92,7 @@ $proveedores_json = json_encode($proveedores_para_js);
   <?php require_once __DIR__ . '../../secciones/navbar.php'; ?>
 
   <div class="form-container form">
-    <h2 id="form-title"><i class="fas fa-warehouse"></i> Registrar Stock</h2>
+    <h2 id="form-title"> Registrar Stock</h2>
 
     <form id="stockForm" method="post" action="../../../backend/controladores/stockController.php" novalidate>
       <input type="hidden" id="id" name="id" />
@@ -176,9 +177,9 @@ $proveedores_json = json_encode($proveedores_para_js);
       </div>
 
       <div class="form-group" id="precioGroup">
-        <label for="precio">Precio $</label>
+        <label for="precio">Precio $*</label>
         <input type="number" step="0.01" id="precio" name="precio" />
-        <div id="error-precio" class="error-message">El precio es obligatorio y debe ser un número.</div>
+        <div id="error-precio" class="error-message">El precio es obligatorio.</div>
       </div>
 
       <div class="form-group">
@@ -220,9 +221,12 @@ $proveedores_json = json_encode($proveedores_para_js);
     </div>
   </div>
 
-  <button type="button" id="btnExportPdf" class="btn-accion btn-pdf">
-    📄 Exportar PDF
-  </button>
+  <div style="text-align: center; margin-bottom:20px;">
+    <a id="btnGenerarPDF" href="../../../backend/reportes/reporteStock.php" target="_blank" class="btn-usuario"
+      style="text-decoration:none; padding-bottom:20px; padding: 10px 15px; margin-left: 10px;">
+      <i class="fa-solid fa-file-pdf"></i> Reporte PDF
+    </a>
+  </div>
 
   <div id="filtroModal" class="modal">
     <div class="modal-content">
@@ -324,7 +328,7 @@ $proveedores_json = json_encode($proveedores_para_js);
             <th>Cantidad</th>
             <th>Origen</th>
             <th class="th-proveedor">Proveedor</th>
-            <th class="th-precio">Precio</th>
+            <th class="th-precio">Precio $</th>
             <th>Fecha</th>
             <th>Acciones</th>
           </tr>

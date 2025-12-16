@@ -198,6 +198,26 @@ class UsuarioDAO
   }
 
   // Intenta iniciar sesión con un usuario y contraseña
+  // public function loginUsuario($username, $password)
+  // {
+  //   $sql = "SELECT * FROM usuarios WHERE username = ?";
+  //   $stmt = $this->conn->prepare($sql);
+  //   $stmt->bind_param("s", $username);
+  //   $stmt->execute();
+  //   $result = $stmt->get_result();
+  //   $usuario = $result->fetch_assoc();
+
+  //   // Verifica si el usuario existe y si la contraseña es correcta
+  //   if ($usuario && password_verify($password, $usuario['password'])) {
+  //     // Genera y actualiza un nuevo token.
+  //     $token = bin2hex(random_bytes(32));
+  //     $this->actualizarToken($usuario['id'], $token);
+  //     return ['usuario' => $usuario, 'token' => $token];
+  //   }
+
+  //   return null;
+  // }
+
   public function loginUsuario($username, $password)
   {
     $sql = "SELECT * FROM usuarios WHERE username = ?";
@@ -205,17 +225,32 @@ class UsuarioDAO
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
-    $usuario = $result->fetch_assoc();
+    $data = $result->fetch_assoc();
+    $stmt->close();
 
-    // Verifica si el usuario existe y si la contraseña es correcta
-    if ($usuario && password_verify($password, $usuario['password'])) {
-      // Genera y actualiza un nuevo token.
+    // 1. Verifica si el usuario existe y si la contraseña es correcta
+    if ($data && password_verify($password, $data['password'])) {
+
+      // 2. Genera un nuevo token de sesión.
       $token = bin2hex(random_bytes(32));
-      $this->actualizarToken($usuario['id'], $token);
-      return ['usuario' => $usuario, 'token' => $token];
+      $id = $data['id'];
+
+      // 3. Actualiza el token en la base de datos.
+      $this->actualizarToken($id, $token);
+
+      // 4. Devuelve el objeto Usuario para que login.php lo use.
+      return new Usuario(
+        $id,
+        $data['username'],
+        $data['email'],
+        $data['password'],
+        $data['rolId'],
+        $data['imagen'],
+        $token // Nuevo token
+      );
     }
 
-    return null;
+    return null; // Credenciales inválidas
   }
 
   // Actualiza el token de sesión de un usuario por su ID
