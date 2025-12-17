@@ -924,5 +924,41 @@ class StockDAO
     return $alimentos;
   }
 
+  public function listarValorizado(array $filtros = []): array
+  {
+    $sql = "
+      SELECT 
+         s.almacenId,
+         alm.nombre AS almacenNombre,
+         s.tipoAlimentoId,
+         tip.tipoAlimento AS tipoAlimentoNombre,
+         s.alimentoId,
+         ali.nombre AS alimentoNombre,
+         s.produccionInterna,
+         s.proveedorId,
+         po.denominacion AS proveedorNombre,
+         SUM(s.cantidad) AS cantidadTotal,
+         MAX(s.precio) AS precioUnitario,
+         SUM(s.cantidad * s.precio) AS subtotalValor
+      FROM stocks s
+      LEFT JOIN tiposAlimentos tip ON s.tipoAlimentoId = tip.id
+      LEFT JOIN almacenes alm ON s.almacenId = alm.id
+      LEFT JOIN alimentos ali ON s.alimentoId = ali.id
+      LEFT JOIN proveedores po ON s.proveedorId = po.id
+      WHERE s.cantidad > 0
+      GROUP BY 
+         s.almacenId, s.tipoAlimentoId, s.alimentoId, 
+         s.produccionInterna, s.proveedorId
+      ORDER BY alm.nombre ASC, tip.tipoAlimento ASC
+    ";
+
+    $result = $this->conn->query($sql);
+    $rows = [];
+    while ($r = $result->fetch_assoc()) {
+      $rows[] = $r;
+    }
+    return $rows;
+  }
+
 
 }

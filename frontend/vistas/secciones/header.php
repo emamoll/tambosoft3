@@ -23,7 +23,7 @@ $imagenUsuario = $_SESSION["imagen"] ?? "";
 
     <div class="user-info">
       <!-- Campana -->
-      <i class="fas fa-bell notif-icon"></i>
+      <!-- <i class="fas fa-bell notif-icon"></i> -->
 
       <!-- Avatar -->
       <img src="../../img/<?php echo htmlspecialchars($imagenUsuario); ?>"

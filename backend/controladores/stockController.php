@@ -466,6 +466,12 @@ class StockController
     return $this->stockDAO->listar($filtros);
   }
 
+  public function listarStockValorizado()
+  {
+    // Instancia el DAO y retorna los datos con cálculos de subtotal
+    return $this->stockDAO->listarValorizado();
+  }
+
   // ================
   // MÉTODOS DE APOYO
   // ================
