@@ -670,6 +670,47 @@ class OrdenDAO
     return $ordenes;
   }
 
+  public function obtenerConsumoPorCategoria(): array
+  {
+    $sql = "SELECT 
+                cat.nombre AS categoria, -- Traemos el nombre de la Categoría Animal
+                SUM(ocs.cantidadConsumida) AS cantidad 
+            FROM ordenConsumoStock ocs
+            INNER JOIN ordenes o ON ocs.ordenId = o.id
+            INNER JOIN categorias cat ON o.categoriaId = cat.id -- Relación con Animales
+            WHERE o.estadoId = 4
+            GROUP BY cat.nombre";
+    $result = $this->conn->query($sql);
+    return ($result) ? $result->fetch_all(MYSQLI_ASSOC) : [];
+  }
+
+
+  public function listarConsumoValorizado(): array
+  {
+    $sql = "SELECT 
+                cat.nombre AS categoriaAnimal, 
+                ta.tipoAlimento AS tipoAlimentoNombre, 
+                ali.nombre AS alimentoNombre, 
+                s.produccionInterna, -- CAMPO RECUPERADO
+                prov.denominacion AS proveedorNombre, -- CAMPO RECUPERADO
+                SUM(ocs.cantidadConsumida) AS cantidadTotal,
+                AVG(s.precio) AS precioUnitario, -- CAMPO PARA PRECIO UNITARIO
+                SUM(ocs.cantidadConsumida * s.precio) AS subtotalConsumo
+            FROM ordenConsumoStock ocs
+            INNER JOIN ordenes o ON ocs.ordenId = o.id
+            INNER JOIN stocks s ON ocs.stockId = s.id
+            INNER JOIN categorias cat ON o.categoriaId = cat.id
+            LEFT JOIN tiposAlimentos ta ON o.tipoAlimentoId = ta.id
+            LEFT JOIN alimentos ali ON o.alimentoId = ali.id
+            LEFT JOIN proveedores prov ON s.proveedorId = prov.id -- JOIN PARA PROVEEDOR
+            WHERE o.estadoId = 4
+            GROUP BY cat.id, ta.id, ali.id, s.produccionInterna, s.proveedorId
+            ORDER BY cat.nombre ASC";
+
+    $result = $this->conn->query($sql);
+    return ($result) ? $result->fetch_all(MYSQLI_ASSOC) : [];
+  }
+
   public function obtenerEstadoIdPorDescripcion(string $descripcion): ?int
   {
     $sql = "SELECT id FROM estados WHERE descripcion = ? LIMIT 1";

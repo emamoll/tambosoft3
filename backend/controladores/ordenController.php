@@ -870,6 +870,16 @@ class OrdenController
     }
   }
 
+  public function obtenerConsumoPorCategoria()
+  {
+    return $this->ordenDAO->obtenerConsumoPorCategoria();
+  }
+
+  public function obtenerConsumoValorizado()
+  {
+    return $this->ordenDAO->listarConsumoValorizado();
+  }
+
 
   // ================
   // MÉTODOS DE APOYO

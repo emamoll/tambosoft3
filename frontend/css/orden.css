@@ -644,3 +644,7 @@ textarea.campo-input {
 #tablaOrdenPrincipal th:last-child {
   text-align: center;
 }
+
+.reporteria{
+  margin-left: 50px;
+}
