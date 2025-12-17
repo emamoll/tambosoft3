@@ -7,7 +7,7 @@ $rolId = $_SESSION['rolId'] ?? 0;
     <?php if ($rolId == 3): ?>
       <li><a href="../orden/ordenTractorista.php"><i class="fas fa-tractor"></i><span>Ordenes</span></a></li>
     <?php elseif ($rolId == 2): ?>
-      <li><a href="#"><i class="fas fa-chart-bar"></i><span>Reportes</span></a></li>
+      <li><a href="../reportes/reporte.php"><i class="fas fa-chart-bar"></i><span>Reportes</span></a></li>
     <?php else: ?>
       <li><a href="../campo/campo.php"><i class="fas fa-map"></i><span>Campos</span></a></li>
       <li><a href="../categoria/categoria.php"><i class="fas fa-cow"></i><span>Categorias</span></a></li>

@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['username']) || !isset($_SESSION['rolId']) || $_SESSION['rolId'] != 1) {
+if (!isset($_SESSION['username']) || !isset($_SESSION['rolId']) || $_SESSION['rolId'] == 3) {
   header('Location: ../usuario/login.php');
   exit;
 }
