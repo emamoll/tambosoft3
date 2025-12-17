@@ -1,4 +1,11 @@
 <?php
+
+session_start();
+if (!isset($_SESSION['username']) || !isset($_SESSION['rolId']) || $_SESSION['rolId'] != 1) {
+  header('Location: ../usuario/login.php');
+  exit;
+}
+
 require_once __DIR__ . '../../../../backend/controladores/usuarioController.php';
 
 // Si existe un error de conexión, se detiene antes de crear el controlador

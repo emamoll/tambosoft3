@@ -2,10 +2,11 @@
 require_once __DIR__ . '../../../../backend/controladores/proveedorController.php';
 
 session_start();
-if (!isset($_SESSION['username']) || !isset($_SESSION['rolId'])) {
+if (!isset($_SESSION['username']) || !isset($_SESSION['rolId']) || $_SESSION['rolId'] != 1) {
   header('Location: ../usuario/login.php');
   exit;
 }
+
 
 $controllerProveedor = new ProveedorController();
 

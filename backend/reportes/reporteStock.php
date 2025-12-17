@@ -245,7 +245,7 @@ $dompdf->render();
 // 8. STREAM
 // -------------------------------------------------
 $dompdf->stream(
-  "Reporte_Stock_" . date("Ymd_His") . ".pdf",
+  "Listado_Stock_" . date("Ymd_His") . ".pdf",
   ["Attachment" => false]
 );
 

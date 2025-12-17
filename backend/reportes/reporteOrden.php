@@ -231,7 +231,7 @@ $dompdf->render();
 
 // 7. STREAM
 $dompdf->stream(
-  "Reporte_Ordenes_" . date("Ymd_His") . ".pdf",
+  "Listado_Ordenes_" . date("Ymd_His") . ".pdf",
   ["Attachment" => false]
 );
 

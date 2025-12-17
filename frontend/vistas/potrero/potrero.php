@@ -5,7 +5,7 @@ require_once __DIR__ . '../../../../backend/controladores/potreroController.php'
 require_once __DIR__ . '../../../../backend/controladores/pasturaController.php';
 
 session_start();
-if (!isset($_SESSION['username']) || !isset($_SESSION['rolId'])) {
+if (!isset($_SESSION['username']) || !isset($_SESSION['rolId']) || $_SESSION['rolId'] != 1) {
   header('Location: ../usuario/login.php');
   exit;
 }

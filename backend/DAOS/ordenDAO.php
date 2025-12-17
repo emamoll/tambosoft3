@@ -499,7 +499,7 @@ class OrdenDAO
           o.categoriaId,
 
             DATE_FORMAT(o.fechaActualizacion, '%d/%m/%y') AS fechaActualizacion,
-            DATE_FORMAT(o.fechaCreacion, '%d-%m-%y') AS fechaCreacion,
+            DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
             TIME_FORMAT(o.horaActualizacion, '%H:%i') AS horaActualizacion,
             TIME_FORMAT(o.horaCreacion, '%H:%i') AS horaCreacion,
 
@@ -571,7 +571,7 @@ class OrdenDAO
             o.categoriaId,
 
             DATE_FORMAT(o.fechaActualizacion, '%d/%m/%y') AS fechaActualizacion,
-            DATE_FORMAT(o.fechaCreacion, '%d-%m-%y') AS fechaCreacion,
+            DATE_FORMAT(o.fechaCreacion, '%d/%m/%y') AS fechaCreacion,
             TIME_FORMAT(o.horaActualizacion, '%H:%i') AS horaActualizacion,
             TIME_FORMAT(o.horaCreacion, '%H:%i') AS horaCreacion,
 
