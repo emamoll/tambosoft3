@@ -150,7 +150,7 @@ $html = '
         </td>
 
         <td width="55%" class="titulo">
-          Reporte de Consumo Valorizado de Órdenes
+          Reporte Económico de Órdenes Entregadas
         </td>
 
         <td width="25%" class="metadata">
@@ -228,7 +228,7 @@ $dompdf->render();
 // 6. STREAM
 // -------------------------------------------------
 $dompdf->stream(
-  "Reporte_Consumo_Ordenes_" . date('Ymd_His') . ".pdf",
+  "Reporte_Ordenes_Entregadas_" . date('Ymd_His') . ".pdf",
   ["Attachment" => false]
 );
 

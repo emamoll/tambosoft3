@@ -148,7 +148,7 @@ $html = '
         </td>
 
         <td width="55%" class="titulo">
-          Reporte de Valorización de Inventario
+          Reporte de Stock Total
         </td>
 
         <td width="25%" class="metadata">
@@ -231,7 +231,7 @@ $dompdf->render();
 // 6. STREAM
 // -------------------------------------------------
 $dompdf->stream(
-  "Reporte_Valorizacion_Stock_" . date("Ymd_His") . ".pdf",
+  "Reporte_Stock_" . date("Ymd_His") . ".pdf",
   ["Attachment" => false]
 );
 

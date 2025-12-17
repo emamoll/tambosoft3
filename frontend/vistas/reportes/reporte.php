@@ -38,7 +38,7 @@ $cantidadesAnimales = array_column($consumoPorCatAnimal, 'cantidad');
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tambosoft: Ordenes</title>
+  <title>Tambosoft: Reportes</title>
   <link rel="icon" href=".../../../../img/logo2.png" type="image/png">
   <link rel="stylesheet" href="../../css/estilos.css" />
   <link rel="stylesheet" href="../../css/orden.css" />
@@ -66,7 +66,7 @@ $cantidadesAnimales = array_column($consumoPorCatAnimal, 'cantidad');
         </div>
         <div class="col-md-6 text-end">
           <div class="card bg-success text-white d-inline-block p-2 px-4 border-0">
-            <small>Inversión en Almacén</small>
+            <small>Inversión en Stock</small>
             <h3 class="mb-0">$<?= number_format($totalStock, 2, ',', '.') ?></h3>
           </div>
         </div>
@@ -100,7 +100,7 @@ $cantidadesAnimales = array_column($consumoPorCatAnimal, 'cantidad');
         </div>
         <div class="text-end mt-2">
           <a href="../../../backend/reportes/reporteEconomicoStock.php" target="_blank" class="btn btn-sm"
-            style="background-color:#084a83; color:white">Exportar PDF Consumo</a>
+            style="background-color:#084a83; color:white">Exportar PDF Stock</a>
         </div>
       </div>
     </div>
@@ -110,7 +110,7 @@ $cantidadesAnimales = array_column($consumoPorCatAnimal, 'cantidad');
     <div class="section-container mb-5 p-4 border rounded shadow-sm bg-white">
       <div class="row mb-3 align-items-center">
         <div class="col-md-6">
-          <h2 class="text-dark">Análisis de Órdenes Entregadas</h2>
+          <h2 class="text-dark">Valorización de Órdenes Entregadas</h2>
         </div>
         <div class="col-md-6 text-end">
           <?php if (is_array($datosConsumo))
