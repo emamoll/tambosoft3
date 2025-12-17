@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Argentina/Cordoba');
 // =============================================================
 // REPORTE PDF – ÓRDENES REGISTRADAS
 // =============================================================

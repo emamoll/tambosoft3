@@ -1,50 +1,235 @@
 <?php
+date_default_timezone_set('America/Argentina/Cordoba');
+// =============================================================
+// REPORTE PDF – CONSUMO VALORIZADO DE ÓRDENES
+// (ESTILO EXACTO reporteOrden.php)
+// =============================================================
+
+// 1. DEPENDENCIAS
 require_once __DIR__ . '/../servicios/Dompdf/dompdf/autoload.inc.php';
 require_once __DIR__ . '/../DAOS/ordenDAO.php';
 
 use Dompdf\Dompdf;
+use Dompdf\Options;
 
+// -------------------------------------------------
+// 2. DATOS
+// -------------------------------------------------
 $dao = new OrdenDAO();
 $datos = $dao->listarConsumoValorizado();
-$total = 0;
 
-$html = '
-<style>
-    body { font-family: Helvetica; font-size: 10pt; color: #333; }
-    h2 { text-align: center; color: #084a83; border-bottom: 2px solid #084a83; padding-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th { background-color: #343a40; color: white; padding: 10px; text-align: left; }
-    td { padding: 8px; border-bottom: 1px solid #dee2e6; }
-    .text-end { text-align: right; }
-    .total-box { margin-top: 30px; text-align: right; font-size: 14pt; font-weight: bold; color: #d9534f; }
-</style>
-<h2>Reporte de Stock Consumido (Entregas Realizadas)</h2>
-<table>
-    <thead>
-        <tr>
-            <th>Alimento / Origen</th>
-            <th class="text-end">Cant.</th>
-            <th class="text-end">Subtotal</th>
-        </tr>
-    </thead>
-    <tbody>';
+$fechaReporte = date("d/m/Y H:i");
+$totalGeneral = 0;
 
-foreach ($datos as $d) {
-  $origen = ($d['produccionInterna'] == 1) ? 'Propia' : ($d['proveedorNombre'] ?? 'Proveedor');
-  $html .= '<tr>
-        <td>' . $d['tipoAlimentoNombre'] . ' ' . $d['alimentoNombre'] . ' (' . $origen . ')</td>
-        <td class="text-end">' . $d['cantidadTotal'] . '</td>
-        <td class="text-end">$' . number_format($d['subtotalConsumo'], 2) . '</td>
-    </tr>';
-  $total += $d['subtotalConsumo'];
+// -------------------------------------------------
+// 3. LOGO (igual a reporteOrden.php)
+// -------------------------------------------------
+$ruta_logo = __DIR__ . '/../../frontend/img/logo2.png';
+$logo_base64 = '';
+
+if (file_exists($ruta_logo)) {
+  $data = file_get_contents($ruta_logo);
+  $logo_base64 = 'data:image/' . pathinfo($ruta_logo, PATHINFO_EXTENSION) . ';base64,' . base64_encode($data);
 }
 
-$html .= '</tbody>
-</table>
-<div class="total-box">COSTO TOTAL DEL CONSUMO: $' . number_format($total, 2, ',', '.') . '</div>';
+// -------------------------------------------------
+// 4. HTML (MISMA PLANTILLA QUE reporteOrden)
+// -------------------------------------------------
+$html = '
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Consumo Valorizado de Órdenes</title>
 
-$dompdf = new Dompdf();
+  <style>
+        body {
+                font-family: sans-serif;
+                font-size: 10pt;
+        }
+
+        /* ================= HEADER ================= */
+        .header {
+                width: 100%;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 8px;
+                margin-bottom: 15px;
+        }
+
+        .header-table {
+                width: 100%;
+                border-collapse: collapse;
+        }
+
+        .logo {
+                height: 60px;
+        }
+
+        .titulo {
+                text-align: center;
+                font-size: 16pt;
+                font-weight: bold;
+        }
+
+        .metadata {
+                font-size: 8pt;
+                color: #666;
+                text-align: right;
+                white-space: nowrap;
+        }
+
+        /* ================= TABLA ================= */
+        table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+        }
+
+        th, td {
+                border: 1px solid #ddd;
+                padding: 6px;
+        }
+
+        th {
+                background-color: #f2f2f2;
+                font-size: 9pt;
+                text-align: left;
+        }
+
+        td {
+                font-size: 9pt;
+        }
+
+        .derecha {
+                text-align: right;
+        }
+
+        .total-row {
+                background-color: #f2f2f2;
+                font-weight: bold;
+        }
+
+        /* ================= PIE DE PÁGINA ================= */
+        @page {
+                margin-bottom: 60pt;
+        }
+
+        footer {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 40pt;
+                border-top: 1px solid #ccc;
+                font-size: 8pt;
+                color: #666;
+        }
+
+        .footer-content {
+                width: 100%;
+                height: 20px;
+                padding: 5px 40px 0 40px;
+                box-sizing: border-box;
+        }
+
+        .footer-content .left {
+                float: center;
+                margin-left: 25%;
+        }
+  </style>
+</head>
+
+<body>
+
+  <!-- ================= HEADER ================= -->
+  <div class="header">
+    <table class="header-table">
+      <tr>
+        <td width="20%">
+          <img src="' . $logo_base64 . '" class="logo">
+        </td>
+
+        <td width="55%" class="titulo">
+          Reporte de Consumo Valorizado de Órdenes
+        </td>
+
+        <td width="25%" class="metadata">
+          ' . $fechaReporte . '
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ================= TABLA ================= -->
+  <table>
+    <thead>
+      <tr>
+        <th>Alimento / Origen</th>
+        <th class="derecha">Cantidad</th>
+        <th class="derecha">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+';
+
+// filas
+foreach ($datos as $d) {
+
+  $origen = ($d['produccionInterna'] == 1)
+    ? 'Propia'
+    : ($d['proveedorNombre'] ?? 'Proveedor');
+
+  $subtotal = (float) ($d['subtotalConsumo'] ?? 0);
+  $totalGeneral += $subtotal;
+
+  $html .= '
+      <tr>
+        <td>' . htmlspecialchars($d['tipoAlimentoNombre'] . ' ' . $d['alimentoNombre'] . ' (' . $origen . ')') . '</td>
+        <td class="derecha">' . number_format($d['cantidadTotal'], 2) . '</td>
+        <td class="derecha">$' . number_format($subtotal, 2) . '</td>
+      </tr>
+  ';
+}
+
+// total
+$html .= '
+      <tr class="total-row">
+        <td class="derecha">COSTO TOTAL DEL CONSUMO</td>
+        <td></td>
+        <td class="derecha">$' . number_format($totalGeneral, 2) . '</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    <div class="footer-content">
+      <span class="left">Generado por Tambosoft - Gestión de Órdenes</span>
+    </div>
+  </footer>
+
+</body>
+</html>
+';
+
+// -------------------------------------------------
+// 5. DOMPDF (igual a reporteOrden.php)
+// -------------------------------------------------
+$options = new Options();
+$options->set('defaultFont', 'Helvetica');
+$options->set('isRemoteEnabled', true);
+$options->set('isHtml5ParserEnabled', true);
+
+$dompdf = new Dompdf($options);
 $dompdf->loadHtml($html);
 $dompdf->setPaper('A4', 'portrait');
 $dompdf->render();
-$dompdf->stream("ReporteConsumo_" . date('Ymd') . ".pdf", ["Attachment" => false]);
+
+// -------------------------------------------------
+// 6. STREAM
+// -------------------------------------------------
+$dompdf->stream(
+  "Reporte_Consumo_Ordenes_" . date('Ymd_His') . ".pdf",
+  ["Attachment" => false]
+);
+
+exit;

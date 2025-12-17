@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Argentina/Cordoba');
 // =============================================================
 // REPORTE PDF – STOCK REGISTRADO
 // =============================================================
@@ -17,10 +18,10 @@ $filtros = $_GET ?? [];
 
 // Normalizar fechas (JS → DAO)
 if (isset($filtros['fechaMin'])) {
-  $filtros['filtroFechaMin'] = $filtros['fechaMin'];
+        $filtros['filtroFechaMin'] = $filtros['fechaMin'];
 }
 if (isset($filtros['fechaMax'])) {
-  $filtros['filtroFechaMax'] = $filtros['fechaMax'];
+        $filtros['filtroFechaMax'] = $filtros['fechaMax'];
 }
 
 // -------------------------------------------------
@@ -38,9 +39,9 @@ $ruta_logo = __DIR__ . '/../../frontend/img/logo2.png';
 $logo_base64 = '';
 
 if (file_exists($ruta_logo)) {
-  $tipo = pathinfo($ruta_logo, PATHINFO_EXTENSION);
-  $data = file_get_contents($ruta_logo);
-  $logo_base64 = 'data:image/' . $tipo . ';base64,' . base64_encode($data);
+        $tipo = pathinfo($ruta_logo, PATHINFO_EXTENSION);
+        $data = file_get_contents($ruta_logo);
+        $logo_base64 = 'data:image/' . $tipo . ';base64,' . base64_encode($data);
 }
 
 // -------------------------------------------------
@@ -184,25 +185,25 @@ $html = '
 // -------------------------------------------------
 function formatearFechaCorta($fecha)
 {
-  if (!$fecha)
-    return '';
-  try {
-    return (new DateTime($fecha))->format('d/m/y');
-  } catch (Exception $e) {
-    return $fecha;
-  }
+        if (!$fecha)
+                return '';
+        try {
+                return (new DateTime($fecha))->format('d/m/y');
+        } catch (Exception $e) {
+                return $fecha;
+        }
 }
 
 if (empty($stock)) {
-  $html .= '
+        $html .= '
         <tr>
                 <td colspan="7" style="text-align:center;">
                         No se encontraron registros de stock.
                 </td>
         </tr>';
 } else {
-  foreach ($stock as $s) {
-    $html .= '
+        foreach ($stock as $s) {
+                $html .= '
         <tr>
                 <td>' . htmlspecialchars($s["almacenNombre"]) . '</td>
                 <td>' . htmlspecialchars($s["tipoAlimentoNombre"]) . '</td>
@@ -212,7 +213,7 @@ if (empty($stock)) {
                 <td>' . htmlspecialchars($s["cantidad"]) . '</td>
                 <td>' . formatearFechaCorta($s["fechaIngreso"]) . '</td>
         </tr>';
-  }
+        }
 }
 
 $html .= '
@@ -245,8 +246,8 @@ $dompdf->render();
 // 8. STREAM
 // -------------------------------------------------
 $dompdf->stream(
-  "Listado_Stock_" . date("Ymd_His") . ".pdf",
-  ["Attachment" => false]
+        "Listado_Stock_" . date("Ymd_His") . ".pdf",
+        ["Attachment" => false]
 );
 
 exit;
