@@ -154,7 +154,7 @@ $cantidadesAnimales = array_column($consumoPorCatAnimal, 'cantidad');
         </div>
       </div>
       <div class="text-end mt-2">
-        <a href="../../../backend/reportes/reporteConsumoValorizado.php" target="_blank" class="btn btn-sm"
+        <a href="../../../backend/reportes/reporteEconomicoOrden.php" target="_blank" class="btn btn-sm"
           style="background-color:#084a83; color:white">Exportar PDF Consumo</a>
       </div>
     </div>
